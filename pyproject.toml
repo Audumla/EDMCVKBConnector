@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edmcvkbconnector"
+version = "0.1.0"
+description = "EDMC extension to forward Elite Dangerous events to VKB HOTAS hardware via TCP/IP"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "EDMC VKB Connector Contributors"}
+]
+keywords = ["edmc", "elite-dangerous", "vkb", "hotas", "hosas"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "pydantic>=1.10.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "pylint>=2.0",
+    "mypy>=0.990",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/EDMCVKBConnector"
+Repository = "https://github.com/yourusername/EDMCVKBConnector.git"
+
+[tool.setuptools]
+packages = ["edmcvkbconnector"]
+package-dir = {"edmcvkbconnector" = "src/edmcvkbconnector"}
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.pylint.messages_control]
+disable = [
+    "C0103",  # invalid-name
+    "R0913",  # too-many-arguments
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=edmcvkbconnector --cov-report=html --cov-report=term"

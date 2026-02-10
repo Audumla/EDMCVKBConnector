@@ -1,0 +1,17 @@
+# EDMC VKB Connector Requirements
+# Python 3.8+
+
+# EDMC plugin framework (if available from EDMC)
+# edmc>=5.0
+
+# For JSON serialization and event handling
+pydantic>=1.10.0
+
+# For socket communication
+# (built-in socket module used)
+
+# Development
+pytest>=7.0
+pytest-cov>=4.0
+black>=23.0
+pylint>=2.0
