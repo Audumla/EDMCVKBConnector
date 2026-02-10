@@ -36,9 +36,17 @@ class EventHandler:
         self.event_types = config.get("event_types", [])
 
     def connect(self) -> bool:
-        """Connect to VKB hardware."""
+        """
+        Connect to VKB hardware and start reconnection worker.
+        
+        Returns:
+            True if initial connection successful, False otherwise.
+        """
         if self.enabled:
-            return self.vkb_client.connect()
+            success = self.vkb_client.connect()
+            # Start reconnection attempts regardless of initial success
+            self.vkb_client.start_reconnection()
+            return success
         return False
 
     def disconnect(self) -> None:
@@ -60,14 +68,11 @@ class EventHandler:
         if self.event_types and event_type not in self.event_types:
             return
 
-        # Build forwarding message
-        message = {"event": event_type, "data": event_data}
-
         if self.debug:
-            logger.debug(f"Event received: {message}")
+            logger.debug(f"Event received: {event_type}")
 
-        # Send to VKB hardware
-        if not self.vkb_client.send_event(message):
+        # Send to VKB hardware (format is abstracted in VKBClient)
+        if not self.vkb_client.send_event(event_type, event_data):
             logger.warning(f"Failed to send {event_type} event to VKB")
 
     def enable(self) -> None:

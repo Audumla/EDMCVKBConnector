@@ -7,7 +7,7 @@ name = "edmcvkbconnector"
 version = "0.1.0"
 description = "EDMC extension to forward Elite Dangerous events to VKB HOTAS hardware via TCP/IP"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
     {name = "EDMC VKB Connector Contributors"}
@@ -18,14 +18,12 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
-dependencies = [
-    "pydantic>=1.10.0",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
@@ -46,7 +44,7 @@ package-dir = {"edmcvkbconnector" = "src/edmcvkbconnector"}
 
 [tool.black]
 line-length = 100
-target-version = ['py38']
+target-version = ['py39']
 
 [tool.pylint.messages_control]
 disable = [

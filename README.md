@@ -4,15 +4,29 @@ Forward Elite Dangerous game events to VKB HOTAS/HOSAS hardware via TCP/IP socke
 
 ## Overview
 
-EDMCVKBConnector is an [Elite Dangerous Market Connector (EDMC)](https://github.com/EDCD/EDMarketConnector) plugin that captures game events from Elite Dangerous and forwards them to VKB-Link to set the status of shift codes.
+EDMCVKBConnector is an [Elite Dangerous Market Connector (EDMC)](https://github.com/EDCD/EDMarketConnector) plugin that captures game events from Elite Dangerous and forwards them to VKB HOTAS/HOSAS hardware via TCP/IP socket connection.
+
+**Important Note**: The exact TCP protocol format for VKB-Link is currently under development. This plugin is designed with an abstracted message formatter that can be easily updated once VKB-Link's final protocol specification is available. Currently, it uses a placeholder formatter.
 
 This allows for real-time hardware state updates based on in-game events, enabling dynamic configuration and feedback on your VKB equipment.
+
+## Requirements
+
+- **Python**: 3.9 or higher (per latest EDMC standards)
+- **EDMC**: 5.0 or higher (5.13.0+ recommended for full feature compatibility)
+- **VKB-Link**: Compatible version with TCP/IP socket support
 
 ## Features
 
 - **Event Forwarding**: Automatically captures and forwards Elite Dangerous game events
 - **Configurable Event Types**: Filter which events get forwarded to VKB hardware
 - **TCP/IP Communication**: Communicates with VKB hardware via standard network sockets
+- **Fault-Tolerant Reconnection**: Automatically reconnects if VKB-Link stops or restarts
+  - Aggressive retry every 2 seconds for the first minute
+  - Fallback to 10-second retry intervals indefinitely
+  - Transparent reconnection while EDMC continues running
+- **Protocol Abstraction**: Pluggable message formatter design for future VKB protocol implementation
+- **Proper Logging**: Integrates with EDMC's logging system for troubleshooting
 - **Configuration File Support**: Customize behavior via `config.json`
 - **Debug Logging**: Optional debug mode for troubleshooting
 
@@ -45,6 +59,7 @@ Create a `config.json` file in the plugin directory:
     "Supercruise",
     "Docked"
   ]
+```
 }
 ```
 
@@ -123,8 +138,14 @@ pylint src/edmcvkbconnector/
 ### Main Components
 
 - **VKBClient**: TCP/IP socket client for communicating with VKB hardware
-- **Config**: Configuration management and loading from JSON
+  - Handles connection management with automatic reconnection
+  - Abstracts message format through MessageFormatter interface
+- **MessageFormatter**: Abstraction for VKB protocol serialization
+  - `MessageFormatter`: Abstract base class defining the interface
+  - `PlaceholderMessageFormatter`: Current implementation (format TBD)
+  - Easy to extend with custom formatters when protocol is finalized
 - **EventHandler**: EDMC event processing and filtering
+- **Config**: Configuration management and loading from JSON
 - **load.py**: EDMC plugin entry point and event handlers
 
 ### Event Flow
@@ -138,26 +159,59 @@ EventHandler (handle_event)
     ↓
 VKBClient (send_event)
     ↓
-VKB Hardware (TCP/IP socket)
+MessageFormatter (format_event)
+    ↓
+TCP/IP Socket
+    ↓
+VKB Hardware (VKB-Link)
 ```
+
+### Design Philosophy
+
+The plugin is designed with **protocol abstraction** in mind:
+
+1. **Event Reception**: EDMC natively provides events
+2. **Event Processing**: EventHandler filters events based on configuration
+3. **Protocol Conversion**: VKBClient delegates formatting to MessageFormatter
+4. **Network Transmission**: Formatted bytes sent over TCP/IP
+
+This separation ensures the event handling and network logic remains independent of the final wire format used by VKB-Link.
 
 ## Communication Protocol
 
-Events are sent to VKB hardware as JSON-formatted messages over TCP/IP:
+**Status**: Protocol format TBD pending VKB-Link development
 
-```json
-{
-  "event": "FSDJump",
-  "data": {
-    "timestamp": "2025-02-10T12:34:56Z",
-    "event": "FSDJump",
-    "StarSystem": "Sol",
-    "SystemAddress": 10477373803,
-    "StarPos": [0, 0, 0],
-    "SystemAllegiance": "Federation"
-  }
-}
+The plugin is designed with an abstracted message formatter to support the final VKB protocol once it's specified. Currently:
+
+- Messages are abstracted through the `MessageFormatter` interface
+- A `PlaceholderMessageFormatter` is used for development
+- Once VKB-Link's final protocol is documented (expected to be compact binary with bitmap format), implement a custom `MessageFormatter` subclass
+
+### Implementation Example
+
+When VKB-Link's protocol is finalized, create a custom formatter:
+
+```python
+from edmcvkbconnector import MessageFormatter
+
+class VKBProtocolFormatter(MessageFormatter):
+    def format_event(self, event_type: str, event_data: dict) -> bytes:
+        # Implement the actual VKB protocol format here
+        # Expected: compact binary with bitmap for message content
+        pass
+
+# Use custom formatter
+from edmcvkbconnector import VKBClient
+client = VKBClient(formatter=VKBProtocolFormatter())
 ```
+
+### Expected Format Characteristics
+
+Based on VKB-Link requirements, the final protocol is likely to:
+- Use compact binary format to minimize message size
+- Include bitmaps for message content flags
+- Include status indicators for hardware state
+- Be efficient for high-frequency event forwarding
 
 ## Troubleshooting
 
@@ -189,7 +243,22 @@ Then check EDMC log file for detailed output.
 
 ## License
 
-MIT License - See LICENSE file for details
+This plugin is licensed under the **MIT License**.
+
+EDMC is licensed under GNU GPL v2 or later. This plugin, as a derivative work, complies with GPL v2+ requirements. The MIT license is fully compatible with GNU GPL v2+.
+
+See [LICENSE](LICENSE) file for full details.
+
+## Standards Compliance
+
+This plugin follows the [EDMC Plugin Browser Standards](https://github.com/EDCD/EDMC-Plugin-Registry/blob/main/docs/STANDARDS.md):
+
+- ✅ **Semantic Versioning**: Version format is `MAJOR.MINOR.PATCH` (e.g., 0.1.0)
+- ✅ **Compatibility**: Maintains compatibility with EDMC 5.0+ and updates with new versions
+- ✅ **Open Source**: Licensed under MIT, compatible with GPL v2+
+- ✅ **Ecosystem Respect**: No malicious content, proper naming, respects Elite Dangerous EULA
+- ✅ **Least Privilege**: Uses only built-in Python modules, requests only network access
+- ✅ **Code Quality**: PEP8 compliant, well-documented with type hints
 
 ## Contributing
 

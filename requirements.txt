@@ -1,17 +1,12 @@
 # EDMC VKB Connector Requirements
-# Python 3.8+
+# Python 3.9+ (per latest EDMC standards)
 
-# EDMC plugin framework (if available from EDMC)
-# edmc>=5.0
+# EDMC plugin framework (included with EDMC installation)
+# No external dependencies required for runtime
 
-# For JSON serialization and event handling
-pydantic>=1.10.0
-
-# For socket communication
-# (built-in socket module used)
-
-# Development
+# Development & Testing
 pytest>=7.0
 pytest-cov>=4.0
 black>=23.0
 pylint>=2.0
+mypy>=0.990

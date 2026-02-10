@@ -1,0 +1,16 @@
+{
+  "vkb_host": "127.0.0.1",
+  "vkb_port": 12345,
+  "enabled": true,
+  "debug": false,
+  "event_types": [
+    "Location",
+    "FSDJump",
+    "DockingGranted",
+    "Undocked",
+    "LaunchSRV",
+    "DockSRV",
+    "Supercruise",
+    "Docked"
+  ]
+}
