@@ -15,10 +15,21 @@ from pathlib import Path
 from unittest.mock import Mock
 from contextlib import contextmanager
 
-from edmcvkbconnector.config import Config
+from edmcvkbconnector.config import Config, DEFAULTS
 from edmcvkbconnector.vkb_client import VKBClient
 from edmcvkbconnector.event_handler import EventHandler
 from tests.mock_vkb_server import MockVKBServer
+
+RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
+
+
+class _TestConfig:
+    """Config stub for tests that need rules loaded."""
+    def __init__(self, **overrides):
+        self._values = dict(DEFAULTS)
+        self._values.update(overrides)
+    def get(self, key, default=None):
+        return self._values.get(key, default)
 
 
 @contextmanager
@@ -203,8 +214,8 @@ def test_connection_with_event_handler():
     print("Test: EventHandler with real VKB server connection")
     
     with running_mock_server(port=50999) as server:
-        config = Config()
-        handler = EventHandler(config)
+        config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=50999)
+        handler = EventHandler(config, plugin_dir=str(RULES_FILE.parent))
         
         # Update config to use test port
         handler.vkb_client.port = 50999

@@ -6,6 +6,7 @@ The message format is abstracted and can be customized via MessageFormatter subc
 """
 
 import logging
+import sys
 
 __version__ = "0.1.0"
 __author__ = "EDMC VKB Connector Contributors"
@@ -24,6 +25,25 @@ def set_plugin_logger_name(name: str) -> None:
     global _PLUGIN_LOGGER_NAME
     _PLUGIN_LOGGER_NAME = name
 
+    # Rebind module-level logger objects in already-imported submodules.
+    # This matters in EDMC because load.py imports set_plugin_logger_name
+    # from this package before plugin_start3 runs, which imports submodules
+    # that create logger globals immediately.
+    for module_name in (
+        "src.edmcvkbconnector.config",
+        "src.edmcvkbconnector.vkb_client",
+        "src.edmcvkbconnector.event_handler",
+        "src.edmcvkbconnector.rules_engine",
+        "edmcvkbconnector.config",
+        "edmcvkbconnector.vkb_client",
+        "edmcvkbconnector.event_handler",
+        "edmcvkbconnector.rules_engine",
+    ):
+        module = sys.modules.get(module_name)
+        if module is None or not hasattr(module, "logger"):
+            continue
+        module.logger = plugin_logger(module.__name__)
+
 
 def plugin_logger(module: str) -> logging.Logger:
     """Return a child logger under the plugin hierarchy.
@@ -36,11 +56,10 @@ def plugin_logger(module: str) -> logging.Logger:
     Inside EDMC this yields e.g. ``EDMarketConnector.edmcvkbconnector.config``.
     During tests it yields ``edmcvkbconnector.config``.
     """
-    # Strip the package prefix from __name__ so we don't get
-    # "edmcvkbconnector.edmcvkbconnector.config".
-    suffix = module.replace("edmcvkbconnector.", "").replace("edmcvkbconnector", "")
-    if suffix:
-        return logging.getLogger(f"{_PLUGIN_LOGGER_NAME}.{suffix}")
+    # Always return the base plugin logger.
+    # In EDMC this logger has EDMCContextFilter attached by
+    # EDMCLogging.get_plugin_logger(), which adds fields like
+    # osthreadid/qualname used by EDMC's log formatter.
     return logging.getLogger(_PLUGIN_LOGGER_NAME)
 
 from .vkb_client import VKBClient

@@ -1,0 +1,91 @@
+"""Deploy this plugin into a sibling EDMarketConnector clone for local development.
+
+Default target:
+    ../EDMarketConnector/plugins/EDMCVKBConnector
+
+Usage:
+    python scripts/deploy_to_edmc.py
+    python scripts/deploy_to_edmc.py --edmc-root ../EDMarketConnector
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_EDMC_ROOT = (PROJECT_ROOT.parent / "EDMarketConnector").resolve()
+PLUGIN_NAME = "EDMCVKBConnector"
+
+INCLUDE = [
+    "load.py",
+    "PLUGIN_REGISTRY.py",
+    "LICENSE",
+    "README.md",
+    "rules.json.example",
+    "config.json.example",
+    "src/edmcvkbconnector/__init__.py",
+    "src/edmcvkbconnector/config.py",
+    "src/edmcvkbconnector/event_handler.py",
+    "src/edmcvkbconnector/message_formatter.py",
+    "src/edmcvkbconnector/rules_engine.py",
+    "src/edmcvkbconnector/vkb_client.py",
+]
+
+
+def deploy(edmc_root: Path) -> Path:
+    if not edmc_root.exists():
+        raise FileNotFoundError(f"EDMC root not found: {edmc_root}")
+
+    plugins_dir = edmc_root / "plugins"
+    if not plugins_dir.exists():
+        raise FileNotFoundError(f"EDMC plugins directory not found: {plugins_dir}")
+
+    dest = plugins_dir / PLUGIN_NAME
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    for rel in INCLUDE:
+        src = PROJECT_ROOT / rel
+        if not src.exists():
+            print(f"[WARN] Missing: {rel}")
+            continue
+
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, target)
+        copied += 1
+        print(f"  + {target.relative_to(dest)}")
+
+    rules_src = PROJECT_ROOT / "rules.json"
+    if rules_src.exists():
+        shutil.copy2(rules_src, dest / "rules.json")
+        copied += 1
+        print("  + rules.json")
+    else:
+        shutil.copy2(PROJECT_ROOT / "rules.json.example", dest / "rules.json")
+        copied += 1
+        print("  + rules.json (from rules.json.example)")
+
+    print(f"\nDeployed {copied} files to: {dest}")
+    return dest
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Deploy plugin into EDMC source clone")
+    parser.add_argument(
+        "--edmc-root",
+        default=str(DEFAULT_EDMC_ROOT),
+        help="Path to EDMarketConnector clone root",
+    )
+    args = parser.parse_args()
+
+    deploy(Path(args.edmc_root).resolve())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

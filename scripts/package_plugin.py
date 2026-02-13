@@ -1,0 +1,88 @@
+"""
+Package EDMC VKB Connector plugin into a distributable ZIP.
+
+Creates: dist/EDMCVKBConnector-<version>.zip
+Contents are rooted inside an EDMCVKBConnector/ folder so the user
+can extract directly into EDMC's plugins directory.
+
+Usage:
+    python scripts/package_plugin.py
+"""
+
+import re
+import zipfile
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DIST_DIR = PROJECT_ROOT / "dist"
+PLUGIN_NAME = "EDMCVKBConnector"
+
+# Files/dirs to include (relative to project root)
+INCLUDE = [
+    "load.py",
+    "PLUGIN_REGISTRY.py",
+    "LICENSE",
+    "README.md",
+    "rules.json.example",
+    "config.json.example",
+    "src/edmcvkbconnector/__init__.py",
+    "src/edmcvkbconnector/config.py",
+    "src/edmcvkbconnector/event_handler.py",
+    "src/edmcvkbconnector/message_formatter.py",
+    "src/edmcvkbconnector/rules_engine.py",
+    "src/edmcvkbconnector/vkb_client.py",
+]
+
+
+def get_version() -> str:
+    """Extract version from pyproject.toml or PLUGIN_REGISTRY.py."""
+    pyproject = PROJECT_ROOT / "pyproject.toml"
+    if pyproject.exists():
+        match = re.search(r'version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"))
+        if match:
+            return match.group(1)
+
+    registry = PROJECT_ROOT / "PLUGIN_REGISTRY.py"
+    if registry.exists():
+        match = re.search(r'VERSION\s*=\s*"([^"]+)"', registry.read_text(encoding="utf-8"))
+        if match:
+            return match.group(1)
+
+    return "0.0.0"
+
+
+def package() -> Path:
+    version = get_version()
+    DIST_DIR.mkdir(exist_ok=True)
+
+    zip_name = f"{PLUGIN_NAME}-{version}.zip"
+    zip_path = DIST_DIR / zip_name
+
+    missing = [f for f in INCLUDE if not (PROJECT_ROOT / f).exists()]
+    if missing:
+        print(f"WARNING: Missing files (will be skipped): {missing}")
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        count = 0
+        for rel in INCLUDE:
+            src = PROJECT_ROOT / rel
+            if not src.exists():
+                continue
+            arcname = f"{PLUGIN_NAME}/{rel}"
+            zf.write(src, arcname)
+            print(f"  + {arcname}")
+            count += 1
+
+        # Include rules.json if the user has one (not tracked in git)
+        rules = PROJECT_ROOT / "rules.json"
+        if rules.exists():
+            zf.write(rules, f"{PLUGIN_NAME}/rules.json")
+            print(f"  + {PLUGIN_NAME}/rules.json")
+            count += 1
+
+    print(f"\nPackaged {count} files -> {zip_path} ({zip_path.stat().st_size:,} bytes)")
+    return zip_path
+
+
+if __name__ == "__main__":
+    package()

@@ -9,7 +9,7 @@ Configuration is persisted by EDMC in the system-appropriate location
 import logging
 from typing import Any, List, Optional
 
-from edmcvkbconnector import plugin_logger
+from . import plugin_logger
 
 try:
     from config import config

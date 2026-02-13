@@ -36,14 +36,47 @@ VERSION = "0.1.0"  # Required by EDMC standards for semantic versioning
 # Logger setup per EDMC plugin requirements
 # The plugin_name MUST be the folder name (edmcvkbconnector)
 plugin_name = os.path.basename(os.path.dirname(__file__))
-plugin_logger_name = f"{appname}.{plugin_name}"
-logger = logging.getLogger(plugin_logger_name)
+
+try:
+    # Prefer EDMC's plugin logger so records include context fields
+    # (e.g. osthreadid/qualname) expected by EDMC formatters.
+    from EDMCLogging import get_plugin_logger  # type: ignore
+
+    logger = get_plugin_logger(plugin_name)
+except Exception:
+    # Fallback for local testing outside EDMC.
+    plugin_logger_name = f"{appname}.{plugin_name}"
+    logger = logging.getLogger(plugin_logger_name)
+
+plugin_logger_name = logger.name
+
+
+def _configure_compact_plugin_logging() -> None:
+    """Use concise plugin-only log formatting.
+
+    Output format:
+        <timestamp> - <level> - EDMCVKBConnector: <message>
+    """
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - EDMCVKBConnector: %(message)s"
+    )
+    formatter.default_time_format = "%Y-%m-%d %H:%M:%S"
+    formatter.default_msec_format = "%s.%03d"
+    handler.setFormatter(formatter)
+
+    logger.handlers.clear()
+    logger.addHandler(handler)
+    logger.propagate = False
 
 # Tell submodules to log under the same EDMC-managed hierarchy
 # so that config.py, vkb_client.py, event_handler.py all produce
 # logger names like "EDMarketConnector.edmcvkbconnector.config".
 from src.edmcvkbconnector import set_plugin_logger_name
 set_plugin_logger_name(plugin_logger_name)
+
+# Keep plugin logs concise in EDMC and IDE runs.
+_configure_compact_plugin_logging()
 
 # Set up logging if it hasn't been already by core EDMC code
 if not logger.hasHandlers():
@@ -83,7 +116,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
-        from edmcvkbconnector import Config, EventHandler
+        from src.edmcvkbconnector import Config, EventHandler
 
         logger.info(f"VKB Connector v{VERSION} starting")
 
@@ -93,6 +126,15 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
         vkb_host = _config.get("vkb_host", "127.0.0.1")
         vkb_port = _config.get("vkb_port", 50995)
+        rules_override = (_config.get("rules_path", "") or "").strip()
+        rules_path = rules_override if rules_override else os.path.join(_plugin_dir, "rules.json")
+        logger.info(
+            "Startup self-check: "
+            f"plugin_dir={_plugin_dir}, "
+            f"module_file={__file__}, "
+            f"rules_path={rules_path}, "
+            f"logger={plugin_logger_name}"
+        )
         logger.info(
             f"VKB Connector v{VERSION} initialized. "
             f"Target: {vkb_host}:{vkb_port}"
@@ -162,6 +204,36 @@ def _persist_prefs_from_ui() -> None:
                 logger.warning(f"Invalid VKB port {port_value}; must be 1-65535")
         except ValueError:
             logger.warning("Invalid VKB port in preferences; must be an integer")
+
+
+def _apply_test_shift_from_ui() -> None:
+    """Apply Shift/Subshift test toggles from preferences UI to VKB immediately."""
+    global _event_handler, _prefs_vars
+
+    if not _event_handler:
+        logger.warning("Cannot apply test shift state: event handler not initialized")
+        return
+
+    shift_vars = _prefs_vars.get("test_shift_vars")
+    subshift_vars = _prefs_vars.get("test_subshift_vars")
+    if not isinstance(shift_vars, list) or not isinstance(subshift_vars, list):
+        return
+
+    shift_bitmap = 0
+    for idx in range(min(3, len(shift_vars))):
+        var = shift_vars[idx]
+        if hasattr(var, "get") and bool(var.get()):
+            shift_bitmap |= (1 << idx)
+
+    subshift_bitmap = 0
+    for code in range(1, min(8, len(subshift_vars) + 1)):
+        var = subshift_vars[code - 1]
+        if hasattr(var, "get") and bool(var.get()):
+            subshift_bitmap |= (1 << (code - 1))
+
+    _event_handler._shift_bitmap = shift_bitmap
+    _event_handler._subshift_bitmap = subshift_bitmap
+    _event_handler._send_shift_state_if_changed(force=True)
 
 
 def prefs_changed(cmdr: str, is_beta: bool) -> None:
@@ -335,29 +407,45 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     """
     Build the plugin preferences UI for EDMC.
     
-    Note: Uses ttk widgets for local testing compatibility. When running
-    inside EDMC, consider using 'import myNotebook as nb' for proper theming.
+    Uses EDMC's myNotebook widgets when available.
     """
     global _prefs_vars, _config
 
     try:
         import tkinter as tk
         from tkinter import ttk
+        import myNotebook as nb
     except Exception as e:
-        logger.error(f"Failed to load tkinter for preferences UI: {e}")
-        return None
+        # Fallback for local testing outside EDMC where myNotebook may not exist.
+        try:
+            import tkinter as tk
+            from tkinter import ttk
 
-    frame = ttk.Frame(parent)
+            class _NotebookCompat:
+                Frame = ttk.Frame
+
+            nb = _NotebookCompat()
+        except Exception as inner_e:
+            logger.error(f"Failed to load tkinter for preferences UI: {inner_e}")
+            return None
+
+    frame = nb.Frame(parent)
 
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
     vkb_port = _config.get("vkb_port", 50995) if _config else 50995
 
     host_var = tk.StringVar(value=str(vkb_host))
     port_var = tk.StringVar(value=str(vkb_port))
+    current_shift = _event_handler._shift_bitmap if _event_handler else 0
+    current_subshift = _event_handler._subshift_bitmap if _event_handler else 0
+    shift_vars = [tk.BooleanVar(value=bool(current_shift & (1 << i))) for i in range(3)]
+    subshift_vars = [tk.BooleanVar(value=bool(current_subshift & (1 << i))) for i in range(7)]
 
     _prefs_vars = {
         "vkb_host": host_var,
         "vkb_port": port_var,
+        "test_shift_vars": shift_vars,
+        "test_subshift_vars": subshift_vars,
     }
 
     ttk.Label(frame, text="VKB Host:").grid(row=0, column=0, sticky="w", padx=4, pady=2)
@@ -365,5 +453,28 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
 
     ttk.Label(frame, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=2)
     ttk.Entry(frame, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=2)
+
+    ttk.Separator(frame, orient="horizontal").grid(row=2, column=0, columnspan=4, sticky="ew", padx=4, pady=(8, 6))
+    ttk.Label(frame, text="Shift/Subshift Test:").grid(row=3, column=0, sticky="w", padx=4, pady=(0, 4))
+
+    for i in range(3):
+        ttk.Checkbutton(
+            frame,
+            text=f"Shift{i}",
+            variable=shift_vars[i],
+            command=_apply_test_shift_from_ui,
+        ).grid(row=4, column=i, sticky="w", padx=4, pady=2)
+
+    for i in range(7):
+        ttk.Checkbutton(
+            frame,
+            text=f"Subshift{i + 1}",
+            variable=subshift_vars[i],
+            command=_apply_test_shift_from_ui,
+        ).grid(row=5 + (i // 4), column=(i % 4), sticky="w", padx=4, pady=2)
+
+    ttk.Button(frame, text="Apply Test State", command=_apply_test_shift_from_ui).grid(
+        row=7, column=0, sticky="w", padx=4, pady=(6, 2)
+    )
 
     return frame

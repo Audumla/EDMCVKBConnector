@@ -177,6 +177,7 @@ class RuleMatchResult(str, Enum):
     MATCH = "match"
     NO_MATCH = "no_match"
     INDETERMINATE = "indeterminate"
+    SKIPPED = "skipped"  # Rule does not apply (source/event filter mismatch)
 
 
 def _require_fields(entry: Dict[str, Any], fields: Iterable[str]) -> bool:
@@ -370,23 +371,23 @@ def rule_evaluate(
     if source_filter and source_filter != "any":
         if isinstance(source_filter, str):
             if source_filter != source:
-                return RuleMatchResult.NO_MATCH
+                return RuleMatchResult.SKIPPED
         elif isinstance(source_filter, list):
             if source not in source_filter:
-                return RuleMatchResult.NO_MATCH
+                return RuleMatchResult.SKIPPED
         else:
-            return RuleMatchResult.NO_MATCH
+            return RuleMatchResult.SKIPPED
 
     event_filter = when.get("event")
     if event_filter:
         if isinstance(event_filter, str):
             if event_filter != event_type:
-                return RuleMatchResult.NO_MATCH
+                return RuleMatchResult.SKIPPED
         elif isinstance(event_filter, list):
             if event_type not in event_filter:
-                return RuleMatchResult.NO_MATCH
+                return RuleMatchResult.SKIPPED
         else:
-            return RuleMatchResult.NO_MATCH
+            return RuleMatchResult.SKIPPED
 
     all_blocks: List[Dict[str, Any]] = when.get("all") or []
     any_blocks: List[Dict[str, Any]] = when.get("any") or []

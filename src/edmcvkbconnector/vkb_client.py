@@ -12,7 +12,7 @@ import threading
 import time
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from edmcvkbconnector import plugin_logger
+from . import plugin_logger
 
 if TYPE_CHECKING:
     from .message_formatter import MessageFormatter
@@ -194,7 +194,7 @@ class VKBClient:
         with self._reconnect_lock:
             # Atomic check of both connected flag and socket object
             if not self.connected or not self.socket:
-                logger.debug("Cannot send event: not connected to VKB device")
+                logger.debug("Cannot send event: not connected to VKB-Link")
                 return False
 
             try:
@@ -202,7 +202,7 @@ class VKBClient:
                 message_bytes = self.message_formatter.format_event(event_type, event_data)
                 
                 self.socket.sendall(message_bytes)
-                logger.debug(f"Sent {event_type} event to VKB")
+                logger.debug(f"Sent {event_type} event to VKB-Link")
                 return True
             except (socket.error, socket.timeout, OSError, BrokenPipeError, TimeoutError) as e:
                 logger.warning(f"Failed to send event (connection lost): {e}")
@@ -219,7 +219,7 @@ class VKBClient:
                 return False
 
     def is_connected(self) -> bool:
-        """Check if currently connected to VKB hardware."""
+        """Check if currently connected to VKB-Link."""
         return self.connected
 
     def start_reconnection(self) -> None:
@@ -242,7 +242,7 @@ class VKBClient:
             target=self._reconnect_worker, daemon=True, name="VKBReconnect"
         )
         self._reconnect_thread.start()
-        logger.debug("Started VKB reconnection thread")
+        logger.debug("Started VKB-Link reconnection thread")
 
     def _wait_for_reconnect_thread(self) -> None:
         """Wait for reconnection thread to finish."""

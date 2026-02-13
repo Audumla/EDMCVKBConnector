@@ -52,7 +52,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift3"]
+      "vkb_set_shift": ["Subshift1"]
     }
   },
   {
@@ -71,7 +71,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift4"]
+      "vkb_set_shift": ["Subshift2"]
     }
   },
   {
@@ -93,7 +93,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift5"]
+      "vkb_set_shift": ["Subshift3"]
     }
   },
   {
@@ -104,7 +104,7 @@
       "event": ["FSDJump", "SupercruiseEntry", "StartJump"]
     },
     "then": {
-      "vkb_set_shift": ["Shift6"]
+      "vkb_set_shift": ["Subshift4"]
     }
   },
   {
@@ -123,10 +123,10 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift7"]
+      "vkb_set_shift": ["Subshift5"]
     },
     "else": {
-      "vkb_clear_shift": ["Shift7"]
+      "vkb_clear_shift": ["Subshift5"]
     }
   },
   {
@@ -238,10 +238,10 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift3", "Subshift1"]
+      "vkb_set_shift": ["Shift0", "Subshift6"]
     },
     "else": {
-      "vkb_clear_shift": ["Shift3", "Subshift1"]
+      "vkb_clear_shift": ["Shift0", "Subshift6"]
     }
   },
   {
@@ -259,7 +259,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift4"]
+      "vkb_set_shift": ["Subshift7"]
     }
   },
   {
@@ -277,7 +277,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Subshift2"]
+      "vkb_set_shift": ["Subshift7"]
     }
   },
   {
@@ -302,7 +302,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift5"]
+      "vkb_set_shift": ["Subshift3"]
     }
   },
   {
@@ -321,7 +321,7 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift6"]
+      "vkb_set_shift": ["Subshift4"]
     }
   }
 ]

@@ -137,14 +137,14 @@ def test_negative_rule_outcomes():
         source="journal",
         event_type="Docked",
         entry={"event": "Docked"},
-    ) == RuleMatchResult.NO_MATCH
+    ) == RuleMatchResult.SKIPPED
 
     assert evaluate(
         "journal_fsd_jump_far",
         source="dashboard",
         event_type="FSDJump",
         entry={"event": "FSDJump", "JumpDist": 12.0},
-    ) == RuleMatchResult.NO_MATCH
+    ) == RuleMatchResult.SKIPPED
 
     assert evaluate(
         "journal_missing_field_indeterminate",
@@ -254,7 +254,7 @@ def test_state_transition_rules_for_status_stream():
         cmdr="TestCmdr",
         is_beta=False,
     )
-    assert handler._shift_bitmap & 0b00010000 == 0b00010000
+    assert handler._subshift_bitmap & 0b01000000 == 0b01000000
 
     # Transition to galaxy map should trigger gui_focus changed_to rule.
     handler.handle_event(
@@ -264,7 +264,7 @@ def test_state_transition_rules_for_status_stream():
         cmdr="TestCmdr",
         is_beta=False,
     )
-    assert handler._subshift_bitmap & 0b00000100 == 0b00000100
+    assert handler._subshift_bitmap & 0b01000000 == 0b01000000
 
     print("[OK] Status stream transition tests passed")
 
@@ -340,7 +340,7 @@ def test_invalid_actions_and_tokens_do_not_break_valid_updates():
         source="dashboard",
     )
     assert handler._shift_bitmap & 0b00000010 == 0b00000010
-    assert handler._subshift_bitmap & 0b00001000 == 0b00001000
+    assert handler._subshift_bitmap & 0b00000100 == 0b00000100
 
     print("[OK] Invalid actions/tokens handling passed")
 

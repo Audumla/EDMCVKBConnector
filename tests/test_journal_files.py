@@ -10,9 +10,20 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from edmcvkbconnector.config import Config
+from edmcvkbconnector.config import Config, DEFAULTS
 from edmcvkbconnector.event_handler import EventHandler
 from tests.test_vkb_server_integration import running_mock_server
+
+RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
+
+
+class _TestConfig:
+    """Config stub for tests that need rules loaded."""
+    def __init__(self, **overrides):
+        self._values = dict(DEFAULTS)
+        self._values.update(overrides)
+    def get(self, key, default=None):
+        return self._values.get(key, default)
 
 
 def parse_journal_file(journal_path):
@@ -72,9 +83,9 @@ def test_plugin_with_journal_events():
     with running_mock_server(port=51001) as server:
         server.verbose = False
         
-        # Initialize plugin
-        config = Config()
-        handler = EventHandler(config)
+        # Initialize plugin with rules loaded
+        config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=51001)
+        handler = EventHandler(config, plugin_dir=str(RULES_FILE.parent))
         handler.vkb_client.port = 51001
         
         # Connect
