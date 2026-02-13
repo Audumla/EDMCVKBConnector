@@ -79,4 +79,4 @@ OK: All VKB server integration tests passed!
 ## See Also
 
 - [TESTING.md](TESTING.md) - Complete testing guide
-- [README.md](tests/README.md) - Testing reference
+- [README.md](test/README.md) - Testing reference

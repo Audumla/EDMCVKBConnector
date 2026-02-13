@@ -138,7 +138,7 @@ def main():
     print("[SUCCESS] All development tests passed!")
     print("="*60)
     print("\nNext steps:")
-    print("1. Start mock VKB server: python tests/mock_vkb_server.py 60")
+    print("1. Start mock VKB server: python test/mock_vkb_server.py 60")
     print("2. Test with real EDMC or use mock server")
     print("3. See TESTING.md for detailed testing options")
     

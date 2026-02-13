@@ -11,8 +11,8 @@ echo ====================================================================
 echo.
 
 REM Check if we're in the right directory
-if not exist "tests" (
-    echo ERROR: tests directory not found!
+if not exist "test" (
+    echo ERROR: test directory not found!
     echo Please run this from the project root directory.
     exit /b 1
 )
@@ -21,7 +21,7 @@ REM Parse command line argument
 set TEST_TYPE=%1
 if "%TEST_TYPE%"=="" set TEST_TYPE=all
 
-cd tests
+cd test
 
 if "%TEST_TYPE%"=="unit" (
     echo Running UNIT TESTS only

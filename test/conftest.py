@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.mock_vkb_server import MockVKBServer
+from test.mock_vkb_server import MockVKBServer
 from edmcruleengine.config import Config
 from edmcruleengine.event_handler import EventHandler
 

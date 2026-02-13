@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from edmcruleengine.config import Config, DEFAULTS
 from edmcruleengine.vkb_client import VKBClient
 from edmcruleengine.event_handler import EventHandler
-from tests.mock_vkb_server import MockVKBServer
+from test.mock_vkb_server import MockVKBServer
 
 RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
 

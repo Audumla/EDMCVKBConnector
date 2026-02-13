@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 from edmcruleengine.config import Config, DEFAULTS
 from edmcruleengine.event_handler import EventHandler
-from tests.test_vkb_server_integration import running_mock_server
+from test.test_vkb_server_integration import running_mock_server
 
 RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
 

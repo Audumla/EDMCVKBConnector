@@ -185,7 +185,7 @@ test.bat all           # All except real (default)
 
 **Documentation**:
 - [Complete Test Suite Documentation](docs/TEST_SUITE.md) - Overview of all 25+ tests
-- [Real Hardware Testing Guide](tests/REAL_SERVER_TESTS.md) - Setup and troubleshooting for VKB hardware tests
+- [Real Hardware Testing Guide](test/REAL_SERVER_TESTS.md) - Setup and troubleshooting for VKB hardware tests
 - [Real Server Quick Start](docs/REAL_SERVER_SETUP.md) - Quick configuration guide
 
 **Note**: Real hardware tests are disabled by default for safety. See [REAL_SERVER_SETUP.md](docs/REAL_SERVER_SETUP.md) for configuration instructions.
@@ -195,7 +195,7 @@ test.bat all           # All except real (default)
 This project uses Black for code formatting:
 
 ```bash
-black src/ tests/
+black src/ test/
 ```
 
 And Pylint for code linting:
