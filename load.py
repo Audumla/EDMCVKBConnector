@@ -36,7 +36,14 @@ VERSION = "0.1.0"  # Required by EDMC standards for semantic versioning
 # Logger setup per EDMC plugin requirements
 # The plugin_name MUST be the folder name (edmcvkbconnector)
 plugin_name = os.path.basename(os.path.dirname(__file__))
-logger = logging.getLogger(f"{appname}.{plugin_name}")
+plugin_logger_name = f"{appname}.{plugin_name}"
+logger = logging.getLogger(plugin_logger_name)
+
+# Tell submodules to log under the same EDMC-managed hierarchy
+# so that config.py, vkb_client.py, event_handler.py all produce
+# logger names like "EDMarketConnector.edmcvkbconnector.config".
+from src.edmcvkbconnector import set_plugin_logger_name
+set_plugin_logger_name(plugin_logger_name)
 
 # Set up logging if it hasn't been already by core EDMC code
 if not logger.hasHandlers():
@@ -194,7 +201,9 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
 # Format: def journal_event_handler(cmdr: str, is_beta: bool, entry: dict)
 
 
-def journal_entry(cmdr: str, is_beta: bool, entry: dict, state: dict) -> Optional[str]:
+def journal_entry(
+    cmdr: str, is_beta: bool, system: str, station: str, entry: dict, state: dict
+) -> Optional[str]:
     """
     Called when EDMC receives a journal event from Elite Dangerous.
     
@@ -204,6 +213,8 @@ def journal_entry(cmdr: str, is_beta: bool, entry: dict, state: dict) -> Optiona
     Args:
         cmdr: Commander name.
         is_beta: Whether running beta version.
+        system: Current star system name (may be None).
+        station: Current station name (may be None).
         entry: Journal entry data.
         state: Current game state.
         
@@ -296,48 +307,24 @@ def cmdr_data(data: dict, is_beta: bool) -> Optional[str]:
     return None
 
 
-def capi_shipyard(data: dict, is_beta: bool) -> Optional[str]:
-    """
-    Called when EDMC receives CAPI shipyard data.
-    """
-    try:
-        _dispatch_notification(
-            source="capi_shipyard",
-            event_type="CapiShipyard",
-            payload=data,
-            is_beta=is_beta,
-        )
-    except Exception as e:
-        logger.error(f"Error handling capi_shipyard: {e}", exc_info=True)
-    return None
+# Note: capi_shipyard() and capi_outfitting() are NOT standard EDMC plugin hooks.
+# EDMC only calls: journal_entry, dashboard_entry, cmdr_data, cmdr_data_legacy,
+# capi_fleetcarrier, plugin_prefs, prefs_changed, plugin_app, plugin_stop.
+# See: https://github.com/EDCD/EDMarketConnector/blob/main/PLUGINS.md
 
 
-def capi_outfitting(data: dict, is_beta: bool) -> Optional[str]:
-    """
-    Called when EDMC receives CAPI outfitting data.
-    """
-    try:
-        _dispatch_notification(
-            source="capi_outfitting",
-            event_type="CapiOutfitting",
-            payload=data,
-            is_beta=is_beta,
-        )
-    except Exception as e:
-        logger.error(f"Error handling capi_outfitting: {e}", exc_info=True)
-    return None
-
-
-def capi_fleetcarrier(data: dict, is_beta: bool) -> Optional[str]:
+def capi_fleetcarrier(data: dict) -> Optional[str]:
     """
     Called when EDMC receives CAPI fleet carrier data.
+    
+    Note: Unlike cmdr_data(), this hook receives only `data` (no `is_beta`).
+    Use data.source_host to determine galaxy (SERVER_LIVE, SERVER_BETA, SERVER_LEGACY).
     """
     try:
         _dispatch_notification(
             source="capi_fleetcarrier",
             event_type="CapiFleetCarrier",
             payload=data,
-            is_beta=is_beta,
         )
     except Exception as e:
         logger.error(f"Error handling capi_fleetcarrier: {e}", exc_info=True)
@@ -347,6 +334,9 @@ def capi_fleetcarrier(data: dict, is_beta: bool) -> Optional[str]:
 def plugin_prefs(parent, cmdr: str, is_beta: bool):
     """
     Build the plugin preferences UI for EDMC.
+    
+    Note: Uses ttk widgets for local testing compatibility. When running
+    inside EDMC, consider using 'import myNotebook as nb' for proper theming.
     """
     global _prefs_vars, _config
 

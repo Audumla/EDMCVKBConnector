@@ -1,18 +1,15 @@
 """Tests for EventHandler rule file loading behavior."""
 
 import json
-import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock
-
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from edmcvkbconnector.config import DEFAULTS
 from edmcvkbconnector.event_handler import EventHandler
 
 
-class TestConfig:
+class StubConfig:
     """Minimal config stub for deterministic file-loading tests."""
 
     def __init__(self, **overrides):
@@ -42,7 +39,7 @@ def test_loads_default_rules_json_from_plugin_dir():
                 }
             ],
         )
-        cfg = TestConfig()
+        cfg = StubConfig()
         handler = EventHandler(cfg, plugin_dir=str(plugin_dir))
         handler.vkb_client.send_event = Mock(return_value=True)
 
@@ -80,7 +77,7 @@ def test_loads_override_rules_json_path():
                 }
             ],
         )
-        cfg = TestConfig(rules_path=str(override_path))
+        cfg = StubConfig(rules_path=str(override_path))
         handler = EventHandler(cfg, plugin_dir=str(plugin_dir))
         handler.vkb_client.send_event = Mock(return_value=True)
 
@@ -97,7 +94,7 @@ def test_invalid_rules_file_disables_rule_engine():
         with bad_path.open("w", encoding="utf-8") as f:
             f.write("{not-json")
 
-        cfg = TestConfig()
+        cfg = StubConfig()
         handler = EventHandler(cfg, plugin_dir=str(plugin_dir))
         handler.vkb_client.send_event = Mock(return_value=True)
         assert handler.rule_engine is None

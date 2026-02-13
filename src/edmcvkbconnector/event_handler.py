@@ -8,11 +8,12 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from edmcvkbconnector import plugin_logger
 from .config import Config
 from .rules_engine import DashboardRuleEngine, MatchResult, RuleMatchResult
 from .vkb_client import VKBClient
 
-logger = logging.getLogger(__name__)
+logger = plugin_logger(__name__)
 
 # Pre-compiled regex for shift token parsing (optimization #11)
 # Matches: Shift0-7 or Subshift0-7
@@ -167,6 +168,10 @@ class EventHandler:
             logger.debug(f"Event received: {event_type}")
 
         # Run rule engine for all EDMC notifications.
+        # Only rule actions (vkb_set_shift / vkb_clear_shift) trigger VKB sends.
+        # Raw events are NOT forwarded to VKB-Link because the device only
+        # understands VKBShiftBitmap packets — sending arbitrary text would
+        # violate the protocol.
         if self.rule_engine:
             try:
                 self.rule_engine.on_notification(
@@ -180,10 +185,8 @@ class EventHandler:
                 logger.error(f"Rule engine error: {e}")
             except Exception as e:
                 logger.debug(f"Unexpected error in rule engine: {e}", exc_info=True)
-
-        # Send to VKB hardware (format is abstracted in VKBClient)
-        if not self.vkb_client.send_event(event_type, event_data):
-            logger.warning(f"Failed to send {event_type} event to VKB")
+        else:
+            logger.debug(f"No rule engine loaded — event '{event_type}' not forwarded to VKB")
 
     def _on_socket_connected(self) -> None:
         """

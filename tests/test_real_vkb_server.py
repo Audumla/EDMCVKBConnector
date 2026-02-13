@@ -38,9 +38,6 @@ def load_env_file():
 
 load_env_file()
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from edmcvkbconnector.config import Config
 from edmcvkbconnector.vkb_client import VKBClient
 from edmcvkbconnector.event_handler import EventHandler

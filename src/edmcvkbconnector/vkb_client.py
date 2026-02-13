@@ -12,10 +12,12 @@ import threading
 import time
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
+from edmcvkbconnector import plugin_logger
+
 if TYPE_CHECKING:
     from .message_formatter import MessageFormatter
 
-logger = logging.getLogger(__name__)
+logger = plugin_logger(__name__)
 
 
 class VKBClient:

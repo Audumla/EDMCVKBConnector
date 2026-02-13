@@ -57,4 +57,9 @@ max-line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=edmcvkbconnector --cov-report=html --cov-report=term"
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%H:%M:%S"

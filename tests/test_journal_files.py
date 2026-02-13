@@ -10,13 +10,9 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Add parent directory to path for imports
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from edmcvkbconnector.config import Config
 from edmcvkbconnector.event_handler import EventHandler
-from test_vkb_server_integration import running_mock_server
+from tests.test_vkb_server_integration import running_mock_server
 
 
 def parse_journal_file(journal_path):

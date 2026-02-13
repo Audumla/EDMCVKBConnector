@@ -9,20 +9,16 @@ Validates:
 - Connection loss and recovery
 """
 
-import sys
 import time
 import threading
 from pathlib import Path
 from unittest.mock import Mock
 from contextlib import contextmanager
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 from edmcvkbconnector.config import Config
 from edmcvkbconnector.vkb_client import VKBClient
 from edmcvkbconnector.event_handler import EventHandler
-from mock_vkb_server import MockVKBServer
+from tests.mock_vkb_server import MockVKBServer
 
 
 @contextmanager

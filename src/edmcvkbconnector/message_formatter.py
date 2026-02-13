@@ -67,5 +67,10 @@ class PlaceholderMessageFormatter(MessageFormatter):
                 0,
             ])
 
-        # Fallback: send event type as UTF-8 bytes for debugging
-        return f"{event_type}\n".encode("utf-8")
+        # Only VKBShiftBitmap is a valid VKB-Link protocol message.
+        # Refuse to format unknown event types to prevent sending
+        # non-protocol-safe payloads to VKB hardware.
+        raise ValueError(
+            f"Unsupported VKB event type '{event_type}'. "
+            f"Only 'VKBShiftBitmap' is a valid VKB-Link protocol message."
+        )

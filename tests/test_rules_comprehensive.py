@@ -1,12 +1,8 @@
 """Comprehensive rules tests using file-backed rule fixtures."""
 
 import json
-import sys
 from pathlib import Path
 from unittest.mock import Mock
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from edmcvkbconnector.config import DEFAULTS
 from edmcvkbconnector.event_handler import EventHandler
@@ -18,7 +14,7 @@ RULES_FILE = FIXTURES_DIR / "rules_comprehensive.json"
 PAYLOADS_FILE = FIXTURES_DIR / "edmc_notifications.json"
 
 
-class TestConfig:
+class StubConfig:
     """Minimal config stub for deterministic tests."""
 
     def __init__(self, **overrides):
@@ -68,7 +64,7 @@ def payload(group: str, name: str) -> dict:
 
 
 def create_handler_with_fixture_rules():
-    cfg = TestConfig(rules_path=str(RULES_FILE), event_types=[])
+    cfg = StubConfig(rules_path=str(RULES_FILE), event_types=[])
     handler = EventHandler(cfg, plugin_dir=str(FIXTURES_DIR))
     handler.vkb_client.send_event = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=False)

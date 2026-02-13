@@ -231,9 +231,13 @@ class MockVKBServer:
             return b''
 
     def stop(self):
-        """Stop the server."""
+        """Stop the server.
+
+        Sets running=False so the start() loop exits.  The start()
+        method's ``finally`` block already calls ``_close_socket()``,
+        so we do NOT call it again here to avoid duplicate log lines.
+        """
         self.running = False
-        self._close_socket()
 
 
 def run_in_thread(host="127.0.0.1", port=50995, duration=30):

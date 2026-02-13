@@ -9,13 +9,15 @@ Configuration is persisted by EDMC in the system-appropriate location
 import logging
 from typing import Any, List, Optional
 
+from edmcvkbconnector import plugin_logger
+
 try:
     from config import config
 except Exception:
     # Fallback for local testing without EDMC
     config = None
 
-logger = logging.getLogger(__name__)
+logger = plugin_logger(__name__)
 
 # Configuration key prefix to namespace plugin settings
 CONFIG_PREFIX = "VKBConnector_"
@@ -26,7 +28,13 @@ DEFAULTS = {
     "vkb_port": 50995,
     "enabled": True,
     "debug": False,
-    "event_types": ["Status", "Location", "FSDJump", "DockingGranted", "Undocked", "LaunchSRV", "DockSRV"],
+    "event_types": [
+        # Journal events
+        "Status", "Location", "FSDJump", "DockingGranted", "Undocked",
+        "LaunchSRV", "DockSRV", "Docked", "LaunchFighter", "DockFighter",
+        # CAPI events (forwarded by EDMC via cmdr_data / capi_fleetcarrier)
+        "CmdrData", "CapiFleetCarrier",
+    ],
     "rules_path": "",
     "vkb_header_byte": 0xA5,
     "vkb_command_byte": 13,

@@ -1,7 +1,7 @@
 """Developer test runner for EDMCVKBConnector.
 
 Usage:
-  python scripts/run_plugin_dev.py --edmc-path "C:\Path\To\EDMC" --plugin-dir "C:\Path\To\EDMCVKBConnector"
+  python scripts/run_plugin_dev.py --edmc-path "C:/Path/To/EDMC" --plugin-dir "C:/Path/To/EDMCVKBConnector"
 
 This script configures Python to import EDMC's `config` module from a custom location
 and runs `plugin_start3()` from the plugin's `load.py` for quick local testing.
@@ -48,7 +48,7 @@ def main():
         from load import journal_entry
 
         sample_event = {"event": "FSDJump", "StarSystem": "TestSystem"}
-        journal_entry("TestCmdr", False, sample_event, {})
+        journal_entry("TestCmdr", False, "TestSystem", None, sample_event, {})
 
         time.sleep(1)
 

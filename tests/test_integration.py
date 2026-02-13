@@ -1,11 +1,7 @@
 """Integration tests with mocked VKB client."""
 
-import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
-
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from edmcvkbconnector.config import Config
 from edmcvkbconnector.event_handler import EventHandler
@@ -46,14 +42,17 @@ def test_dashboard_event():
     handler.vkb_client.send_event = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=False)
     
-    # Simulate dashboard data
+    # Simulate dashboard Status event (the only event type EDMC sends
+    # via dashboard_entry — contains Flags, GuiFocus, etc.)
     dashboard_data = {
-        "event": "DockingRequested",
-        "StationName": "Orbis Station",
+        "event": "Status",
+        "Flags": 16777224,   # InMainShip + ShieldsUp
+        "GuiFocus": 0,
+        "Pips": [4, 4, 4],
     }
     
     handler.handle_event(
-        "DockingRequested",
+        "Status",
         dashboard_data,
         source="dashboard",
         cmdr="TestCmdr",
@@ -87,38 +86,33 @@ def test_shift_bitmap_manipulation():
 
 
 def test_error_handling():
-    """Test that errors are handled gracefully."""
+    """Test that VKB send errors are handled gracefully.
+
+    Since handle_event no longer sends raw events to VKB (only rule actions
+    trigger VKBShiftBitmap sends), we test the error path through
+    _send_shift_state_if_changed which *does* call send_event.
+    """
     config = Config()
     handler = EventHandler(config)
-    
-    # Mock send_event to raise an error
-    original_send = handler.vkb_client.send_event
-    
+
     error_occurred = False
+
     def mock_send_with_error(*args, **kwargs):
         nonlocal error_occurred
         error_occurred = True
-        raise Exception("Test error")
-    
+        return False  # Simulate send failure
+
     handler.vkb_client.send_event = mock_send_with_error
     handler.vkb_client.connect = Mock(return_value=False)
-    
-    # Should handle error gracefully (event handler wraps calls in try/except)
-    try:
-        handler.handle_event(
-            "TestEvent",
-            {"test": "data"},
-            source="journal",
-            cmdr="TestCmdr",
-        )
-        # Error was caught and handled - test passes
-        assert error_occurred, "Mock wasn't called"
-        print("[OK] Error handling test passed (exception was caught)")
-    except Exception as e:
-        # If we get here, the error wasn't caught by handler
-        # This is fine - means call stack bubbled the error which is also valid
-        assert error_occurred, "Mock wasn't called"
-        print("[OK] Error handling test passed (exception bubbled as expected)")
+
+    # Force a shift state send — this exercises the VKB send path
+    handler._shift_bitmap = 1
+    handler._send_shift_state_if_changed(force=True)
+
+    assert error_occurred, "send_event mock was not called"
+    # Shift state should NOT be updated on failure
+    assert handler._last_sent_shift is None, "Shift should not be marked sent after failure"
+    print("[OK] Error handling test passed (send failure handled gracefully)")
 
 
 def test_rule_engine_initialization():
