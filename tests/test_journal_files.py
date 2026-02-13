@@ -10,8 +10,8 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from edmcvkbconnector.config import Config, DEFAULTS
-from edmcvkbconnector.event_handler import EventHandler
+from edmcruleengine.config import Config, DEFAULTS
+from edmcruleengine.event_handler import EventHandler
 from tests.test_vkb_server_integration import running_mock_server
 
 RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
@@ -307,3 +307,4 @@ def run_all_tests():
 if __name__ == "__main__":
     exit_code = run_all_tests()
     exit(exit_code)
+

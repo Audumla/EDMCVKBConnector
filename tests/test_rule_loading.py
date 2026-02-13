@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
-from edmcvkbconnector.config import DEFAULTS
-from edmcvkbconnector.event_handler import EventHandler
+from edmcruleengine.config import DEFAULTS
+from edmcruleengine.event_handler import EventHandler
 
 
 class StubConfig:
@@ -109,3 +109,4 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("[SUCCESS] Rule loading tests passed")
     print("=" * 70)
+

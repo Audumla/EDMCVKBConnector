@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures for EDMCVKBConnector tests.
+Pytest configuration and shared fixtures for edmcruleengine tests.
 
 Path setup is handled by pyproject.toml [tool.pytest.ini_options] pythonpath.
 """
@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 from tests.mock_vkb_server import MockVKBServer
-from edmcvkbconnector.config import Config
-from edmcvkbconnector.event_handler import EventHandler
+from edmcruleengine.config import Config
+from edmcruleengine.event_handler import EventHandler
 
 
 # ---------------------------------------------------------------------------
@@ -59,3 +59,4 @@ def journal_events():
 def config():
     """Return a default Config instance (test-mode, no EDMC)."""
     return Config()
+

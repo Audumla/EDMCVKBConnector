@@ -24,6 +24,14 @@ try:
         if edmc_path not in sys.path:
             sys.path.insert(0, edmc_path)
 
+    # Support local source-tree runs where package code lives under ./src.
+    plugin_src_path = os.path.join(os.path.dirname(__file__), "src")
+    if os.path.isdir(plugin_src_path):
+        import sys
+
+        if plugin_src_path not in sys.path:
+            sys.path.insert(0, plugin_src_path)
+
     from config import appname, appversion
 except Exception:
     # Allow local testing outside EDMC by providing sensible defaults
@@ -34,7 +42,7 @@ except Exception:
 VERSION = "0.1.0"  # Required by EDMC standards for semantic versioning
 
 # Logger setup per EDMC plugin requirements
-# The plugin_name MUST be the folder name (edmcvkbconnector)
+# The plugin_name MUST be the plugin folder name.
 plugin_name = os.path.basename(os.path.dirname(__file__))
 
 try:
@@ -43,43 +51,22 @@ try:
     from EDMCLogging import get_plugin_logger  # type: ignore
 
     logger = get_plugin_logger(plugin_name)
+    _using_edmc_logger = True
 except Exception:
     # Fallback for local testing outside EDMC.
     plugin_logger_name = f"{appname}.{plugin_name}"
     logger = logging.getLogger(plugin_logger_name)
+    _using_edmc_logger = False
 
 plugin_logger_name = logger.name
 
 
-def _configure_compact_plugin_logging() -> None:
-    """Use concise plugin-only log formatting.
-
-    Output format:
-        <timestamp> - <level> - EDMCVKBConnector: <message>
-    """
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - EDMCVKBConnector: %(message)s"
-    )
-    formatter.default_time_format = "%Y-%m-%d %H:%M:%S"
-    formatter.default_msec_format = "%s.%03d"
-    handler.setFormatter(formatter)
-
-    logger.handlers.clear()
-    logger.addHandler(handler)
-    logger.propagate = False
-
-# Tell submodules to log under the same EDMC-managed hierarchy
-# so that config.py, vkb_client.py, event_handler.py all produce
-# logger names like "EDMarketConnector.edmcvkbconnector.config".
-from src.edmcvkbconnector import set_plugin_logger_name
+# Tell submodules to log under the same EDMC-managed hierarchy.
+from edmcruleengine import set_plugin_logger_name
 set_plugin_logger_name(plugin_logger_name)
 
-# Keep plugin logs concise in EDMC and IDE runs.
-_configure_compact_plugin_logging()
-
-# Set up logging if it hasn't been already by core EDMC code
-if not logger.hasHandlers():
+# Local-only fallback logging if EDMC logging isn't available.
+if not _using_edmc_logger and not logger.hasHandlers():
     level = logging.INFO
     logger.setLevel(level)
     logger_channel = logging.StreamHandler()
@@ -96,6 +83,44 @@ _config = None
 _event_handler = None
 _plugin_dir = None
 _prefs_vars = {}
+
+
+def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]:
+    """Compute shift/subshift bitmap values from UI checkbox vars."""
+    global _prefs_vars
+
+    shift_vars = _prefs_vars.get("test_shift_vars")
+    subshift_vars = _prefs_vars.get("test_subshift_vars")
+    if not isinstance(shift_vars, list) or not isinstance(subshift_vars, list):
+        return None, None
+
+    shift_bitmap = 0
+    # Shift1/Shift2 are stored in bits 0/1.
+    for var, shift_code in zip(shift_vars, (1, 2)):
+        if hasattr(var, "get") and bool(var.get()):
+            shift_bitmap |= (1 << (shift_code - 1))
+
+    subshift_bitmap = 0
+    # Subshift1..7 are stored in bits 0..6.
+    for code in range(1, min(8, len(subshift_vars) + 1)):
+        var = subshift_vars[code - 1]
+        if hasattr(var, "get") and bool(var.get()):
+            subshift_bitmap |= (1 << (code - 1))
+
+    return shift_bitmap, subshift_bitmap
+
+
+def _restore_test_shift_state_from_config() -> None:
+    """Restore persisted test Shift/Subshift bitmaps into the event handler."""
+    global _config, _event_handler
+
+    if not _config or not _event_handler:
+        return
+
+    shift_bitmap = int(_config.get("test_shift_bitmap", 0)) & 0x03
+    subshift_bitmap = int(_config.get("test_subshift_bitmap", 0)) & 0x7F
+    _event_handler._shift_bitmap = shift_bitmap
+    _event_handler._subshift_bitmap = subshift_bitmap
 
 
 def plugin_start3(plugin_dir: str) -> Optional[str]:
@@ -116,7 +141,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
-        from src.edmcvkbconnector import Config, EventHandler
+        from edmcruleengine import Config, EventHandler
 
         logger.info(f"VKB Connector v{VERSION} starting")
 
@@ -142,6 +167,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
         # Initialize event handler with automatic reconnection
         _event_handler = EventHandler(_config, plugin_dir=_plugin_dir)
+        _restore_test_shift_state_from_config()
 
         # Connect to VKB hardware and start automatic reconnection
         # Note: connect() will start the reconnection worker even if initial connection fails
@@ -205,6 +231,13 @@ def _persist_prefs_from_ui() -> None:
         except ValueError:
             logger.warning("Invalid VKB port in preferences; must be an integer")
 
+    # Test shift/subshift persistence
+    shift_bitmap, subshift_bitmap = _compute_test_shift_bitmaps_from_ui()
+    if shift_bitmap is not None and subshift_bitmap is not None:
+        _config.set("test_shift_bitmap", int(shift_bitmap) & 0x03)
+        _config.set("test_subshift_bitmap", int(subshift_bitmap) & 0x7F)
+
+
 
 def _apply_test_shift_from_ui() -> None:
     """Apply Shift/Subshift test toggles from preferences UI to VKB immediately."""
@@ -214,21 +247,9 @@ def _apply_test_shift_from_ui() -> None:
         logger.warning("Cannot apply test shift state: event handler not initialized")
         return
 
-    shift_vars = _prefs_vars.get("test_shift_vars")
-    subshift_vars = _prefs_vars.get("test_subshift_vars")
-    if not isinstance(shift_vars, list) or not isinstance(subshift_vars, list):
+    shift_bitmap, subshift_bitmap = _compute_test_shift_bitmaps_from_ui()
+    if shift_bitmap is None or subshift_bitmap is None:
         return
-
-    shift_bitmap = 0
-    for var, shift_code in zip(shift_vars, (1, 2)):
-        if hasattr(var, "get") and bool(var.get()):
-            shift_bitmap |= (1 << shift_code)
-
-    subshift_bitmap = 0
-    for code in range(1, min(8, len(subshift_vars) + 1)):
-        var = subshift_vars[code - 1]
-        if hasattr(var, "get") and bool(var.get()):
-            subshift_bitmap |= (1 << (code - 1))
 
     _event_handler._shift_bitmap = shift_bitmap
     _event_handler._subshift_bitmap = subshift_bitmap
@@ -432,12 +453,16 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
 
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
     vkb_port = _config.get("vkb_port", 50995) if _config else 50995
-
     host_var = tk.StringVar(value=str(vkb_host))
     port_var = tk.StringVar(value=str(vkb_port))
-    current_shift = _event_handler._shift_bitmap if _event_handler else 0
-    current_subshift = _event_handler._subshift_bitmap if _event_handler else 0
-    shift_vars = [tk.BooleanVar(value=bool(current_shift & (1 << code))) for code in (1, 2)]
+    if _event_handler:
+        current_shift = int(_event_handler._shift_bitmap)
+        current_subshift = int(_event_handler._subshift_bitmap)
+    else:
+        current_shift = int(_config.get("test_shift_bitmap", 0)) if _config else 0
+        current_subshift = int(_config.get("test_subshift_bitmap", 0)) if _config else 0
+
+    shift_vars = [tk.BooleanVar(value=bool(current_shift & (1 << (code - 1)))) for code in (1, 2)]
     subshift_vars = [tk.BooleanVar(value=bool(current_subshift & (1 << i))) for i in range(7)]
 
     _prefs_vars = {
@@ -453,27 +478,28 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     ttk.Label(frame, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=2)
     ttk.Entry(frame, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=2)
 
-    ttk.Separator(frame, orient="horizontal").grid(row=2, column=0, columnspan=4, sticky="ew", padx=4, pady=(8, 6))
-    ttk.Label(frame, text="Shift/Subshift Test:").grid(row=3, column=0, sticky="w", padx=4, pady=(0, 4))
+    ttk.Separator(frame, orient="horizontal").grid(row=2, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 6))
 
+    test_frame = ttk.Frame(frame)
+    test_frame.grid(row=3, column=0, columnspan=2, sticky="w", padx=4, pady=2)
+
+    ttk.Label(test_frame, text="Shift:").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
     for i, shift_code in enumerate((1, 2)):
         ttk.Checkbutton(
-            frame,
-            text=f"Shift{shift_code}",
+            test_frame,
+            text=f"{shift_code}",
             variable=shift_vars[i],
             command=_apply_test_shift_from_ui,
-        ).grid(row=4, column=i, sticky="w", padx=4, pady=2)
+        ).grid(row=0, column=1 + i, sticky="w", padx=2, pady=2)
 
+    ttk.Label(test_frame, text="SubShift:").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=2)
     for i in range(7):
         ttk.Checkbutton(
-            frame,
-            text=f"Subshift{i + 1}",
+            test_frame,
+            text=f"{i + 1}",
             variable=subshift_vars[i],
             command=_apply_test_shift_from_ui,
-        ).grid(row=5 + (i // 4), column=(i % 4), sticky="w", padx=4, pady=2)
-
-    ttk.Button(frame, text="Apply Test State", command=_apply_test_shift_from_ui).grid(
-        row=7, column=0, sticky="w", padx=4, pady=(6, 2)
-    )
+        ).grid(row=1, column=1 + i, sticky="w", padx=2, pady=2)
 
     return frame
+

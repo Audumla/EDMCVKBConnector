@@ -5,8 +5,6 @@ Implements fault-tolerant connection management with automatic reconnection.
 The message format is abstracted and can be customized via MessageFormatter.
 """
 
-import json
-import logging
 import socket
 import threading
 import time
@@ -23,10 +21,10 @@ logger = plugin_logger(__name__)
 class VKBClient:
     """
     TCP/IP socket client for communicating with VKB hardware.
-    
+
     Handles socket connection, message serialization, and event forwarding
     with fault-tolerant automatic reconnection capabilities.
-    
+
     Reconnection Strategy:
     - Retry every 2 seconds for 1 minute (initial aggressive reconnection)
     - Then retry every 10 seconds indefinitely (fallback periodic reconnection)
@@ -54,7 +52,7 @@ class VKBClient:
     ):
         """
         Initialize VKB client.
-        
+
         Args:
             host: VKB device IP address (default: localhost)
             port: VKB device port (default: 50995)
@@ -74,16 +72,16 @@ class VKBClient:
         self.port = port
         self.socket: Optional[socket.socket] = None
         self.connected = False
-        
+
         # Connection callback for resending state after reconnection
         self._on_connected_callback = on_connected
-        
+
         # Reconnection configuration (instance-based, not class-based, for better testability)
         self.INITIAL_RETRY_INTERVAL = initial_retry_interval
         self.INITIAL_RETRY_DURATION = initial_retry_duration
         self.FALLBACK_RETRY_INTERVAL = fallback_retry_interval
         self.SOCKET_TIMEOUT = socket_timeout
-        
+
         # Message formatting
         if message_formatter is None:
             from .message_formatter import PlaceholderMessageFormatter
@@ -92,7 +90,7 @@ class VKBClient:
                 command_byte=command_byte,
             )
         self.message_formatter = message_formatter
-        
+
         # Reconnection management
         self._reconnect_thread: Optional[threading.Thread] = None
         self._reconnect_event = threading.Event()
@@ -104,10 +102,10 @@ class VKBClient:
     def connect(self) -> bool:
         """
         Establish connection to VKB hardware.
-        
+
         Calls the on_connected callback (if set) after successful connection
         to allow resending state to the hardware.
-        
+
         Returns:
             True if connection successful, False otherwise.
         """
@@ -115,7 +113,7 @@ class VKBClient:
             try:
                 # Close existing socket if any
                 self._close_socket()
-                
+
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.settimeout(self.SOCKET_TIMEOUT)
                 self.socket.connect((self.host, self.port))
@@ -123,35 +121,35 @@ class VKBClient:
                 self._last_connection_attempt = time.time()
                 self._initial_retry_start_time = time.time()
                 logger.info(f"Connected to VKB device at {self.host}:{self.port}")
-                
+
                 # Clear the reconnect event when connected
                 self._reconnect_event.clear()
-                
+
                 # Store that we should invoke callback (after releasing lock)
                 should_invoke_callback = True
-                
+
             except (socket.error, socket.timeout, ConnectionRefusedError, OSError, TimeoutError) as e:
                 logger.warning(f"Failed to connect to VKB device: {e}")
                 self.connected = False
                 self._reconnect_event.set()
                 should_invoke_callback = False
-        
+
         # Invoke callback outside the lock to avoid deadlock
         if should_invoke_callback and self._on_connected_callback:
             try:
                 self._on_connected_callback()
             except Exception as e:
                 logger.error(f"Error in on_connected callback: {e}", exc_info=True)
-        
+
         return self.connected
 
     def set_on_connected(self, callback: Optional[callable]) -> None:
         """
         Set or update the callback to invoke after successful connection.
-        
+
         The callback is invoked outside the connection lock to avoid deadlocks.
         Useful for resending state after reconnection.
-        
+
         Args:
             callback: Callable with no arguments, or None to remove callback.
         """
@@ -170,7 +168,7 @@ class VKBClient:
         """Close connection to VKB hardware and stop reconnection attempts."""
         self._stop_event.set()
         self._wait_for_reconnect_thread()
-        
+
         with self._reconnect_lock:
             self._close_socket()
             self.connected = False
@@ -179,15 +177,15 @@ class VKBClient:
     def send_event(self, event_type: str, event_data: Dict[str, Any]) -> bool:
         """
         Send event data to VKB hardware.
-        
+
         The event is formatted using the configured message formatter before
         transmission. This allows the protocol format to be independent of the
         event handling logic.
-        
+
         Args:
             event_type: Type of Elite Dangerous event (e.g., "FSDJump").
             event_data: Event data dictionary.
-            
+
         Returns:
             True if sent successfully, False otherwise.
         """
@@ -200,19 +198,18 @@ class VKBClient:
             try:
                 # Format the event using the message formatter
                 message_bytes = self.message_formatter.format_event(event_type, event_data)
-                
+
                 self.socket.sendall(message_bytes)
-                logger.debug(f"Sent {event_type} event to VKB-Link")
                 return True
             except (socket.error, socket.timeout, OSError, BrokenPipeError, TimeoutError) as e:
                 logger.warning(f"Failed to send event (connection lost): {e}")
                 self.connected = False
                 self._reconnect_event.set()
-                
+
                 # Attempt to restart reconnection thread if not running
                 if not self._reconnect_thread or not self._reconnect_thread.is_alive():
                     self._start_reconnect_thread()
-                
+
                 return False
             except Exception as e:
                 logger.error(f"Error formatting or sending event: {e}")
@@ -225,7 +222,7 @@ class VKBClient:
     def start_reconnection(self) -> None:
         """
         Start automatic reconnection attempts.
-        
+
         Spawns a background thread that handles reconnection with exponential backoff:
         - Aggressive retry: every 2 seconds for 1 minute
         - Fallback retry: every 10 seconds indefinitely
@@ -252,7 +249,7 @@ class VKBClient:
     def _reconnect_worker(self) -> None:
         """
         Background worker thread for handling automatic reconnection.
-        
+
         Implements reconnection strategy:
         1. Try every 2 seconds for 1 minute
         2. Fall back to every 10 seconds indefinitely
@@ -318,3 +315,4 @@ class VKBClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.disconnect()
+

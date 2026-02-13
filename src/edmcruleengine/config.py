@@ -38,6 +38,8 @@ DEFAULTS = {
     "rules_path": "",
     "vkb_header_byte": 0xA5,
     "vkb_command_byte": 13,
+    "test_shift_bitmap": 0,
+    "test_subshift_bitmap": 0,
 }
 
 

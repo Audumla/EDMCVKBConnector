@@ -17,6 +17,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_EDMC_ROOT = (PROJECT_ROOT.parent / "EDMarketConnector").resolve()
 PLUGIN_NAME = "EDMCVKBConnector"
+DEPLOY_PACKAGE_DIR = "edmcruleengine"
 
 INCLUDE = [
     "load.py",
@@ -25,13 +26,20 @@ INCLUDE = [
     "README.md",
     "rules.json.example",
     "config.json.example",
-    "src/edmcvkbconnector/__init__.py",
-    "src/edmcvkbconnector/config.py",
-    "src/edmcvkbconnector/event_handler.py",
-    "src/edmcvkbconnector/message_formatter.py",
-    "src/edmcvkbconnector/rules_engine.py",
-    "src/edmcvkbconnector/vkb_client.py",
+    "src/edmcruleengine/__init__.py",
+    "src/edmcruleengine/config.py",
+    "src/edmcruleengine/event_handler.py",
+    "src/edmcruleengine/message_formatter.py",
+    "src/edmcruleengine/rules_engine.py",
+    "src/edmcruleengine/vkb_client.py",
 ]
+
+
+def deploy_relpath(rel: str) -> str:
+    """Map source-tree paths to deployment layout paths."""
+    if rel.startswith("src/edmcruleengine/"):
+        return rel.replace("src/edmcruleengine/", f"{DEPLOY_PACKAGE_DIR}/", 1)
+    return rel
 
 
 def deploy(edmc_root: Path) -> Path:
@@ -54,7 +62,7 @@ def deploy(edmc_root: Path) -> Path:
             print(f"[WARN] Missing: {rel}")
             continue
 
-        target = dest / rel
+        target = dest / deploy_relpath(rel)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, target)
         copied += 1
@@ -89,3 +97,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

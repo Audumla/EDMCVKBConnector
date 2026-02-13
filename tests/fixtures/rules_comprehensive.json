@@ -241,7 +241,7 @@
       "vkb_set_shift": ["Shift1", "Subshift6"]
     },
     "else": {
-      "vkb_clear_shift": ["Shift1", "Subshift6"]
+      "vkb_clear_shift": ["Subshift6"]
     }
   },
   {

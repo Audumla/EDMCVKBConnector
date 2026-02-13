@@ -15,9 +15,9 @@ from pathlib import Path
 from unittest.mock import Mock
 from contextlib import contextmanager
 
-from edmcvkbconnector.config import Config, DEFAULTS
-from edmcvkbconnector.vkb_client import VKBClient
-from edmcvkbconnector.event_handler import EventHandler
+from edmcruleengine.config import Config, DEFAULTS
+from edmcruleengine.vkb_client import VKBClient
+from edmcruleengine.event_handler import EventHandler
 from tests.mock_vkb_server import MockVKBServer
 
 RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
@@ -380,3 +380,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

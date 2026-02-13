@@ -1,6 +1,6 @@
 """Unit tests for Config module."""
 
-from edmcvkbconnector.config import Config
+from edmcruleengine.config import Config
 
 
 def test_config_defaults():
@@ -37,7 +37,7 @@ def test_config_get_methods():
 
 def test_vkb_client_init():
     """Test VKBClient initialization."""
-    from edmcvkbconnector.vkb_client import VKBClient
+    from edmcruleengine.vkb_client import VKBClient
     
     client = VKBClient(
         host="127.0.0.1",
@@ -59,8 +59,8 @@ def test_vkb_client_init():
 
 def test_event_handler_init():
     """Test EventHandler initialization."""
-    from edmcvkbconnector.event_handler import EventHandler
-    from edmcvkbconnector.config import Config
+    from edmcruleengine.event_handler import EventHandler
+    from edmcruleengine.config import Config
     
     config = Config()
     handler = EventHandler(config)
@@ -72,7 +72,7 @@ def test_event_handler_init():
 
 def test_message_formatter():
     """Test message formatting."""
-    from edmcvkbconnector.message_formatter import PlaceholderMessageFormatter
+    from edmcruleengine.message_formatter import PlaceholderMessageFormatter
     
     formatter = PlaceholderMessageFormatter(
         header_byte=0xA5,
@@ -85,6 +85,7 @@ def test_message_formatter():
     assert len(message) == 8, f"Expected 8 bytes, got {len(message)}"
     assert message[0] == 0xA5, f"Expected header 0xA5, got {message[0]:02x}"
     assert message[1] == 13, f"Expected command 13, got {message[1]}"
+    assert message[3] == 4, f"Expected data length 4, got {message[3]}"
     
     print("[OK] MessageFormatter test passed")
 
@@ -107,3 +108,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

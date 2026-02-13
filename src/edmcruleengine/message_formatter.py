@@ -64,7 +64,7 @@ class PlaceholderMessageFormatter(MessageFormatter):
                 shift,
                 subshift,
                 0,
-                0,
+                0
             ])
 
         # Only VKBShiftBitmap is a valid VKB-Link protocol message.

@@ -55,7 +55,7 @@ The repository includes a `src/` directory for development organization. When de
 1. **Option A**: Install in editable mode in EDMC plugins directory:
    ```bash
    cd <EDMC Plugins>
-   git clone https://github.com/yourusername/EDMCVKBConnector.git
+   git clone https://github.com/Audumla/EDMCVKBConnector.git
    cd EDMCVKBConnector
    pip install -e .
    ```

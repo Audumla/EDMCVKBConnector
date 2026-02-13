@@ -1,5 +1,28 @@
 [
   {
+    "id": "landing gear down",
+    "enabled": true,
+    "when": {
+      "source": "dashboard",
+      "event": "Status",
+      "all": [
+        {
+          "flags": {
+            "equals": {
+              "FlagsLandingGearDown": true
+            }
+          }
+        }
+      ]
+    },
+    "then": {
+      "vkb_set_shift": ["Subshift3"]
+    },
+    "else": {
+      "vkb_clear_shift": ["Subshift3"]
+    }
+  },
+  {
     "id": "hardpoints_deployed_in_ship",
     "enabled": true,
     "when": {
@@ -82,10 +105,10 @@
       ]
     },
     "then": {
-      "vkb_set_shift": ["Shift1","Subshift3"]
+      "vkb_set_shift": ["Shift1"]
     },
     "else": {
-      "vkb_clear_shift": ["Shift1","Subshift3"]
+      "vkb_clear_shift": ["Shift1"]
     }
   }
 ]

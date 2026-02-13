@@ -16,7 +16,7 @@ PLUGIN_REGISTRY_INFO = {
     "pluginAuthors": [
         "EDMC VKB Connector Contributors"
     ],
-    "pluginMainLink": "https://github.com/yourusername/EDMCVKBConnector",
+    "pluginMainLink": "https://github.com/Audumla/EDMCVKBConnector",
     "pluginLastUpdate": "2025-02-10",
     "pluginDirName": "EDMCVKBConnector",
     "pluginCategory": [

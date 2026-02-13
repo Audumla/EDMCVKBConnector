@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from unittest.mock import Mock
 
-from edmcvkbconnector.config import DEFAULTS
-from edmcvkbconnector.event_handler import EventHandler
-from edmcvkbconnector.rules_engine import RuleMatchResult, decode_dashboard, rule_evaluate
+from edmcruleengine.config import DEFAULTS
+from edmcruleengine.event_handler import EventHandler
+from edmcruleengine.rules_engine import RuleMatchResult, decode_dashboard, rule_evaluate
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -296,7 +296,7 @@ def test_else_and_indeterminate_action_paths():
         {"event": "Status", "Flags": 1 << 6, "Flags2": 0, "GuiFocus": 0},
         source="dashboard",
     )
-    assert handler._shift_bitmap & 0b00000010 == 0b00000010
+    assert handler._shift_bitmap & 0b00000001 == 0b00000001
 
     # NO_MATCH path should run else and clear Shift1.
     handler.handle_event(
@@ -304,7 +304,7 @@ def test_else_and_indeterminate_action_paths():
         {"event": "Status", "Flags": 0, "Flags2": 0, "GuiFocus": 0},
         source="dashboard",
     )
-    assert handler._shift_bitmap & 0b00000010 == 0
+    assert handler._shift_bitmap & 0b00000001 == 0
 
     previous_shift = handler._shift_bitmap
     previous_subshift = handler._subshift_bitmap
@@ -339,7 +339,7 @@ def test_invalid_actions_and_tokens_do_not_break_valid_updates():
         {"event": "Status", "Flags": 1 << 0, "Flags2": 0, "GuiFocus": 0},
         source="dashboard",
     )
-    assert handler._shift_bitmap & 0b00000010 == 0b00000010
+    assert handler._shift_bitmap & 0b00000001 == 0b00000001
     assert handler._subshift_bitmap & 0b00000100 == 0b00000100
 
     print("[OK] Invalid actions/tokens handling passed")
@@ -371,3 +371,4 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("[SUCCESS] Comprehensive file-backed rules tests passed")
     print("=" * 70)
+

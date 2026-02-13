@@ -133,7 +133,7 @@ The plugin can forward any Elite Dangerous journal event. Common events include:
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/EDMCVKBConnector.git
+git clone https://github.com/Audumla/EDMCVKBConnector.git
 cd EDMCVKBConnector
 
 # Create virtual environment
@@ -184,11 +184,11 @@ test.bat all           # All except real (default)
 - **Real Hardware Tests** (6 tests): Integration with actual VKB hardware via VKB-Link
 
 **Documentation**:
-- [Complete Test Suite Documentation](TEST_SUITE.md) - Overview of all 25+ tests
+- [Complete Test Suite Documentation](docs/TEST_SUITE.md) - Overview of all 25+ tests
 - [Real Hardware Testing Guide](tests/REAL_SERVER_TESTS.md) - Setup and troubleshooting for VKB hardware tests
-- [Real Server Quick Start](REAL_SERVER_SETUP.md) - Quick configuration guide
+- [Real Server Quick Start](docs/REAL_SERVER_SETUP.md) - Quick configuration guide
 
-**Note**: Real hardware tests are disabled by default for safety. See [REAL_SERVER_SETUP.md](REAL_SERVER_SETUP.md) for configuration instructions.
+**Note**: Real hardware tests are disabled by default for safety. See [REAL_SERVER_SETUP.md](docs/REAL_SERVER_SETUP.md) for configuration instructions.
 
 ### Code Style
 

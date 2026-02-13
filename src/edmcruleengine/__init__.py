@@ -15,9 +15,9 @@ __license__ = "MIT"
 # Central logger name for the plugin.  load.py sets this to
 # "EDMarketConnector.<folder>" at EDMC startup so every submodule
 # logs under the same hierarchy that EDMC manages.  During tests
-# (where load.py is never imported) the default "edmcvkbconnector"
+# (where load.py is never imported) the default "edmcruleengine"
 # parent is used, which pytest's log_cli captures automatically.
-_PLUGIN_LOGGER_NAME: str = "edmcvkbconnector"
+_PLUGIN_LOGGER_NAME: str = "edmcruleengine"
 
 
 def set_plugin_logger_name(name: str) -> None:
@@ -30,14 +30,14 @@ def set_plugin_logger_name(name: str) -> None:
     # from this package before plugin_start3 runs, which imports submodules
     # that create logger globals immediately.
     for module_name in (
-        "src.edmcvkbconnector.config",
-        "src.edmcvkbconnector.vkb_client",
-        "src.edmcvkbconnector.event_handler",
-        "src.edmcvkbconnector.rules_engine",
-        "edmcvkbconnector.config",
-        "edmcvkbconnector.vkb_client",
-        "edmcvkbconnector.event_handler",
-        "edmcvkbconnector.rules_engine",
+        "src.edmcruleengine.config",
+        "src.edmcruleengine.vkb_client",
+        "src.edmcruleengine.event_handler",
+        "src.edmcruleengine.rules_engine",
+        "edmcruleengine.config",
+        "edmcruleengine.vkb_client",
+        "edmcruleengine.event_handler",
+        "edmcruleengine.rules_engine",
     ):
         module = sys.modules.get(module_name)
         if module is None or not hasattr(module, "logger"):
@@ -50,11 +50,11 @@ def plugin_logger(module: str) -> logging.Logger:
 
     Usage in submodules::
 
-        from edmcvkbconnector import plugin_logger
+        from edmcruleengine import plugin_logger
         logger = plugin_logger(__name__)
 
-    Inside EDMC this yields e.g. ``EDMarketConnector.edmcvkbconnector.config``.
-    During tests it yields ``edmcvkbconnector.config``.
+    Inside EDMC this yields e.g. ``EDMarketConnector.edmcruleengine.config``.
+    During tests it yields ``edmcruleengine.config``.
     """
     # Always return the base plugin logger.
     # In EDMC this logger has EDMCContextFilter attached by
@@ -74,3 +74,4 @@ __all__ = [
     "MessageFormatter",
     "PlaceholderMessageFormatter",
 ]
+

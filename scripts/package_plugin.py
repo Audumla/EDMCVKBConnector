@@ -16,6 +16,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DIST_DIR = PROJECT_ROOT / "dist"
 PLUGIN_NAME = "EDMCVKBConnector"
+DEPLOY_PACKAGE_DIR = "edmcruleengine"
 
 # Files/dirs to include (relative to project root)
 INCLUDE = [
@@ -25,13 +26,20 @@ INCLUDE = [
     "README.md",
     "rules.json.example",
     "config.json.example",
-    "src/edmcvkbconnector/__init__.py",
-    "src/edmcvkbconnector/config.py",
-    "src/edmcvkbconnector/event_handler.py",
-    "src/edmcvkbconnector/message_formatter.py",
-    "src/edmcvkbconnector/rules_engine.py",
-    "src/edmcvkbconnector/vkb_client.py",
+    "src/edmcruleengine/__init__.py",
+    "src/edmcruleengine/config.py",
+    "src/edmcruleengine/event_handler.py",
+    "src/edmcruleengine/message_formatter.py",
+    "src/edmcruleengine/rules_engine.py",
+    "src/edmcruleengine/vkb_client.py",
 ]
+
+
+def archive_relpath(rel: str) -> str:
+    """Map source-tree paths to deployment layout paths inside the zip."""
+    if rel.startswith("src/edmcruleengine/"):
+        return rel.replace("src/edmcruleengine/", f"{DEPLOY_PACKAGE_DIR}/", 1)
+    return rel
 
 
 def get_version() -> str:
@@ -68,7 +76,7 @@ def package() -> Path:
             src = PROJECT_ROOT / rel
             if not src.exists():
                 continue
-            arcname = f"{PLUGIN_NAME}/{rel}"
+            arcname = f"{PLUGIN_NAME}/{archive_relpath(rel)}"
             zf.write(src, arcname)
             print(f"  + {arcname}")
             count += 1
@@ -86,3 +94,4 @@ def package() -> Path:
 
 if __name__ == "__main__":
     package()
+

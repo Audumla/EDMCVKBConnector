@@ -287,7 +287,7 @@ class EventHandler:
                 if idx < 1 or idx > 2:
                     logger.warning(f"[EDMCVKBConnector:{rule_id}] Shift index {idx} out of range (1-2): {token}")
                     continue
-                self._shift_bitmap = self._apply_bit(self._shift_bitmap, idx, set_bits)
+                self._shift_bitmap = self._apply_bit(self._shift_bitmap, idx-1, set_bits)
             else:  # Subshift
                 # Subshift codes 1-7 only; Subshift1 maps to bit 0, Subshift7 to bit 6
                 if idx < 1 or idx > 7:
@@ -304,7 +304,7 @@ class EventHandler:
 
     def _send_shift_state_if_changed(self, *, force: bool = False) -> None:
         payload = {
-            "shift": self._shift_bitmap & 0x06,      # Shift1/Shift2 only (bits 1-2)
+            "shift": self._shift_bitmap & 0x03,      # Shift1/Shift2 only (bits 0-1)
             "subshift": self._subshift_bitmap & 0x7F,  # 7 subshift codes (bits 0-6)
         }
         if force or payload["shift"] != self._last_sent_shift or payload["subshift"] != self._last_sent_subshift:
@@ -313,7 +313,11 @@ class EventHandler:
                 return
             self._last_sent_shift = payload["shift"]
             self._last_sent_subshift = payload["subshift"]
-            active_shifts = [i for i in (1, 2) if payload["shift"] & (1 << i)]
+            active_shifts = [
+                shift_num
+                for shift_num, bit_pos in ((1, 0), (2, 1))
+                if payload["shift"] & (1 << bit_pos)
+            ]
             active_subshifts = [i + 1 for i in range(7) if payload["subshift"] & (1 << i)]
             logger.info(f"VKB-Link <- Shift {active_shifts} Subshift {active_subshifts}")
 

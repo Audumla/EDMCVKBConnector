@@ -3,8 +3,8 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from edmcvkbconnector.config import Config
-from edmcvkbconnector.event_handler import EventHandler
+from edmcruleengine.config import Config
+from edmcruleengine.event_handler import EventHandler
 
 
 def test_event_flow():
@@ -177,3 +177,4 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+

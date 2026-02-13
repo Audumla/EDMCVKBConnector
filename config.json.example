@@ -17,16 +17,6 @@
   "vkb_command_byte": 13,
   "enabled": true,
   "debug": false,
-  "event_types": [
-    "Status",
-    "Location",
-    "FSDJump",
-    "DockingGranted",
-    "Undocked",
-    "LaunchSRV",
-    "DockSRV",
-    "Supercruise",
-    "Docked"
-  ],
+  "event_types": [],
   "rules_path": ""
 }

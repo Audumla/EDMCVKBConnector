@@ -40,10 +40,10 @@ def load_env_file():
 
 load_env_file()
 
-from edmcvkbconnector.config import DEFAULTS
-from edmcvkbconnector.vkb_client import VKBClient
-from edmcvkbconnector.event_handler import EventHandler
-from edmcvkbconnector.rules_engine import FLAGS, FLAGS2, GUI_FOCUS
+from edmcruleengine.config import DEFAULTS
+from edmcruleengine.vkb_client import VKBClient
+from edmcruleengine.event_handler import EventHandler
+from edmcruleengine.rules_engine import FLAGS, FLAGS2, GUI_FOCUS
 
 
 # ---------------------------------------------------------------------------
@@ -410,7 +410,7 @@ def test_real_server_rules_dashboard_flags():
             source="dashboard",
         )
         time.sleep(STEP_DELAY)
-        assert handler._shift_bitmap & (1 << 1), "Shift1 should be set (hardpoints)"
+        assert handler._shift_bitmap & (1 << 0), "Shift1 should be set (hardpoints)"
         print(f"  [OK] Shift: 0b{handler._shift_bitmap:08b}  Subshift: 0b{handler._subshift_bitmap:08b} (Shift1 set)")
 
         # 2) Hardpoints retracted -> should clear Shift1 (else branch)
@@ -421,7 +421,7 @@ def test_real_server_rules_dashboard_flags():
             source="dashboard",
         )
         time.sleep(STEP_DELAY)
-        assert not (handler._shift_bitmap & (1 << 1)), "Shift1 should be cleared"
+        assert not (handler._shift_bitmap & (1 << 0)), "Shift1 should be cleared"
         print(f"  [OK] Shift: 0b{handler._shift_bitmap:08b}  Subshift: 0b{handler._subshift_bitmap:08b} (Shift1 cleared)")
 
         # 3) Galaxy map -> Shift2
@@ -432,7 +432,7 @@ def test_real_server_rules_dashboard_flags():
             source="dashboard",
         )
         time.sleep(STEP_DELAY)
-        assert handler._shift_bitmap & (1 << 2), "Shift2 should be set (galaxy map)"
+        assert handler._shift_bitmap & (1 << 1), "Shift2 should be set (galaxy map)"
         print(f"  [OK] Shift: 0b{handler._shift_bitmap:08b}  Subshift: 0b{handler._subshift_bitmap:08b} (Shift2 set)")
 
         # 4) In danger -> Subshift3 (bit 2)
@@ -804,3 +804,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
