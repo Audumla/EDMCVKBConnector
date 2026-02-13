@@ -12,6 +12,7 @@ License: MIT
 
 import logging
 import os
+import json
 from typing import Any, Optional
 
 try:
@@ -121,6 +122,67 @@ def _restore_test_shift_state_from_config() -> None:
     subshift_bitmap = int(_config.get("test_subshift_bitmap", 0)) & 0x7F
     _event_handler._shift_bitmap = shift_bitmap
     _event_handler._subshift_bitmap = subshift_bitmap
+
+
+def _resolve_rules_file_path() -> str:
+    """Resolve the rules.json path used by the plugin."""
+    global _config, _plugin_dir
+    override = (_config.get("rules_path", "") if _config else "") or ""
+    override = str(override).strip()
+    if override:
+        return override
+    if _plugin_dir:
+        return os.path.join(_plugin_dir, "rules.json")
+    return os.path.join(os.getcwd(), "rules.json")
+
+
+def _load_rules_file_for_ui() -> tuple[list[dict], bool, str]:
+    """
+    Load rule objects for UI editing.
+
+    Returns:
+        (rules, wrapped, rules_path)
+        wrapped=True means file format is {"rules": [...]}
+    """
+    rules_path = _resolve_rules_file_path()
+    if not os.path.exists(rules_path):
+        return [], False, rules_path
+
+    try:
+        with open(rules_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load rules UI data from {rules_path}: {e}")
+        return [], False, rules_path
+
+    if isinstance(data, dict):
+        rules = data.get("rules")
+        if isinstance(rules, list):
+            return [r for r in rules if isinstance(r, dict)], True, rules_path
+        logger.warning(f"Rules file {rules_path} has object root but no 'rules' list")
+        return [], True, rules_path
+
+    if isinstance(data, list):
+        return [r for r in data if isinstance(r, dict)], False, rules_path
+
+    logger.warning(f"Rules file {rules_path} must contain a list or object with 'rules' list")
+    return [], False, rules_path
+
+
+def _save_rules_file_from_ui(rules: list[dict], wrapped: bool, rules_path: str) -> bool:
+    """Persist edited rules back to rules.json."""
+    try:
+        parent = os.path.dirname(rules_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        payload = {"rules": rules} if wrapped else rules
+        with open(rules_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+            f.write("\n")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to write rules file {rules_path}: {e}")
+        return False
 
 
 def plugin_start3(plugin_dir: str) -> Optional[str]:
@@ -500,6 +562,209 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             variable=subshift_vars[i],
             command=_apply_test_shift_from_ui,
         ).grid(row=1, column=1 + i, sticky="w", padx=2, pady=2)
+
+    # Rules editor UI
+    ttk.Separator(frame, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 6))
+    ttk.Label(frame, text="Rules Editor:").grid(row=5, column=0, sticky="w", padx=4, pady=(0, 4))
+
+    rules_frame = ttk.Frame(frame)
+    rules_frame.grid(row=6, column=0, columnspan=2, sticky="nsew", padx=4, pady=(0, 4))
+    frame.columnconfigure(1, weight=1)
+    frame.rowconfigure(6, weight=1)
+    rules_frame.columnconfigure(1, weight=1)
+
+    rules_list_canvas = tk.Canvas(rules_frame, height=180, width=280, highlightthickness=0)
+    rules_list_canvas.grid(row=0, column=0, sticky="nsw")
+    rules_scroll = ttk.Scrollbar(rules_frame, orient="vertical", command=rules_list_canvas.yview)
+    rules_scroll.grid(row=0, column=0, sticky="nse")
+    rules_list_canvas.configure(yscrollcommand=rules_scroll.set)
+    rules_list_inner = ttk.Frame(rules_list_canvas)
+    rules_list_window = rules_list_canvas.create_window((0, 0), window=rules_list_inner, anchor="nw")
+
+    editor_frame = ttk.Frame(rules_frame)
+    editor_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+    editor_frame.columnconfigure(0, weight=1)
+    editor_frame.rowconfigure(1, weight=1)
+
+    rules_text = tk.Text(editor_frame, height=12, width=64, wrap="none")
+    rules_text.grid(row=0, column=0, sticky="nsew")
+    rules_text_scroll = ttk.Scrollbar(editor_frame, orient="vertical", command=rules_text.yview)
+    rules_text_scroll.grid(row=0, column=1, sticky="ns")
+    rules_text.configure(yscrollcommand=rules_text_scroll.set)
+
+    rules_status_var = tk.StringVar(value="")
+    ttk.Label(editor_frame, textvariable=rules_status_var).grid(row=1, column=0, sticky="w", pady=(4, 0))
+
+    rules_buttons = ttk.Frame(editor_frame)
+    rules_buttons.grid(row=2, column=0, sticky="w", pady=(6, 0))
+
+    rules_data, rules_wrapped, rules_path = _load_rules_file_for_ui()
+    rules_state = {
+        "rules": rules_data,
+        "wrapped": rules_wrapped,
+        "path": rules_path,
+        "selected": None,
+        "selected_var": tk.IntVar(value=-1),
+        "enabled_vars": [],
+    }
+
+    def _rule_label(rule: dict, idx: int) -> str:
+        return str(rule.get("id", f"<rule-{idx}>"))
+
+    def _on_rules_inner_configure(event=None) -> None:
+        rules_list_canvas.configure(scrollregion=rules_list_canvas.bbox("all"))
+
+    def _on_rules_canvas_configure(event) -> None:
+        rules_list_canvas.itemconfigure(rules_list_window, width=event.width)
+
+    def _set_rule_enabled(idx: int, var) -> None:
+        if idx < 0 or idx >= len(rules_state["rules"]):
+            return
+        rule = dict(rules_state["rules"][idx])
+        rule["enabled"] = bool(var.get())
+        rules_state["rules"][idx] = rule
+        _persist_rules_with_reload("Saved enabled state")
+
+    def _refresh_rules_list(select_idx: Optional[int] = None) -> None:
+        for child in rules_list_inner.winfo_children():
+            child.destroy()
+        rules_state["enabled_vars"] = []
+
+        for i, rule in enumerate(rules_state["rules"]):
+            enabled_var = tk.BooleanVar(value=bool(rule.get("enabled", True)))
+            rules_state["enabled_vars"].append(enabled_var)
+            ttk.Checkbutton(
+                rules_list_inner,
+                variable=enabled_var,
+                command=lambda idx=i, v=enabled_var: _set_rule_enabled(idx, v),
+            ).grid(row=i, column=0, sticky="w", padx=(0, 4), pady=1)
+            ttk.Radiobutton(
+                rules_list_inner,
+                text=_rule_label(rule, i),
+                value=i,
+                variable=rules_state["selected_var"],
+                command=lambda idx=i: _load_selected_rule(idx),
+            ).grid(row=i, column=1, sticky="w", pady=1)
+
+        if not rules_state["rules"]:
+            rules_state["selected"] = None
+            rules_state["selected_var"].set(-1)
+            rules_text.delete("1.0", tk.END)
+            _on_rules_inner_configure()
+            return
+
+        if select_idx is None:
+            select_idx = rules_state["selected"] if isinstance(rules_state["selected"], int) else 0
+        select_idx = max(0, min(int(select_idx), len(rules_state["rules"]) - 1))
+        rules_state["selected_var"].set(select_idx)
+        _load_selected_rule(select_idx)
+        _on_rules_inner_configure()
+
+    def _load_selected_rule(idx: int) -> None:
+        if idx < 0 or idx >= len(rules_state["rules"]):
+            return
+        rules_state["selected"] = idx
+        rule = rules_state["rules"][idx]
+        rules_text.delete("1.0", tk.END)
+        rules_text.insert("1.0", json.dumps(rule, indent=2))
+
+    def _persist_rules_with_reload(success_msg: str) -> None:
+        ok = _save_rules_file_from_ui(
+            rules_state["rules"], bool(rules_state["wrapped"]), str(rules_state["path"])
+        )
+        if not ok:
+            rules_status_var.set(f"Failed to save: {rules_state['path']}")
+            return
+        rules_status_var.set(success_msg)
+        if _event_handler:
+            _event_handler.reload_rules()
+
+    def _save_selected_rule() -> None:
+        idx = rules_state["selected"]
+        if idx is None or idx < 0 or idx >= len(rules_state["rules"]):
+            return
+        raw_text = rules_text.get("1.0", tk.END).strip()
+        if not raw_text:
+            rules_status_var.set("Rule JSON is empty")
+            return
+        try:
+            parsed = json.loads(raw_text)
+        except json.JSONDecodeError as e:
+            rules_status_var.set(f"JSON error: {e.msg} (line {e.lineno})")
+            return
+        if not isinstance(parsed, dict):
+            rules_status_var.set("Rule must be a JSON object")
+            return
+        parsed["enabled"] = bool(parsed.get("enabled", rules_state["rules"][idx].get("enabled", True)))
+        rules_state["rules"][idx] = parsed
+        _refresh_rules_list(select_idx=idx)
+        _persist_rules_with_reload("Saved selected rule")
+
+    def _reload_rules_file() -> None:
+        data, wrapped, path = _load_rules_file_for_ui()
+        rules_state["rules"] = data
+        rules_state["wrapped"] = wrapped
+        rules_state["path"] = path
+        rules_state["selected"] = None
+        _refresh_rules_list()
+        rules_status_var.set("Reloaded rules from file")
+        if _event_handler:
+            _event_handler.reload_rules()
+
+    def _next_rule_id() -> str:
+        used_ids = {
+            str(rule.get("id", "")).strip()
+            for rule in rules_state["rules"]
+            if isinstance(rule, dict)
+        }
+        n = 1
+        while True:
+            candidate = f"rule-{n}"
+            if candidate not in used_ids:
+                return candidate
+            n += 1
+
+    def _new_rule() -> None:
+        new_rule = {
+            "id": _next_rule_id(),
+            "enabled": True,
+            "when": [],
+            "then": [],
+        }
+        rules_state["rules"].append(new_rule)
+        new_idx = len(rules_state["rules"]) - 1
+        _refresh_rules_list(select_idx=new_idx)
+        _persist_rules_with_reload("Created new rule")
+
+    def _delete_selected_rule() -> None:
+        idx = rules_state["selected"]
+        if idx is None or idx < 0 or idx >= len(rules_state["rules"]):
+            rules_status_var.set("No rule selected")
+            return
+        del rules_state["rules"][idx]
+        if not rules_state["rules"]:
+            rules_state["selected"] = None
+            _refresh_rules_list()
+        else:
+            _refresh_rules_list(select_idx=min(idx, len(rules_state["rules"]) - 1))
+        _persist_rules_with_reload("Deleted selected rule")
+
+    rules_list_inner.bind("<Configure>", _on_rules_inner_configure)
+    rules_list_canvas.bind("<Configure>", _on_rules_canvas_configure)
+    ttk.Button(rules_buttons, text="Save Rule JSON", command=_save_selected_rule).grid(
+        row=0, column=0, sticky="w"
+    )
+    ttk.Button(rules_buttons, text="Reload File", command=_reload_rules_file).grid(
+        row=0, column=1, sticky="w", padx=(6, 0)
+    )
+    ttk.Button(rules_buttons, text="New Rule", command=_new_rule).grid(
+        row=0, column=2, sticky="w", padx=(6, 0)
+    )
+    ttk.Button(rules_buttons, text="Delete Rule", command=_delete_selected_rule).grid(
+        row=0, column=3, sticky="w", padx=(6, 0)
+    )
+
+    _refresh_rules_list()
 
     return frame
 

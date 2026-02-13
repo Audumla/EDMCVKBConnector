@@ -9,7 +9,7 @@ This document certifies that EDMCVKBConnector complies with all standards as def
 The plugin uses semantic versioning compatible with the format `MAJOR.MINOR.PATCH` (e.g., 0.1.0).
 
 - **VERSION constant**: Defined in `load.py` as `VERSION = "0.1.0"`
-- **__version__ dunder**: Defined in `src/edmcvkbconnector/__init__.py` as `__version__ = "0.1.0"`
+- **__version__ dunder**: Defined in `src/edmcruleengine/__init__.py` as `__version__ = "0.1.0"`
 - **Standard**: Follows [Semantic Versioning](https://semver.org/) specification
 
 ## Compatibility ✅

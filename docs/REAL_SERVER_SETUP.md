@@ -7,6 +7,7 @@ This guide covers running the plugin and tests against a real VKB-Link endpoint.
 - VKB-Link `v0.8.2+`
 - VKB firmware `2.21.3+`
 - Verified with `VKBDevCfg v0.93.96`
+- VKB software/firmware source: https://www.njoy32.vkb-sim.pro/home
 
 ## Prerequisites
 
@@ -37,13 +38,13 @@ $env:TEST_VKB_PORT = '50995'
 From repository root:
 
 ```powershell
-python tests/test_real_vkb_server.py
+python test/test_real_vkb_server.py
 ```
 
 Or run the full test runner:
 
 ```powershell
-python tests/run_all_tests.py
+python test/run_all_tests.py
 ```
 
 ## What The Tests Verify

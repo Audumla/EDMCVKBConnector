@@ -16,6 +16,7 @@ EDMC plugin that maps Elite Dangerous events and status state to VKB shift/subsh
 - VKB-Link: `v0.8.2+`
 - VKB firmware: `2.21.3+`
 - Verified test tool: `VKBDevCfg v0.93.96`
+- VKB software/firmware downloads: https://www.njoy32.vkb-sim.pro/home
 
 ## Quick Start (Windows)
 
@@ -58,9 +59,10 @@ Full schema and examples:
 
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [VKB-Link Setup](docs/REAL_SERVER_SETUP.md)
-- [Test Suite](docs/TEST_SUITE.md)
 - [Architecture](docs/ARCHITECTURE.md)
-- [Quick Reference](docs/QUICK_REFERENCE.md)
+- [Protocol Implementation](docs/PROTOCOL_IMPLEMENTATION.md)
+- [Rules Schema](docs/RULES_SCHEMA.md)
+- [Standards Compliance](docs/STANDARDS_COMPLIANCE.md)
 
 ## Development
 
@@ -78,7 +80,7 @@ pip install -r requirements.txt -e .[dev]
 
 Run tests (Windows):
 ```powershell
-python tests/run_all_tests.py
+python test/run_all_tests.py
 ```
 
 ## License

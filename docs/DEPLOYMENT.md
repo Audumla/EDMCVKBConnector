@@ -51,6 +51,7 @@ EDMCVKBConnector/
 Compatibility baseline:
 - VKB-Link `v0.8.2+`
 - VKB firmware `2.21.3+`
+- VKB software/firmware source: https://www.njoy32.vkb-sim.pro/home
 
 ### For Developers (From Source)
 
@@ -78,8 +79,9 @@ The repository includes a `src/` directory for development organization. When de
 EDMC loads plugins by:
 1. Reading `load.py` from the plugin directory
 2. Calling `plugin_start3(plugin_dir)` function
-3. Calling `journal_entry(cmdr, is_beta, entry, state)` for each game event
-4. Calling `plugin_stop()` on shutdown
+3. Calling `journal_entry(cmdr, is_beta, system, station, entry, state)` for journal events
+4. Calling other supported notification hooks (`dashboard_entry`, `cmdr_data`, `capi_fleetcarrier`)
+5. Calling `plugin_stop()` on shutdown
 
 The `load.py` module in the deployment root:
 - Imports from the internal `edmcruleengine` package
@@ -155,8 +157,8 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 
 3. **Look for Plugin Message**:
    ```
-   EDMC VKB Connector v0.1.0 initializing...
-   Successfully connected to VKB device at 127.0.0.1:50995
+   VKB Connector v0.1.0 starting
+   Successfully connected to VKB hardware on startup
    ```
 
 4. **Test Event Forwarding**:
@@ -197,4 +199,4 @@ The plugin is completely self-contained and leaves no residual files.
 
 ---
 
-For more information, see the main [README.md](../README.md) or [STANDARDS_COMPLIANCE.md](../STANDARDS_COMPLIANCE.md).
+For more information, see the main [README.md](../README.md) or [STANDARDS_COMPLIANCE.md](STANDARDS_COMPLIANCE.md).
