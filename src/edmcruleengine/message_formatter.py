@@ -1,12 +1,8 @@
 """
-Message serialization abstraction for VKB protocol.
+Message serialization for VKB-Link.
 
-This module defines the interface for serializing events into the format
-expected by VKB-Link. The VKBShiftBitmap packet is implemented; other
-messages remain abstracted for future protocol expansion.
-
-When VKB-Link's protocol expands, implement a MessageFormatter subclass
-with the additional bitmap/compact format specifications.
+The VKB-Link protocol used by this plugin is fixed and implemented as
+`VKBShiftBitmap` packets.
 """
 
 from abc import ABC, abstractmethod
@@ -15,11 +11,7 @@ from typing import Any, Dict
 
 class MessageFormatter(ABC):
     """
-    Abstract base class for VKB message formatting.
-    
-    Defines the interface for converting EDMC events into the byte format
-    expected by VKB-Link. Additional protocol messages will be added as
-    VKB-Link's TCP/IP communication is finalized.
+    Formatter interface for VKB-Link message serialization.
     """
 
     @abstractmethod
@@ -37,12 +29,12 @@ class MessageFormatter(ABC):
         pass
 
 
-class PlaceholderMessageFormatter(MessageFormatter):
+class VKBLinkMessageFormatter(MessageFormatter):
     """
-    Placeholder formatter with VKBShiftBitmap support.
-    
-    Additional VKB protocol messages can be added here or via a
-    dedicated formatter subclass as the specification evolves.
+    Concrete formatter for the current VKB-Link protocol.
+
+    Supported event:
+    - `VKBShiftBitmap`
     """
 
     def __init__(self, *, header_byte: int = 0xA5, command_byte: int = 13) -> None:
@@ -51,7 +43,7 @@ class PlaceholderMessageFormatter(MessageFormatter):
 
     def format_event(self, event_type: str, event_data: Dict[str, Any]) -> bytes:
         """
-        Formats VKB shift/subshift bitmap packets or falls back to text.
+        Format VKB shift/subshift bitmap packets.
         """
         if event_type == "VKBShiftBitmap":
             shift = int(event_data.get("shift", 0)) & 0xFF
@@ -74,3 +66,7 @@ class PlaceholderMessageFormatter(MessageFormatter):
             f"Unsupported VKB event type '{event_type}'. "
             f"Only 'VKBShiftBitmap' is a valid VKB-Link protocol message."
         )
+
+
+# Backward-compatible alias kept for existing imports/tests.
+PlaceholderMessageFormatter = VKBLinkMessageFormatter

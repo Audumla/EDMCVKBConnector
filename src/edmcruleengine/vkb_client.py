@@ -1,8 +1,8 @@
 """
-TCP/IP socket client for VKB hardware communication.
+TCP/IP socket client for VKB-Link communication.
 
 Implements fault-tolerant connection management with automatic reconnection.
-The message format is abstracted and can be customized via MessageFormatter.
+Uses the current VKB-Link `VKBShiftBitmap` message format by default.
 """
 
 import socket
@@ -20,7 +20,7 @@ logger = plugin_logger(__name__)
 
 class VKBClient:
     """
-    TCP/IP socket client for communicating with VKB hardware.
+    TCP/IP socket client for communicating with VKB-Link.
 
     Handles socket connection, message serialization, and event forwarding
     with fault-tolerant automatic reconnection capabilities.
@@ -54,12 +54,10 @@ class VKBClient:
         Initialize VKB client.
 
         Args:
-            host: VKB device IP address (default: localhost)
-            port: VKB device port (default: 50995)
+            host: VKB-Link host (default: localhost)
+            port: VKB-Link port (default: 50995)
             message_formatter: Optional message formatter for VKB protocol.
-                             If not provided, uses PlaceholderMessageFormatter.
-                             Implement a custom MessageFormatter subclass to use
-                             different serialization formats.
+                             If not provided, uses VKBLinkMessageFormatter.
             header_byte: VKB protocol header byte (default: 0xA5)
             command_byte: VKB protocol command byte (default: 13)
             initial_retry_interval: Initial reconnection retry interval in seconds (default: 2)
@@ -84,8 +82,8 @@ class VKBClient:
 
         # Message formatting
         if message_formatter is None:
-            from .message_formatter import PlaceholderMessageFormatter
-            message_formatter = PlaceholderMessageFormatter(
+            from .message_formatter import VKBLinkMessageFormatter
+            message_formatter = VKBLinkMessageFormatter(
                 header_byte=header_byte,
                 command_byte=command_byte,
             )
@@ -315,4 +313,3 @@ class VKBClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.disconnect()
-

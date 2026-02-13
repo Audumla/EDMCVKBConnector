@@ -8,7 +8,7 @@ This document explains how to properly deploy EDMCVKBConnector as an EDMC plugin
 ```
 EDMCVKBConnector/
   src/
-    edmcvkbconnector/
+    edmcruleengine/
       __init__.py
       config.py
       vkb_client.py
@@ -26,7 +26,7 @@ EDMCVKBConnector/
 <EDMC Plugins>/
   EDMCVKBConnector/
     load.py                  # EDMC entry point
-    edmcvkbconnector/
+    edmcruleengine/
       __init__.py
       config.py
       vkb_client.py
@@ -48,6 +48,10 @@ EDMCVKBConnector/
 3. **Restart** EDMC
 4. **Configure** in EDMC preferences (VKB host/port) and optionally create `rules.json`
 
+Compatibility baseline:
+- VKB-Link `v0.8.2+`
+- VKB firmware `2.21.3+`
+
 ### For Developers (From Source)
 
 The repository includes a `src/` directory for development organization. When deploying:
@@ -63,7 +67,7 @@ The repository includes a `src/` directory for development organization. When de
 2. **Option B**: Copy the deployment structure manually:
    ```bash
    # Copy only the necessary files
-   cp -r src/edmcvkbconnector <EDMC Plugins>/EDMCVKBConnector/
+   cp -r src/edmcruleengine <EDMC Plugins>/EDMCVKBConnector/
    cp load.py <EDMC Plugins>/EDMCVKBConnector/
    cp README.md <EDMC Plugins>/EDMCVKBConnector/
    cp rules.json.example <EDMC Plugins>/EDMCVKBConnector/
@@ -78,7 +82,7 @@ EDMC loads plugins by:
 4. Calling `plugin_stop()` on shutdown
 
 The `load.py` module in the deployment root:
-- Imports from the internal `edmcvkbconnector` package
+- Imports from the internal `edmcruleengine` package
 - Registers event handlers
 - Manages plugin lifecycle
 - Handles configuration loading
@@ -96,17 +100,17 @@ Rules are defined in `rules.json` in the plugin directory (or via
 
 The plugin uses relative imports:
 ```python
-from edmcvkbconnector import Config, EventHandler
+from edmcruleengine import Config, EventHandler
 ```
 
 When EDMC loads the plugin:
 1. The plugin directory becomes part of `sys.path`
-2. `load.py` can directly import from `edmcvkbconnector/`
-3. `edmcvkbconnector/__init__.py` imports submodules
+2. `load.py` can directly import from `edmcruleengine/`
+3. `edmcruleengine/__init__.py` imports submodules
 
 This works because:
 - `load.py` is in the deployment root
-- `edmcvkbconnector/` package is adjacent to `load.py`
+- `edmcruleengine/` package is adjacent to `load.py`
 - EDMC adds the plugin directory to the Python path
 
 ## Building a Release
@@ -118,7 +122,7 @@ To create a release archive for users:
 mkdir -p build/EDMCVKBConnector
 
 # Copy necessary files
-cp -r src/edmcvkbconnector build/EDMCVKBConnector/
+cp -r src/edmcruleengine build/EDMCVKBConnector/
 cp load.py build/EDMCVKBConnector/
 cp README.md build/EDMCVKBConnector/
 cp LICENSE build/EDMCVKBConnector/
@@ -140,7 +144,7 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 1. **Verify File Structure**:
    ```bash
    ls -la <EDMC Plugins>/EDMCVKBConnector/
-   # Should see: load.py, edmcvkbconnector/, README.md, etc.
+   # Should see: load.py, edmcruleengine/, README.md, etc.
    ```
 
 2. **Check EDMC Log**:
@@ -172,7 +176,7 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 
 ### Import Errors
 
-- **Module Not Found**: Verify `edmcvkbconnector/` directory exists
+- **Module Not Found**: Verify `edmcruleengine/` directory exists
 - **Check Permissions**: Ensure plugin directory is readable
 - **Path Issues**: Verify directory structure matches deployment structure
 
