@@ -220,10 +220,9 @@ def _apply_test_shift_from_ui() -> None:
         return
 
     shift_bitmap = 0
-    for idx in range(min(3, len(shift_vars))):
-        var = shift_vars[idx]
+    for var, shift_code in zip(shift_vars, (1, 2)):
         if hasattr(var, "get") and bool(var.get()):
-            shift_bitmap |= (1 << idx)
+            shift_bitmap |= (1 << shift_code)
 
     subshift_bitmap = 0
     for code in range(1, min(8, len(subshift_vars) + 1)):
@@ -438,7 +437,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     port_var = tk.StringVar(value=str(vkb_port))
     current_shift = _event_handler._shift_bitmap if _event_handler else 0
     current_subshift = _event_handler._subshift_bitmap if _event_handler else 0
-    shift_vars = [tk.BooleanVar(value=bool(current_shift & (1 << i))) for i in range(3)]
+    shift_vars = [tk.BooleanVar(value=bool(current_shift & (1 << code))) for code in (1, 2)]
     subshift_vars = [tk.BooleanVar(value=bool(current_subshift & (1 << i))) for i in range(7)]
 
     _prefs_vars = {
@@ -457,10 +456,10 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     ttk.Separator(frame, orient="horizontal").grid(row=2, column=0, columnspan=4, sticky="ew", padx=4, pady=(8, 6))
     ttk.Label(frame, text="Shift/Subshift Test:").grid(row=3, column=0, sticky="w", padx=4, pady=(0, 4))
 
-    for i in range(3):
+    for i, shift_code in enumerate((1, 2)):
         ttk.Checkbutton(
             frame,
-            text=f"Shift{i}",
+            text=f"Shift{shift_code}",
             variable=shift_vars[i],
             command=_apply_test_shift_from_ui,
         ).grid(row=4, column=i, sticky="w", padx=4, pady=2)

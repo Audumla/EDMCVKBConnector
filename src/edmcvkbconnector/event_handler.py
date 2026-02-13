@@ -16,7 +16,7 @@ from .vkb_client import VKBClient
 logger = plugin_logger(__name__)
 
 # Pre-compiled regex for shift token parsing (optimization #11)
-# Matches: Shift0-7 or Subshift0-7
+# Matches: Shift1-2 or Subshift1-7
 _SHIFT_TOKEN_PATTERN = re.compile(r"^(Subshift|Shift)(\d+)$")
 
 
@@ -283,9 +283,9 @@ class EventHandler:
             idx = int(match.group(2))
             
             if shift_type == "Shift":
-                # Shift codes 0-2 only (3 shift positions)
-                if idx < 0 or idx > 2:
-                    logger.warning(f"[EDMCVKBConnector:{rule_id}] Shift index {idx} out of range (0-2): {token}")
+                # Shift codes 1-2 only (mapped to bits 1-2)
+                if idx < 1 or idx > 2:
+                    logger.warning(f"[EDMCVKBConnector:{rule_id}] Shift index {idx} out of range (1-2): {token}")
                     continue
                 self._shift_bitmap = self._apply_bit(self._shift_bitmap, idx, set_bits)
             else:  # Subshift
@@ -304,7 +304,7 @@ class EventHandler:
 
     def _send_shift_state_if_changed(self, *, force: bool = False) -> None:
         payload = {
-            "shift": self._shift_bitmap & 0x07,      # 3 shift codes (bits 0-2)
+            "shift": self._shift_bitmap & 0x06,      # Shift1/Shift2 only (bits 1-2)
             "subshift": self._subshift_bitmap & 0x7F,  # 7 subshift codes (bits 0-6)
         }
         if force or payload["shift"] != self._last_sent_shift or payload["subshift"] != self._last_sent_subshift:
@@ -313,7 +313,7 @@ class EventHandler:
                 return
             self._last_sent_shift = payload["shift"]
             self._last_sent_subshift = payload["subshift"]
-            active_shifts = [i for i in range(3) if payload["shift"] & (1 << i)]
+            active_shifts = [i for i in (1, 2) if payload["shift"] & (1 << i)]
             active_subshifts = [i + 1 for i in range(7) if payload["subshift"] & (1 << i)]
             logger.info(f"VKB-Link <- Shift {active_shifts} Subshift {active_subshifts}")
 
