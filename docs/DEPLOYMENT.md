@@ -95,6 +95,15 @@ Core settings (host/port/debug/etc.) are stored via EDMC preferences.
 Open EDMC Settings and edit the VKB host/port. Advanced users can edit
 the EDMC config store directly with the `VKBConnector_` prefix.
 
+Default plugin endpoint is `127.0.0.1:50995`. Ensure VKB-Link is set to the same
+address/port in its `ini` file:
+
+```ini
+[TCP]
+Adress=127.0.0.1
+Port=50995
+```
+
 Rules are defined in `rules.json` in the plugin directory (or via
 `VKBConnector_rules_path` override).
 

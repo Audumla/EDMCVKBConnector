@@ -81,12 +81,31 @@ def package() -> Path:
             print(f"  + {arcname}")
             count += 1
 
-        # Include rules.json if the user has one (not tracked in git)
+        # Include concrete rules.json/config.json for out-of-the-box usability.
+        # Prefer user-provided files, otherwise fall back to the example files.
         rules = PROJECT_ROOT / "rules.json"
         if rules.exists():
             zf.write(rules, f"{PLUGIN_NAME}/rules.json")
             print(f"  + {PLUGIN_NAME}/rules.json")
             count += 1
+        else:
+            rules_example = PROJECT_ROOT / "rules.json.example"
+            if rules_example.exists():
+                zf.write(rules_example, f"{PLUGIN_NAME}/rules.json")
+                print(f"  + {PLUGIN_NAME}/rules.json (from rules.json.example)")
+                count += 1
+
+        config = PROJECT_ROOT / "config.json"
+        if config.exists():
+            zf.write(config, f"{PLUGIN_NAME}/config.json")
+            print(f"  + {PLUGIN_NAME}/config.json")
+            count += 1
+        else:
+            config_example = PROJECT_ROOT / "config.json.example"
+            if config_example.exists():
+                zf.write(config_example, f"{PLUGIN_NAME}/config.json")
+                print(f"  + {PLUGIN_NAME}/config.json (from config.json.example)")
+                count += 1
 
     print(f"\nPackaged {count} files -> {zip_path} ({zip_path.stat().st_size:,} bytes)")
     return zip_path

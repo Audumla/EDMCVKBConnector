@@ -78,6 +78,16 @@ def deploy(edmc_root: Path) -> Path:
         copied += 1
         print("  + rules.json (from rules.json.example)")
 
+    config_src = PROJECT_ROOT / "config.json"
+    if config_src.exists():
+        shutil.copy2(config_src, dest / "config.json")
+        copied += 1
+        print("  + config.json")
+    else:
+        shutil.copy2(PROJECT_ROOT / "config.json.example", dest / "config.json")
+        copied += 1
+        print("  + config.json (from config.json.example)")
+
     print(f"\nDeployed {copied} files to: {dest}")
     return dest
 

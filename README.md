@@ -46,6 +46,17 @@ Main keys:
 - `event_types = []` -> no filtering
 - non-empty list -> only listed event names are processed
 
+### VKB-Link TCP Configuration
+
+The plugin default is `127.0.0.1:50995`.  
+VKB-Link must be configured to use the same TCP endpoint in its `ini` file:
+
+```ini
+[TCP]
+Adress=127.0.0.1
+Port=50995
+```
+
 ## Rules
 
 Rules are read from `rules.json` and can set/clear shift tokens:

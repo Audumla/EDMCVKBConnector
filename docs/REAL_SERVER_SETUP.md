@@ -15,6 +15,17 @@ This guide covers running the plugin and tests against a real VKB-Link endpoint.
 - VKB-Link running with TCP enabled
 - VKB-Link host/port known (default `127.0.0.1:50995`)
 
+## VKB-Link INI TCP Settings
+
+The plugin standard/default endpoint is `127.0.0.1:50995`.
+Set VKB-Link's `ini` file TCP section to match:
+
+```ini
+[TCP]
+Adress=127.0.0.1
+Port=50995
+```
+
 ## Configure
 
 Use environment variables or `.env`:
