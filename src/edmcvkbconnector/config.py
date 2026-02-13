@@ -1,76 +1,133 @@
 """
 Configuration management for EDMC VKB Connector.
+
+Uses EDMC's standard configuration API for storing plugin preferences.
+Configuration is persisted by EDMC in the system-appropriate location
+(registry on Windows, plist on macOS, etc.).
 """
 
-import json
 import logging
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, List, Optional
+
+try:
+    from config import config
+except Exception:
+    # Fallback for local testing without EDMC
+    config = None
 
 logger = logging.getLogger(__name__)
+
+# Configuration key prefix to namespace plugin settings
+CONFIG_PREFIX = "VKBConnector_"
+
+# Defaults for all configuration keys
+DEFAULTS = {
+    "vkb_host": "127.0.0.1",
+    "vkb_port": 50995,
+    "enabled": True,
+    "debug": False,
+    "event_types": ["Status", "Location", "FSDJump", "DockingGranted", "Undocked", "LaunchSRV", "DockSRV"],
+    "rules_path": "",
+    "vkb_header_byte": 0xA5,
+    "vkb_command_byte": 13,
+}
 
 
 class Config:
     """
-    Manages configuration for VKB connector.
-    
-    Configuration can be loaded from a JSON file or set programmatically.
+    Manages configuration for VKB Connector using EDMC's config API.
+
+    Configuration is stored in EDMC's persistent storage and can be
+    managed via EDMC's settings dialog if the plugin provides a UI panel.
+
+    For local testing without EDMC, falls back to in-memory defaults.
     """
 
-    DEFAULT_CONFIG = {
-        "vkb_host": "127.0.0.1",
-        "vkb_port": 12345,
-        "enabled": True,
-        "debug": False,
-        "event_types": [
-            "Location",
-            "FSDJump",
-            "DockingGranted",
-            "Undocked",
-            "LaunchSRV",
-            "DockSRV",
-        ],
-    }
-
-    def __init__(self, config_file: Optional[str] = None):
-        """
-        Initialize configuration.
-        
-        Args:
-            config_file: Path to configuration JSON file. If not provided,
-                        uses default configuration.
-        """
-        self.config: Dict[str, Any] = self.DEFAULT_CONFIG.copy()
-        if config_file and Path(config_file).exists():
-            self.load_from_file(config_file)
-
-    def load_from_file(self, config_file: str) -> None:
-        """
-        Load configuration from JSON file.
-        
-        Args:
-            config_file: Path to configuration JSON file.
-        """
-        try:
-            with open(config_file, "r") as f:
-                custom_config = json.load(f)
-                self.config.update(custom_config)
-                logger.info(f"Loaded configuration from {config_file}")
-        except Exception as e:
-            logger.error(f"Failed to load configuration from {config_file}: {e}")
+    def __init__(self):
+        """Initialize configuration (loads from EDMC's config store)."""
+        pass
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value by key."""
-        return self.config.get(key, default)
+        """
+        Get configuration value by key.
+
+        Args:
+            key: Configuration key name.
+            default: Default value if key not found (uses DEFAULTS if not provided).
+
+        Returns:
+            Configuration value, or default.
+        """
+        if default is None:
+            default = DEFAULTS.get(key)
+
+        if config is None:
+            # Local testing mode: return defaults
+            return default
+
+        try:
+            # Determine the type of value we're expecting based on DEFAULTS
+            if key in DEFAULTS:
+                expected_type = type(DEFAULTS[key])
+
+                # Use type-specific getters for EDMC's config API
+                if expected_type is str:
+                    return config.get_str(f"{CONFIG_PREFIX}{key}", default)
+                elif expected_type is int:
+                    return config.get_int(f"{CONFIG_PREFIX}{key}", default)
+                elif expected_type is bool:
+                    return config.get_bool(f"{CONFIG_PREFIX}{key}", default)
+                elif expected_type is list:
+                    return config.get_list(f"{CONFIG_PREFIX}{key}", default)
+
+            # Fallback for unknown types
+            return default
+
+        except Exception as e:
+            logger.warning(f"Failed to retrieve config key '{key}': {e}")
+            return default
 
     def set(self, key: str, value: Any) -> None:
-        """Set configuration value."""
-        self.config[key] = value
+        """
+        Set configuration value.
+
+        Args:
+            key: Configuration key name.
+            value: Value to store.
+        """
+        if config is None:
+            # Local testing mode: silently ignore
+            logger.debug(f"Config.set({key}, {value}) called in test mode (no EDMC config)")
+            return
+
+        try:
+            config.set(f"{CONFIG_PREFIX}{key}", value)
+            logger.debug(f"Configuration '{key}' set to {value}")
+        except Exception as e:
+            logger.error(f"Failed to set config key '{key}': {e}")
+
+    def delete(self, key: str) -> None:
+        """
+        Delete configuration value.
+
+        Args:
+            key: Configuration key name to delete.
+        """
+        if config is None:
+            # Local testing mode: silently ignore
+            logger.debug(f"Config.delete({key}) called in test mode (no EDMC config)")
+            return
+
+        try:
+            config.delete(f"{CONFIG_PREFIX}{key}")
+            logger.debug(f"Configuration '{key}' deleted")
+        except Exception as e:
+            logger.error(f"Failed to delete config key '{key}': {e}")
 
     def __getitem__(self, key: str) -> Any:
         """Allow dictionary-style access."""
-        return self.config[key]
+        return self.get(key)
 
     def __setitem__(self, key: str, value: Any) -> None:
         """Allow dictionary-style assignment."""
-        self.config[key] = value
+        self.set(key, value)

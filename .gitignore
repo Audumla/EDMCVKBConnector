@@ -132,3 +132,6 @@ dmypy.json
 
 # Edmc plugin directory (where this would be deployed)
 plugins/
+
+# Local rule definitions
+rules.json

@@ -26,12 +26,13 @@ File structure:
 ```
 edmcvkbconnector/
 ├── load.py                 (Entry point - contains plugin_start3())
-├── config.json.example     (Configuration template)
+├── rules.json.example      (Rules template)
 ├── src/edmcvkbconnector/
 │   ├── __init__.py        (Package exports)
 │   ├── config.py          (Configuration management)
 │   ├── event_handler.py   (Event processing)
 │   ├── vkb_client.py      (TCP/IP client)
+│   ├── rules_engine.py    (Rule evaluation)
 │   └── message_formatter.py (Protocol abstraction)
 └── README.md
 ```
@@ -86,7 +87,7 @@ All modules use proper logging:
 - **config.py**: `logger = logging.getLogger(__name__)` for config operations
 - **event_handler.py**: `logger = logging.getLogger(__name__)` for event handling
 - **vkb_client.py**: `logger = logging.getLogger(__name__)` for socket operations
-- **message_formatter.py**: Imports logging module (no logger needed as pure interface)
+- **message_formatter.py**: Protocol formatting (no direct logging needed)
 
 Log levels used correctly:
 - `logger.info()` - Informational messages (connection status, startup)
@@ -180,7 +181,7 @@ def journal_entry(cmdr: str, is_beta: bool, entry: dict, state: dict) -> Optiona
         event_type = entry.get("event", "Unknown")
 
         # Forward to VKB hardware
-        _event_handler.handle_event(event_type, entry)
+        _event_handler.handle_event(event_type, entry, cmdr=cmdr, is_beta=is_beta)
 
     except Exception as e:
         logger.error(f"Error handling journal entry: {e}", exc_info=True)
@@ -194,13 +195,17 @@ def journal_entry(cmdr: str, is_beta: bool, entry: dict, state: dict) -> Optiona
 - ✅ Exception handling with logging
 - ✅ Non-blocking operation (long-running ops done in separate thread)
 
-## 7. Preferences Changed Handler ✅
+## 7. Preferences UI & Changed Handler ✅
 
-**Requirement**: Should provide optional `prefs_changed()` when settings change
+**Requirement**: Should provide optional `plugin_prefs()` and `prefs_changed()` when settings change
 
 **Status**: Compliant
 
 ```python
+def plugin_prefs(parent, cmdr: str, is_beta: bool):
+    # Returns a Tkinter frame for EDMC preferences UI
+    ...
+
 def prefs_changed(cmdr: str, is_beta: bool) -> None:
     """
     Called when preferences are changed.
@@ -224,6 +229,7 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
 - ✅ Proper function signature
 - ✅ Handles preference changes
 - ✅ Exception handling with logging
+- ✅ Preferences UI provided for VKB host/port
 
 ## 8. No Long-Running Operations on Main Thread ✅
 
@@ -241,34 +247,63 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
 - Event synchronization prevents blocking main thread
 - Graceful thread shutdown on plugin stop
 
-## 9. Available Imports Compliance ✅
+## 9. Configuration Management ✅
+
+**Requirement**: Use EDMC's `config` API for managing plugin preferences (`config.set()`, `config.get_str()`, etc.)
+
+**Status**: Compliant
+
+The plugin uses EDMC's standard configuration API as per [PLUGINS.md Configuration section](https://github.com/EDCD/EDMarketConnector/blob/main/PLUGINS.md#configuration):
+
+**Implementation in `src/edmcvkbconnector/config.py`**:
+```python
+from config import config
+
+class Config:
+    def get(self, key: str, default: Any = None) -> Any:
+        # Uses config.get_str(), config.get_int(), config.get_bool(), config.get_list()
+        # based on the expected type of the configuration value
+        
+    def set(self, key: str, value: Any) -> None:
+        # Uses config.set() to store values
+        
+    def delete(self, key: str) -> None:
+        # Uses config.delete() to remove values
+```
+
+**Key Features**:
+- ✅ Uses `config.get_str()`, `config.get_int()`, `config.get_bool()`, `config.get_list()`
+- ✅ Settings namespaced with prefix `VKBConnector_` to avoid conflicts
+- ✅ Configuration persisted in EDMC's system-appropriate location:
+  - Windows: Registry (`HKEY_CURRENT_USER\Software\Frontier Developments\EDMarketConnector`)
+  - macOS: User defaults
+  - Linux: User config directory
+- ✅ Fallback to in-memory defaults for local testing without EDMC
+- ✅ `prefs_changed()` hook automatically reloads configuration via EDMC's API
+
+**Supported Configuration Keys**:
+- `vkb_host`: VKB device IP address (string, default: `127.0.0.1`)
+- `vkb_port`: VKB device port (integer, default: `50995`)
+- `vkb_header_byte`: VKB packet header byte (integer, default: `0xA5`)
+- `vkb_command_byte`: VKB packet command byte (integer, default: `13`)
+- `enabled`: Toggle plugin on/off (boolean, default: `true`)
+- `debug`: Enable debug logging (boolean, default: `false`)
+- `event_types`: List of game events to forward (list, default: Location, FSDJump, etc.)
+- `rules_path`: Optional override path to rules.json
+
+## 10. Available Imports Compliance ✅
 
 **Requirement**: Use only explicitly allowed EDMC imports
 
 **Status**: Compliant
 
-Used imports:
-- ✅ `logging` - Explicitly allowed for plugin logging
-- ✅ `config.appname` - Explicitly allowed for app name
-- ✅ Standard library modules:
-  - `socket` - TCP/IP communication
-  - `threading` - Background threads
-  - `json` - Event serialization
-  - `pathlib` - File path handling
-  - `time` - Timeout management
-  - `os` - Get plugin folder name
-  - `typing` - Type hints
-  - `abc` - Abstract base classes
+Used imports from EDMC:
+- ✅ `config.appname` - For logger naming
+- ✅ `config.appversion` - For version checking (with fallback)
+- ✅ `config.config` - For configuration storage (with graceful fallback)
+- ✅ `logging` - For plugin logging
 
-**NOT used**:
-- ✅ No unauthorized imports from core EDMC code
-- ✅ No tkinter in plugins (no UI components)
-- ✅ No requests library (not required for this plugin)
-- ✅ No external dependencies
-
-See `pyproject.toml`: `dependencies = []` (zero external dependencies)
-
-## 10. Version Information ✅
+```
 
 **Requirement**: Provide VERSION constant in semantic versioning format
 
@@ -332,8 +367,9 @@ This ensures:
 | Entry Point | ✅ | plugin_start3() implemented |
 | Plugin Stop | ✅ | Graceful shutdown implemented |
 | Journal Entry Handler | ✅ | Event forwarding implemented |
-| Prefs Changed Handler | ✅ | Configuration reload implemented |
+| Prefs Changed Handler | ✅ | Using EDMC config API |
 | No Blocking Operations | ✅ | Background threads for TCP/IP |
+| Configuration Management | ✅ | Uses EDMC config API (config.get/set) |
 | Approved Imports Only | ✅ | Zero unauthorized imports |
 | VERSION Constant | ✅ | Semantic versioning used |
 | Error Handling | ✅ | Try-except with logging throughout |
@@ -343,6 +379,8 @@ This ensures:
 
 ---
 
-*Last Updated: 2026-02-10*
+*Last Updated: 2026-02-12*
 *EDMC Version: 5.13.0+ (tested compatibility)*
 *Python Version: 3.9+*
+*Configuration API: Using EDMC's config.set/get for preference storage*
+

@@ -4,9 +4,9 @@ This document explains how the EDMCVKBConnector is designed to work with VKB-Lin
 
 ## Current Status
 
-**Protocol Status**: Under Development by VKB  
+**Protocol Status**: Shift/Subshift payload implemented for `VKBShiftBitmap`  
 **Expected Format**: Compact binary with bitmap for message content  
-**Current Implementation**: PlaceholderMessageFormatter
+**Current Implementation**: PlaceholderMessageFormatter with VKBShiftBitmap support
 
 The exact protocol specification for VKB-Link's TCP/IP communication is still being finalized. This plugin uses an abstracted message formatter design that allows the protocol to be easily swapped in without changing the core event handling or networking logic.
 
@@ -80,13 +80,7 @@ class VKBProtocolFormatter(MessageFormatter):
         Returns:
             Packed bytes ready to send to VKB-Link
         """
-        # Implement the actual protocol here
-        # Example (pseudocode):
-        # - Extract relevant fields from event_data
-        # - Build bitmap for message content
-        # - Pack into compact binary format
-        # - Return bytes
-        
+        # Implement additional protocol messages here
         pass
 ```
 
@@ -149,14 +143,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 ```
 
 **Option B: Configuration-based (future enhancement)**
-```json
-{
-  "vkb_host": "127.0.0.1",
-  "vkb_port": 12345,
-  "message_formatter": "VKBProtocolFormatter",
-  ...
-}
-```
+Store the formatter choice in EDMC config and instantiate accordingly.
 
 ## Testing the Implementation
 
@@ -214,6 +201,25 @@ def test_vkb_client_with_custom_formatter(self):
     # ... test implementation
 ```
 
+## Current VKBShiftBitmap Packet
+
+For `event_type == "VKBShiftBitmap"`, the formatter emits:
+
+```
+Data[0] = 0xA5    # header byte (configurable)
+Data[1] = 13      # command byte (configurable)
+Data[2] = 0       # reserved
+Data[3] = 4       # data length
+Data[4] = SHIFTs  # shift bitmap (byte)
+Data[5] = subSHIFTs  # subshift bitmap (byte)
+Data[6] = 0
+Data[7] = 0
+```
+
+Header/command bytes are configurable via EDMC config keys:
+- `VKBConnector_vkb_header_byte`
+- `VKBConnector_vkb_command_byte`
+
 ## Protocol Specification Checklist
 
 When VKB-Link's protocol is finalized, ensure it includes:
@@ -230,15 +236,8 @@ When VKB-Link's protocol is finalized, ensure it includes:
 
 ## Discovery and Monitoring
 
-The plugin comes with logging capabilities to help with protocol development:
-
-```json
-{
-  "debug": true
-}
-```
-
-Enable this to see detailed logs of:
+The plugin comes with logging capabilities to help with protocol development.
+Enable `debug` via EDMC config to see detailed logs of:
 - Event types received
 - Connection state changes
 - Message send failures
@@ -286,6 +285,6 @@ class VKBProtocolFormatterV2(MessageFormatter):
 
 ---
 
-**Last Updated**: 2025-02-10  
-**Protocol Status**: Under Development  
-**Next Step**: Await VKB-Link protocol specification
+**Last Updated**: 2026-02-12  
+**Protocol Status**: VKBShiftBitmap implemented; full protocol still under development  
+**Next Step**: Expand formatter as VKB-Link protocol specification evolves

@@ -2,11 +2,11 @@
 Message serialization abstraction for VKB protocol.
 
 This module defines the interface for serializing events into the format
-expected by VKB-Link. The exact protocol format is TBD pending VKB-Link
-development of the TCP/IP communication interface.
+expected by VKB-Link. The VKBShiftBitmap packet is implemented; other
+messages remain abstracted for future protocol expansion.
 
-When VKB-Link's protocol is finalized, implement a MessageFormatter
-subclass with the actual bitmap/compact format specification.
+When VKB-Link's protocol expands, implement a MessageFormatter subclass
+with the additional bitmap/compact format specifications.
 """
 
 from abc import ABC, abstractmethod
@@ -18,8 +18,8 @@ class MessageFormatter(ABC):
     Abstract base class for VKB message formatting.
     
     Defines the interface for converting EDMC events into the byte format
-    expected by VKB-Link. The actual protocol will be defined once
-    VKB-Link's TCP/IP communication is complete.
+    expected by VKB-Link. Additional protocol messages will be added as
+    VKB-Link's TCP/IP communication is finalized.
     """
 
     @abstractmethod
@@ -39,25 +39,33 @@ class MessageFormatter(ABC):
 
 class PlaceholderMessageFormatter(MessageFormatter):
     """
-    Placeholder formatter for development.
+    Placeholder formatter with VKBShiftBitmap support.
     
-    TODO: This will be replaced with the actual VKB protocol formatter
-    once VKB-Link's TCP/IP interface specification is available.
-    
-    The protocol is expected to be:
-    - Compact binary format with bitmap for message content
-    - Small message size for efficient communication
-    - Status indicators for hardware state
+    Additional VKB protocol messages can be added here or via a
+    dedicated formatter subclass as the specification evolves.
     """
+
+    def __init__(self, *, header_byte: int = 0xA5, command_byte: int = 13) -> None:
+        self.header_byte = header_byte & 0xFF
+        self.command_byte = command_byte & 0xFF
 
     def format_event(self, event_type: str, event_data: Dict[str, Any]) -> bytes:
         """
-        Placeholder: returns event type as UTF-8 bytes.
-        
-        This is a temporary implementation until the actual VKB protocol
-        specification is documented. The final implementation will convert
-        events into the compact bitmap format specified by VKB.
+        Formats VKB shift/subshift bitmap packets or falls back to text.
         """
-        # Temporary placeholder: just send the event type
-        # The final format will be determined by VKB-Link's protocol
+        if event_type == "VKBShiftBitmap":
+            shift = int(event_data.get("shift", 0)) & 0xFF
+            subshift = int(event_data.get("subshift", 0)) & 0xFF
+            return bytes([
+                self.header_byte,   # header
+                self.command_byte,  # CMD
+                0,     # --
+                4,     # data length (bytes)
+                shift,
+                subshift,
+                0,
+                0,
+            ])
+
+        # Fallback: send event type as UTF-8 bytes for debugging
         return f"{event_type}\n".encode("utf-8")

@@ -53,7 +53,7 @@ The plugin is designed as a good steward of the Elite: Dangerous community's res
 
 The plugin requests only the necessary permissions and dependencies:
 
-- **Dependencies**: Uses only Python 3.8+ standard library
+- **Dependencies**: Uses only Python 3.9+ standard library
   - `socket`: For TCP/IP communication
   - `threading`: For background reconnection management
   - `json`: For event serialization
@@ -61,6 +61,7 @@ The plugin requests only the necessary permissions and dependencies:
   - `pathlib`: For file path handling
   - `time`: For timeout management
   - `typing`: For type hints
+  - `tkinter`: For EDMC preferences UI
 
 - **No External Packages**: Zero external dependencies (pydantic was optional in requirements.txt but not used)
 - **System Privileges**: Requests only network access to user-specified host/port
@@ -75,7 +76,7 @@ Code is written to a high standard with readability, documentation, and best pra
 ### Code Style
 - **PEP 8 Compliance**: Code follows Python Enhancement Proposal 8 style guidelines
 - **Formatting**: Consistent indentation, spacing, and naming conventions
-- **Type Hints**: Comprehensive type annotations throughout (Python 3.8+)
+- **Type Hints**: Comprehensive type annotations throughout (Python 3.9+)
 
 ### Documentation
 - **Module Docstrings**: All modules have descriptive docstrings
@@ -95,6 +96,8 @@ Code is written to a high standard with readability, documentation, and best pra
   - `config.py`: Configuration management
   - `vkb_client.py`: TCP/IP socket client
   - `event_handler.py`: Event processing
+  - `rules_engine.py`: Rule evaluation
+  - `message_formatter.py`: Protocol formatting
   - `load.py`: EDMC plugin entry point
 - **Single Responsibility**: Each class/function has a clear purpose
 - **Reusability**: Components designed to be testable and reusable
@@ -143,5 +146,5 @@ The plugin is ready for submission to the EDMC Plugin Registry.
 
 ---
 
-*Last Updated: 2025-02-10*
+*Last Updated: 2026-02-12*
 *EDMC Compatibility: 5.0+*

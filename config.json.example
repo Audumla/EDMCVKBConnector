@@ -1,9 +1,24 @@
+// Example configuration for EDMCVKBConnector
+//
+// NOTE: Configuration is now stored using EDMC's config API, not this JSON file.
+// This file is kept as a reference showing the available configuration keys.
+//
+// When the plugin runs, it stores settings in EDMC's system-appropriate location:
+// - Windows: Registry (HKEY_CURRENT_USER\Software\Frontier Developments\EDMarketConnector)
+// - macOS: User defaults
+// - Linux: User config directory
+//
+// Setting keys are prefixed with "VKBConnector_" in EDMC's config store.
+// For example: VKBConnector_vkb_host, VKBConnector_vkb_port, etc.
 {
   "vkb_host": "127.0.0.1",
-  "vkb_port": 12345,
+  "vkb_port": 50995,
+  "vkb_header_byte": 165,
+  "vkb_command_byte": 13,
   "enabled": true,
   "debug": false,
   "event_types": [
+    "Status",
     "Location",
     "FSDJump",
     "DockingGranted",
@@ -12,5 +27,6 @@
     "DockSRV",
     "Supercruise",
     "Docked"
-  ]
+  ],
+  "rules_path": ""
 }

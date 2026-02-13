@@ -32,7 +32,7 @@ EDMCVKBConnector/
       vkb_client.py
       event_handler.py
     README.md
-    config.json.example
+    rules.json.example
     ...
 ```
 
@@ -46,7 +46,7 @@ EDMCVKBConnector/
    - **macOS**: `~/Library/Application Support/EDMarketConnector/plugins/`
    - **Linux**: `~/.local/share/EDMarketConnector/plugins/`
 3. **Restart** EDMC
-4. **Configure** by creating `config.json` in the plugin directory
+4. **Configure** in EDMC preferences (VKB host/port) and optionally create `rules.json`
 
 ### For Developers (From Source)
 
@@ -66,7 +66,7 @@ The repository includes a `src/` directory for development organization. When de
    cp -r src/edmcvkbconnector <EDMC Plugins>/EDMCVKBConnector/
    cp load.py <EDMC Plugins>/EDMCVKBConnector/
    cp README.md <EDMC Plugins>/EDMCVKBConnector/
-   cp config.json.example <EDMC Plugins>/EDMCVKBConnector/
+   cp rules.json.example <EDMC Plugins>/EDMCVKBConnector/
    ```
 
 ## EDMC Plugin Entry Point
@@ -85,26 +85,12 @@ The `load.py` module in the deployment root:
 
 ## Configuration
 
-Create a `config.json` file in the plugin directory (same level as `load.py`):
+Core settings (host/port/debug/etc.) are stored via EDMC preferences.
+Open EDMC Settings and edit the VKB host/port. Advanced users can edit
+the EDMC config store directly with the `VKBConnector_` prefix.
 
-```json
-{
-  "vkb_host": "192.168.1.100",
-  "vkb_port": 12345,
-  "enabled": true,
-  "debug": false,
-  "event_types": [
-    "Location",
-    "FSDJump",
-    "DockingGranted"
-  ]
-}
-```
-
-If no `config.json` exists, the plugin uses sensible defaults:
-- `vkb_host`: `127.0.0.1`
-- `vkb_port`: `12345`
-- All events are forwarded
+Rules are defined in `rules.json` in the plugin directory (or via
+`VKBConnector_rules_path` override).
 
 ## Import Path Resolution
 
@@ -136,7 +122,7 @@ cp -r src/edmcvkbconnector build/EDMCVKBConnector/
 cp load.py build/EDMCVKBConnector/
 cp README.md build/EDMCVKBConnector/
 cp LICENSE build/EDMCVKBConnector/
-cp config.json.example build/EDMCVKBConnector/
+cp rules.json.example build/EDMCVKBConnector/
 cp pyproject.toml build/EDMCVKBConnector/
 
 # Create archive
@@ -166,14 +152,14 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 3. **Look for Plugin Message**:
    ```
    EDMC VKB Connector v0.1.0 initializing...
-   Successfully connected to VKB device at 127.0.0.1:12345
+   Successfully connected to VKB device at 127.0.0.1:50995
    ```
 
 4. **Test Event Forwarding**:
    - Start Elite Dangerous
    - Perform in-game actions (jump systems, dock, etc.)
    - Check VKB hardware responds
-   - Enable debug mode in config.json for more logging
+   - Enable debug mode in EDMC config for more logging
 
 ## Troubleshooting Deployment
 
@@ -181,7 +167,7 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 
 - **Check File Structure**: Ensure `load.py` is in the plugin directory root
 - **Check Log File**: Look for error messages in EDMC log
-- **Verify Python**: Ensure EDMC is using Python 3.8+
+- **Verify Python**: Ensure EDMC is using Python 3.9+
 - **Restart EDMC**: Changes to plugins require EDMC restart
 
 ### Import Errors
@@ -193,9 +179,9 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 ### Connection Issues
 
 - **VKB Not Starting**: Ensure VKB-Link is running before EDMC
-- **Wrong IP/Port**: Check config.json settings
+- **Wrong IP/Port**: Check EDMC preferences
 - **Firewall**: Verify firewall allows TCP connection
-- **Enable Debug**: Set `"debug": true` in config.json for detailed logs
+- **Enable Debug**: Set `"debug": true` in EDMC config for detailed logs
 
 ## Uninstallation
 

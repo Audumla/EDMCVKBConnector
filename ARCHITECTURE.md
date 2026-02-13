@@ -78,15 +78,14 @@ The plugin implements a multi-layer fault tolerance strategy:
 
 Runtime behavior is controlled via configuration, not code:
 
-```json
-{
-  "vkb_host": "192.168.1.100",   // Network target
-  "vkb_port": 12345,               // Communication port
-  "enabled": true,                 // Feature toggle
-  "debug": true,                   // Debug verbosity
-  "event_types": [...]             // Event filtering
-}
-```
+Core settings are stored via EDMC's config API with the `VKBConnector_` prefix:
+
+- `vkb_host`, `vkb_port`: Network target
+- `vkb_header_byte`, `vkb_command_byte`: Protocol header/command bytes
+- `enabled`, `debug`, `event_types`: Feature toggles and event filtering
+- `rules_path`: Optional override path for `rules.json`
+
+Dynamic rules live in `rules.json` in the plugin directory.
 
 **Benefits**:
 - No code changes needed for different deployments
@@ -136,14 +135,15 @@ EventHandler
 └─ set_debug(enabled): None
 
 Config
-├─ load_from_file(config_file): None
 ├─ get(key, default): Any
 ├─ set(key, value): None
+├─ delete(key): None
 └─ __getitem__/__setitem__: Dictionary-like access
 
 EDMC Integration (load.py)
 ├─ plugin_start3(plugin_dir): Optional[str]
 ├─ plugin_stop(): None
+├─ plugin_prefs(parent, cmdr, is_beta): Frame
 ├─ prefs_changed(cmdr, is_beta): None
 └─ journal_entry(cmdr, is_beta, entry, state): Optional[str]
 ```
@@ -156,11 +156,13 @@ EDMC loads load.py
     ↓
 plugin_start3() called
     ↓
-Config loads config.json
+Config loads EDMC preferences
     ↓
 EventHandler created with Config
+    ├─ rules.json loaded (or override path)
+    └─ shift/subshift state initialized
     ↓
-VKBClient created with PlaceholderMessageFormatter
+VKBClient created with PlaceholderMessageFormatter (header/command bytes configurable)
     ↓
 EventHandler.connect() called
     ├─ VKBClient.connect() attempts initial connection
@@ -178,10 +180,13 @@ EDMC calls journal_entry(cmdr, is_beta, entry, state)
 EventHandler.handle_event(event_type, entry) called
     ├─ Check if enabled
     ├─ Filter by event_types (if configured)
+    ├─ Rules Engine evaluates dashboard/status data
+    │   ├─ then/else actions applied
+    │   └─ Shift/subshift bitmap sent as VKBShiftBitmap
     └─ VKBClient.send_event(event_type, entry) called
         ├─ Check if connected
         ├─ MessageFormatter.format_event(event_type, entry) called
-        │   Returns: bytes (format TBD)
+        │   Returns: bytes (VKBShiftBitmap uses 8-byte header/command format)
         └─ socket.sendall(bytes)
         
 Result: Event forwarded to VKB-Link (or logged as error if not connected)
@@ -333,5 +338,5 @@ class VKBClient:
 
 ---
 
-**Last Updated**: 2025-02-10  
+**Last Updated**: 2026-02-12  
 **Maintainers**: EDMC VKB Connector Contributors

@@ -30,33 +30,65 @@ class VKBClient:
     - Then retry every 10 seconds indefinitely (fallback periodic reconnection)
     """
 
-    # Reconnection constants
-    INITIAL_RETRY_INTERVAL = 2  # seconds
-    INITIAL_RETRY_DURATION = 60  # seconds
-    FALLBACK_RETRY_INTERVAL = 10  # seconds
-    SOCKET_TIMEOUT = 5  # seconds
+    # Default reconnection constants (can be overridden in __init__)
+    DEFAULT_INITIAL_RETRY_INTERVAL = 2  # seconds
+    DEFAULT_INITIAL_RETRY_DURATION = 60  # seconds
+    DEFAULT_FALLBACK_RETRY_INTERVAL = 10  # seconds
+    DEFAULT_SOCKET_TIMEOUT = 5  # seconds
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 12345, message_formatter: Optional["MessageFormatter"] = None):
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 50995,
+        message_formatter: Optional["MessageFormatter"] = None,
+        *,
+        header_byte: int = 0xA5,
+        command_byte: int = 13,
+        initial_retry_interval: int = DEFAULT_INITIAL_RETRY_INTERVAL,
+        initial_retry_duration: int = DEFAULT_INITIAL_RETRY_DURATION,
+        fallback_retry_interval: int = DEFAULT_FALLBACK_RETRY_INTERVAL,
+        socket_timeout: int = DEFAULT_SOCKET_TIMEOUT,
+        on_connected: Optional[callable] = None,
+    ):
         """
         Initialize VKB client.
         
         Args:
             host: VKB device IP address (default: localhost)
-            port: VKB device port (default: 12345)
+            port: VKB device port (default: 50995)
             message_formatter: Optional message formatter for VKB protocol.
                              If not provided, uses PlaceholderMessageFormatter.
                              Implement a custom MessageFormatter subclass to use
                              different serialization formats.
+            header_byte: VKB protocol header byte (default: 0xA5)
+            command_byte: VKB protocol command byte (default: 13)
+            initial_retry_interval: Initial reconnection retry interval in seconds (default: 2)
+            initial_retry_duration: Duration of initial aggressive retry phase in seconds (default: 60)
+            fallback_retry_interval: Fallback retry interval after initial phase in seconds (default: 10)
+            socket_timeout: Socket timeout in seconds (default: 5)
+            on_connected: Optional callback function to invoke after successful connection
         """
         self.host = host
         self.port = port
         self.socket: Optional[socket.socket] = None
         self.connected = False
         
+        # Connection callback for resending state after reconnection
+        self._on_connected_callback = on_connected
+        
+        # Reconnection configuration (instance-based, not class-based, for better testability)
+        self.INITIAL_RETRY_INTERVAL = initial_retry_interval
+        self.INITIAL_RETRY_DURATION = initial_retry_duration
+        self.FALLBACK_RETRY_INTERVAL = fallback_retry_interval
+        self.SOCKET_TIMEOUT = socket_timeout
+        
         # Message formatting
         if message_formatter is None:
             from .message_formatter import PlaceholderMessageFormatter
-            message_formatter = PlaceholderMessageFormatter()
+            message_formatter = PlaceholderMessageFormatter(
+                header_byte=header_byte,
+                command_byte=command_byte,
+            )
         self.message_formatter = message_formatter
         
         # Reconnection management
@@ -70,6 +102,9 @@ class VKBClient:
     def connect(self) -> bool:
         """
         Establish connection to VKB hardware.
+        
+        Calls the on_connected callback (if set) after successful connection
+        to allow resending state to the hardware.
         
         Returns:
             True if connection successful, False otherwise.
@@ -90,12 +125,35 @@ class VKBClient:
                 # Clear the reconnect event when connected
                 self._reconnect_event.clear()
                 
-                return True
-            except (socket.error, ConnectionRefusedError, OSError) as e:
+                # Store that we should invoke callback (after releasing lock)
+                should_invoke_callback = True
+                
+            except (socket.error, socket.timeout, ConnectionRefusedError, OSError, TimeoutError) as e:
                 logger.warning(f"Failed to connect to VKB device: {e}")
                 self.connected = False
                 self._reconnect_event.set()
-                return False
+                should_invoke_callback = False
+        
+        # Invoke callback outside the lock to avoid deadlock
+        if should_invoke_callback and self._on_connected_callback:
+            try:
+                self._on_connected_callback()
+            except Exception as e:
+                logger.error(f"Error in on_connected callback: {e}", exc_info=True)
+        
+        return self.connected
+
+    def set_on_connected(self, callback: Optional[callable]) -> None:
+        """
+        Set or update the callback to invoke after successful connection.
+        
+        The callback is invoked outside the connection lock to avoid deadlocks.
+        Useful for resending state after reconnection.
+        
+        Args:
+            callback: Callable with no arguments, or None to remove callback.
+        """
+        self._on_connected_callback = callback
 
     def _close_socket(self) -> None:
         """Close socket without locking. Must be called with _reconnect_lock held."""
@@ -131,22 +189,20 @@ class VKBClient:
         Returns:
             True if sent successfully, False otherwise.
         """
-        if not self.connected:
-            logger.debug("Cannot send event: not connected to VKB device")
-            return False
-
         with self._reconnect_lock:
+            # Atomic check of both connected flag and socket object
+            if not self.connected or not self.socket:
+                logger.debug("Cannot send event: not connected to VKB device")
+                return False
+
             try:
-                if not self.socket:
-                    return False
-                
                 # Format the event using the message formatter
                 message_bytes = self.message_formatter.format_event(event_type, event_data)
                 
                 self.socket.sendall(message_bytes)
                 logger.debug(f"Sent {event_type} event to VKB")
                 return True
-            except (socket.error, OSError, BrokenPipeError) as e:
+            except (socket.error, socket.timeout, OSError, BrokenPipeError, TimeoutError) as e:
                 logger.warning(f"Failed to send event (connection lost): {e}")
                 self.connected = False
                 self._reconnect_event.set()
@@ -155,6 +211,9 @@ class VKBClient:
                 if not self._reconnect_thread or not self._reconnect_thread.is_alive():
                     self._start_reconnect_thread()
                 
+                return False
+            except Exception as e:
+                logger.error(f"Error formatting or sending event: {e}")
                 return False
 
     def is_connected(self) -> bool:
