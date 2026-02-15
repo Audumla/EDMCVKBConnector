@@ -722,9 +722,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         if not rules_state["rules"]:
             rules_state["selected"] = None
             rules_state["selected_var"].set(-1)
-            rules_text.configure(state="normal")
-            rules_text.delete("1.0", tk.END)
-            rules_text.configure(state="disabled")
+            _clear_rules_text()
             _on_rules_inner_configure()
             return
 
@@ -734,6 +732,12 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         rules_state["selected_var"].set(select_idx)
         _load_selected_rule(select_idx)
         _on_rules_inner_configure()
+
+    def _clear_rules_text() -> None:
+        """Clear the rules text widget (handles read-only state)."""
+        rules_text.configure(state="normal")
+        rules_text.delete("1.0", tk.END)
+        rules_text.configure(state="disabled")
 
     def _load_selected_rule(idx: int) -> None:
         if idx < 0 or idx >= len(rules_state["rules"]):

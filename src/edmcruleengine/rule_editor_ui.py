@@ -251,7 +251,7 @@ class RuleEditorDialog:
                 })
         
         # Calculate max width for consistent alignment
-        max_name_len = max(len(f["name"]) for f in shift_flags) if shift_flags else 15
+        max_name_len = max((len(f["name"]) for f in shift_flags), default=15)
         label_width = max(15, max_name_len + 2)
         
         shift_vars = {}
