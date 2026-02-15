@@ -66,7 +66,3 @@ class VKBLinkMessageFormatter(MessageFormatter):
             f"Unsupported VKB event type '{event_type}'. "
             f"Only 'VKBShiftBitmap' is a valid VKB-Link protocol message."
         )
-
-
-# Backward-compatible alias kept for existing imports/tests.
-PlaceholderMessageFormatter = VKBLinkMessageFormatter

@@ -20,36 +20,21 @@ class TestSignalsCatalog:
         catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
-        assert catalog.version == 1
         assert "core" in catalog.ui_tiers
         assert "detail" in catalog.ui_tiers
         assert "eq" in catalog.operators
         assert "gui_focus" in catalog.signals
         assert "hardpoints" in catalog.signals
     
-    def test_catalog_validation_missing_version(self):
-        """Test catalog validation fails with missing version."""
+    def test_catalog_validation_missing_keys(self):
+        """Test catalog validation fails with missing required keys."""
         invalid_data = {
-            "ui_tiers": {},
             "operators": {},
             "bitfields": {},
             "signals": {}
         }
         
-        with pytest.raises(CatalogError, match="version"):
-            SignalsCatalog(invalid_data)
-    
-    def test_catalog_validation_wrong_version(self):
-        """Test catalog validation fails with wrong version."""
-        invalid_data = {
-            "version": 2,
-            "ui_tiers": {"core": {}, "detail": {}},
-            "operators": {},
-            "bitfields": {},
-            "signals": {}
-        }
-        
-        with pytest.raises(CatalogError, match="Incompatible catalog version"):
+        with pytest.raises(CatalogError, match="missing required keys"):
             SignalsCatalog(invalid_data)
     
     def test_catalog_signal_exists(self):
@@ -161,7 +146,7 @@ class TestSignalDerivation:
         
         # When bit 6 is set, hardpoints are deployed
         assert signals["hardpoints"] == "deployed"
-        # Check individual flag signals exist (v2 has flag_* variants)
+        # Check individual flag signals exist
         assert "flag_hardpoints_deployed" in signals
     
     def test_derive_enum_signal_from_path(self, derivation):
@@ -200,8 +185,8 @@ class TestSignalDerivation:
         
         signals = derivation.derive_all_signals(entry)
         
-        # Should have all signals from v2 catalog (200+ signals)
-        assert len(signals) > 100  # V2 has 200+ signals
+        # Should have all signals from catalog (200+ signals)
+        assert len(signals) > 100
         assert "hardpoints" in signals
         assert "gui_focus" in signals
         assert "docking_state" in signals

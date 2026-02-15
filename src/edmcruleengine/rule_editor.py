@@ -51,7 +51,7 @@ class RuleEditorUI:
         self.catalog_error: Optional[str] = None
         try:
             self.catalog = SignalsCatalog.from_plugin_dir(str(plugin_dir))
-            logger.info(f"Loaded signals catalog v{self.catalog.version}")
+            logger.info("Loaded signals catalog")
         except CatalogError as e:
             self.catalog_error = str(e)
             logger.error(f"Failed to load catalog: {e}")
@@ -161,7 +161,7 @@ class RuleEditorUI:
         try:
             self.catalog = SignalsCatalog.from_plugin_dir(str(self.plugin_dir))
             self.catalog_error = None
-            logger.info(f"Reloaded signals catalog v{self.catalog.version}")
+            logger.info("Reloaded signals catalog")
             self._show_rules_list()
         except CatalogError as e:
             self.catalog_error = str(e)
@@ -589,6 +589,10 @@ class RuleEditor:
         self.signal_id_to_simple_display: Dict[str, str] = {}  # Without category prefix
         
         for signal_id, signal_def in self.catalog.signals.items():
+            # Skip comment entries (start with underscore and are strings)
+            if signal_id.startswith("_") or not isinstance(signal_def, dict):
+                continue
+            
             self.all_signals[signal_id] = signal_def
             category = signal_def.get("ui", {}).get("category", "Other")
             if category not in self.signals_by_category:
@@ -758,11 +762,11 @@ class RuleEditor:
     
     def _build_when_section(self, parent):
         """Build the When condition builder section."""
-        when_frame = ttk.LabelFrame(parent, text="When (Conditions)", padding=8)
+        when_frame = ttk.LabelFrame(parent, text="When (Conditions) - Define when this rule activates", padding=8)
         when_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         
         # All of these (all)
-        self.all_frame = ttk.LabelFrame(when_frame, text="✓ All of these", padding=8)
+        self.all_frame = ttk.LabelFrame(when_frame, text="✓ All of these (AND logic)", padding=8)
         self.all_frame.pack(fill=tk.X, pady=(0, 8))
         
         self.all_add_button = ttk.Button(self.all_frame, text="+ Add condition", command=lambda: self._add_condition("all"))
@@ -771,7 +775,7 @@ class RuleEditor:
         self._load_conditions("all")
         
         # Any of these (any)
-        self.any_frame = ttk.LabelFrame(when_frame, text="⚡ Any of these", padding=8)
+        self.any_frame = ttk.LabelFrame(when_frame, text="⚡ Any of these (OR logic)", padding=8)
         self.any_frame.pack(fill=tk.X)
         
         self.any_add_button = ttk.Button(self.any_frame, text="+ Add condition", command=lambda: self._add_condition("any"))
@@ -955,7 +959,7 @@ class RuleEditor:
         combo["values"] = sorted(signals)
     
     def _populate_signal_dropdown(self, combo: ttk.Combobox):
-        """Populate signal dropdown with filtered signals (legacy, used for unknown signals)."""
+        """Populate signal dropdown with filtered signals."""
         signals = []
         show_detail = self.show_detail_tier.get()
 
@@ -1507,7 +1511,7 @@ class RuleEditor:
     
     def _build_then_section(self, parent):
         """Build the Combined Actions section (replaces separate Then/Else)."""
-        actions_frame = ttk.LabelFrame(parent, text="Then", padding=8)
+        actions_frame = ttk.LabelFrame(parent, text="Then (when rule becomes TRUE)", padding=8)
         actions_frame.pack(fill=tk.X, pady=(0, 8))
         
         # Clear actions - inline with icon
@@ -1580,7 +1584,7 @@ class RuleEditor:
 
     def _build_else_section(self, parent):
         """Build the Else Actions section."""
-        else_frame = ttk.LabelFrame(parent, text="Else", padding=8)
+        else_frame = ttk.LabelFrame(parent, text="Else (when rule becomes FALSE)", padding=8)
         else_frame.pack(fill=tk.X)
         
         # Clear actions - inline with icon

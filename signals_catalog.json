@@ -1,5 +1,4 @@
 {
-  "version": 1,
   "_documentation": {
     "description": "EDMC Signal Catalog - Comprehensive mapping of Elite Dangerous game state to signals",
     "data_sources": {

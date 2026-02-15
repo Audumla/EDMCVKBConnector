@@ -87,7 +87,7 @@ class EventHandler:
         """Load signals catalog from plugin directory."""
         try:
             self.catalog = SignalsCatalog.from_plugin_dir(str(self.plugin_dir))
-            logger.info(f"Loaded signals catalog v{self.catalog.version}")
+            logger.info("Loaded signals catalog")
         except CatalogError as e:
             logger.error(f"Failed to load signals catalog: {e}")
             self.catalog = None

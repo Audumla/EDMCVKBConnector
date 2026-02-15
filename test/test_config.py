@@ -72,9 +72,9 @@ def test_event_handler_init():
 
 def test_message_formatter():
     """Test message formatting."""
-    from edmcruleengine.message_formatter import PlaceholderMessageFormatter
-    
-    formatter = PlaceholderMessageFormatter(
+    from edmcruleengine.message_formatter import VKBLinkMessageFormatter
+
+    formatter = VKBLinkMessageFormatter(
         header_byte=0xA5,
         command_byte=13,
     )

@@ -51,10 +51,10 @@ def test_loads_default_rules_json_from_plugin_dir():
                     "enabled": True,
                     "when": {
                         "all": [
-                            {"signal": "docked", "op": "eq", "value": True}
+                            {"signal": "flag_docked", "op": "eq", "value": True}
                         ]
                     },
-                    "then": [{"log": "Docked"}],
+                    "then": [{"type": "log", "message": "Docked"}],
                 }
             ],
         )
@@ -86,10 +86,10 @@ def test_loads_override_rules_json_path():
                     "enabled": True,
                     "when": {
                         "all": [
-                            {"signal": "docked", "op": "eq", "value": True}
+                            {"signal": "flag_docked", "op": "eq", "value": True}
                         ]
                     },
-                    "then": [{"log": "default"}],
+                    "then": [{"type": "log", "message": "default"}],
                 }
             ],
         )
@@ -101,10 +101,10 @@ def test_loads_override_rules_json_path():
                     "enabled": True,
                     "when": {
                         "all": [
-                            {"signal": "in_supercruise", "op": "eq", "value": True}
+                            {"signal": "flag_supercruise", "op": "eq", "value": True}
                         ]
                     },
-                    "then": [{"log": "override"}],
+                    "then": [{"type": "log", "message": "override"}],
                 }
             ],
         )

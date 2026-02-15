@@ -34,8 +34,7 @@ class SignalsCatalog:
     and UI metadata. This ensures signals are never hardcoded in rules.
     """
     
-    REQUIRED_VERSION = 1
-    REQUIRED_KEYS = ["version", "ui_tiers", "operators", "bitfields", "signals"]
+    REQUIRED_KEYS = ["ui_tiers", "operators", "bitfields", "signals"]
     
     def __init__(self, catalog_data: Dict[str, Any]) -> None:
         """
@@ -116,13 +115,6 @@ class SignalsCatalog:
         if missing:
             raise CatalogError(f"Catalog missing required keys: {missing}")
         
-        # Check version compatibility
-        version = data.get("version")
-        if version != self.REQUIRED_VERSION:
-            raise CatalogError(
-                f"Incompatible catalog version {version}, expected {self.REQUIRED_VERSION}"
-            )
-        
         # Validate ui_tiers
         tiers = data.get("ui_tiers", {})
         if "core" not in tiers or "detail" not in tiers:
@@ -177,11 +169,6 @@ class SignalsCatalog:
         ui = signal_def.get("ui", {})
         if "tier" not in ui or ui["tier"] not in ["core", "detail", "advanced"]:
             raise CatalogError(f"Signal '{name}' must have UI tier 'core', 'detail', or 'advanced'")
-    
-    @property
-    def version(self) -> int:
-        """Get catalog version."""
-        return self._data["version"]
     
     @property
     def signals(self) -> Dict[str, Any]:

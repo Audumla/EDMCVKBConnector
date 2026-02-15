@@ -67,7 +67,7 @@ def plugin_logger(module: str) -> logging.Logger:
 from .vkb_client import VKBClient
 from .event_handler import EventHandler
 from .config import Config
-from .message_formatter import MessageFormatter, VKBLinkMessageFormatter, PlaceholderMessageFormatter
+from .message_formatter import MessageFormatter, VKBLinkMessageFormatter
 
 __all__ = [
     "VKBClient",
@@ -75,6 +75,5 @@ __all__ = [
     "Config",
     "MessageFormatter",
     "VKBLinkMessageFormatter",
-    "PlaceholderMessageFormatter",
 ]
 
