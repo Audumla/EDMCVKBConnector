@@ -14,6 +14,8 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .rule_validation import validate_rule
+
 logger = logging.getLogger(__name__)
 
 
@@ -689,7 +691,15 @@ class RuleEditorDialog:
     def _save(self):
         """Save and close dialog."""
         try:
-            self.result = self._build_rule_from_ui()
+            rule = self._build_rule_from_ui()
+            
+            # Validate the rule
+            is_valid, error_msg = validate_rule(rule)
+            if not is_valid:
+                messagebox.showerror("Validation Error", f"Invalid rule: {error_msg}")
+                return
+            
+            self.result = rule
             self.dialog.destroy()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save rule: {e}")
