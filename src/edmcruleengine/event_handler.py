@@ -10,13 +10,15 @@ from typing import Any, Dict, Optional
 
 from . import plugin_logger
 from .config import Config
-from .rules_engine import DashboardRuleEngine, MatchResult, RuleMatchResult
+from .rule_loader import load_rules_file, RuleLoadError
+from .rules_engine_v3 import V3RuleEngine, V3MatchResult
+from .signals_catalog import SignalsCatalog, CatalogError
 from .vkb_client import VKBClient
 
 logger = plugin_logger(__name__)
 
 # Pre-compiled regex for shift token parsing (optimization #11)
-# Matches: Shift1-2 or Subshift1-7
+# Matches: Shift1-2 or Subshift1-8
 _SHIFT_TOKEN_PATTERN = re.compile(r"^(Subshift|Shift)(\d+)$")
 
 
@@ -61,9 +63,11 @@ class EventHandler:
         self.enabled = config.get("enabled", True)
         self.debug = config.get("debug", False)
         self.event_types = config.get("event_types", [])
-        self.rule_engine: Optional[DashboardRuleEngine] = None
+        self.catalog: Optional[SignalsCatalog] = None
+        self.rule_engine: Optional[V3RuleEngine] = None
         self._rules_path: Path = self._resolve_rules_path()
         self._rules_mtime_ns: Optional[int] = None
+        self._load_catalog()
         self._load_rules()
         self._shift_bitmap = 0
         self._subshift_bitmap = 0
@@ -76,9 +80,27 @@ class EventHandler:
             return Path(override)
         return self.plugin_dir / "rules.json"
 
+    def _load_catalog(self) -> None:
+        """Load signals catalog from plugin directory."""
+        try:
+            self.catalog = SignalsCatalog.from_plugin_dir(str(self.plugin_dir))
+            logger.info(f"Loaded signals catalog v{self.catalog.version}")
+        except CatalogError as e:
+            logger.error(f"Failed to load signals catalog: {e}")
+            self.catalog = None
+        except Exception as e:
+            logger.error(f"Unexpected error loading catalog: {e}")
+            self.catalog = None
+
     def _load_rules(self, *, preserve_on_error: bool = False) -> None:
         rules_path = self._resolve_rules_path()
         self._rules_path = rules_path
+
+        # Catalog is required for v3 rules
+        if self.catalog is None:
+            logger.error("Cannot load rules: signals catalog not loaded")
+            self.rule_engine = None
+            return
 
         if not rules_path.exists():
             logger.info(f"No rules file found at {rules_path}")
@@ -92,28 +114,25 @@ class EventHandler:
             mtime_ns = None
 
         try:
-            with rules_path.open("r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception as e:
+            rules = load_rules_file(rules_path)
+        except RuleLoadError as e:
             if preserve_on_error and self.rule_engine is not None:
                 logger.warning(f"Failed to reload rules from {rules_path}: {e}; keeping previous rules")
                 return
             logger.error(f"Failed to load rules from {rules_path}: {e}")
             self.rule_engine = None
             return
-
-        rules = data.get("rules") if isinstance(data, dict) else data
-        if not isinstance(rules, list):
+        except Exception as e:
             if preserve_on_error and self.rule_engine is not None:
-                logger.warning(f"Rules file {rules_path} must contain a list of rules; keeping previous rules")
+                logger.warning(f"Unexpected error reloading rules: {e}; keeping previous rules")
                 return
-            logger.error(f"Rules file {rules_path} must contain a list of rules")
+            logger.error(f"Unexpected error loading rules: {e}")
             self.rule_engine = None
             return
 
-        self.rule_engine = DashboardRuleEngine(rules, action_handler=self._handle_rule_action)
+        self.rule_engine = V3RuleEngine(rules, self.catalog, action_handler=self._handle_rule_action)
         self._rules_mtime_ns = mtime_ns
-        logger.info(f"Loaded {len(rules)} rules from {rules_path}")
+        logger.info(f"Loaded {len(rules)} v3 rules from {rules_path}")
 
     def _reload_rules_if_changed(self) -> None:
         current_path = self._resolve_rules_path()
@@ -227,34 +246,36 @@ class EventHandler:
         """
         self._send_shift_state_if_changed(force=True)
 
-    def _handle_rule_action(self, result: MatchResult) -> None:
-        if result.outcome in (RuleMatchResult.INDETERMINATE, RuleMatchResult.SKIPPED):
-            if result.outcome == RuleMatchResult.INDETERMINATE:
-                logger.debug(f"[EDMCVKBConnector:{result.rule_id}] Rule indeterminate (missing data)")
+    def _handle_rule_action(self, result: V3MatchResult) -> None:
+        """
+        Handle v3 rule match result.
+        
+        V3 rules use edge-triggering, so this is only called when actions
+        should be executed (on state transitions).
+        """
+        actions_list = result.actions_to_execute
+        if not actions_list:
             return
 
-        actions = result.then if result.outcome == RuleMatchResult.MATCH else result.otherwise
-        if not actions:
-            return
-
-        if not isinstance(actions, dict):
-            logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Rule actions must be a dict")
-            return
-
-        for key, value in actions.items():
-            if key == "log":
-                message = str(value) if value is not None else ""
-                logger.info(f"[EDMCVKBConnector:{result.rule_id}] {message}")
+        for action in actions_list:
+            if not isinstance(action, dict):
+                logger.warning(f"[{result.rule_id}] Action must be a dict, got {type(action)}")
                 continue
 
-            if key in ("vkb_set_shift", "vkb_clear_shift"):
-                if not isinstance(value, list):
-                    logger.warning(f"[EDMCVKBConnector:{result.rule_id}] {key} must be a list")
+            for key, value in action.items():
+                if key == "log":
+                    message = str(value) if value is not None else ""
+                    logger.info(f"[{result.rule_title}] {message}")
                     continue
-                self._apply_shift_tokens(result.rule_id, value, set_bits=(key == "vkb_set_shift"))
-                continue
 
-            logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Unknown action key: {key}")
+                if key in ("vkb_set_shift", "vkb_clear_shift"):
+                    if not isinstance(value, list):
+                        logger.warning(f"[{result.rule_id}] {key} must be a list")
+                        continue
+                    self._apply_shift_tokens(result.rule_id, value, set_bits=(key == "vkb_set_shift"))
+                    continue
+
+                logger.warning(f"[{result.rule_id}] Unknown action key: {key}")
 
         self._send_shift_state_if_changed()
 
@@ -270,28 +291,28 @@ class EventHandler:
     def _apply_shift_tokens(self, rule_id: str, tokens: list, *, set_bits: bool) -> None:
         for token in tokens:
             if not isinstance(token, str):
-                logger.warning(f"[EDMCVKBConnector:{rule_id}] Invalid shift token: {token}")
+                logger.warning(f"[{rule_id}] Invalid shift token: {token}")
                 continue
             
             # Use pre-compiled regex for better performance
             match = _SHIFT_TOKEN_PATTERN.match(token)
             if not match:
-                logger.warning(f"[EDMCVKBConnector:{rule_id}] Unknown shift token: {token}")
+                logger.warning(f"[{rule_id}] Unknown shift token: {token}")
                 continue
             
             shift_type = match.group(1)
             idx = int(match.group(2))
             
             if shift_type == "Shift":
-                # Shift codes 1-2 only (mapped to bits 1-2)
+                # Shift codes 1-2 only (mapped to bits 0-1)
                 if idx < 1 or idx > 2:
-                    logger.warning(f"[EDMCVKBConnector:{rule_id}] Shift index {idx} out of range (1-2): {token}")
+                    logger.warning(f"[{rule_id}] Shift index {idx} out of range (1-2): {token}")
                     continue
                 self._shift_bitmap = self._apply_bit(self._shift_bitmap, idx-1, set_bits)
             else:  # Subshift
-                # Subshift codes 1-7 only; Subshift1 maps to bit 0, Subshift7 to bit 6
-                if idx < 1 or idx > 7:
-                    logger.warning(f"[EDMCVKBConnector:{rule_id}] Subshift index {idx} out of range (1-7): {token}")
+                # Subshift codes 1-8 (Subshift1 maps to bit 0, Subshift8 to bit 7)
+                if idx < 1 or idx > 8:
+                    logger.warning(f"[{rule_id}] Subshift index {idx} out of range (1-8): {token}")
                     continue
                 bit_pos = idx - 1
                 self._subshift_bitmap = self._apply_bit(self._subshift_bitmap, bit_pos, set_bits)

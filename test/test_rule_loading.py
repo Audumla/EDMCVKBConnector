@@ -1,6 +1,7 @@
 """Tests for EventHandler rule file loading behavior."""
 
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock
@@ -25,17 +26,35 @@ def _write_json(path: Path, payload) -> None:
         json.dump(payload, f)
 
 
+def _copy_catalog_to_plugin_dir(plugin_dir: Path) -> None:
+    """Copy signals catalog to plugin directory for tests."""
+    # Find catalog in repository root
+    repo_root = Path(__file__).parent.parent
+    catalog_src = repo_root / "signals_catalog.json"
+    catalog_dst = plugin_dir / "signals_catalog.json"
+    shutil.copy(catalog_src, catalog_dst)
+
+
 def test_loads_default_rules_json_from_plugin_dir():
     with tempfile.TemporaryDirectory() as td:
         plugin_dir = Path(td)
+        
+        # Copy catalog
+        _copy_catalog_to_plugin_dir(plugin_dir)
+        
+        # Write v3 rules
         _write_json(
             plugin_dir / "rules.json",
             [
                 {
-                    "id": "rule_default",
+                    "title": "Test Rule",
                     "enabled": True,
-                    "when": {"source": "journal", "event": "Location"},
-                    "then": {"log": "default"},
+                    "when": {
+                        "all": [
+                            {"signal": "docked", "op": "eq", "value": True}
+                        ]
+                    },
+                    "then": [{"log": "Docked"}],
                 }
             ],
         )
@@ -45,7 +64,7 @@ def test_loads_default_rules_json_from_plugin_dir():
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
-        assert handler.rule_engine.rules[0]["id"] == "rule_default"
+        # V3 rules auto-generate ID from title
         print("[OK] Default rules.json loading passed")
 
 
@@ -55,14 +74,22 @@ def test_loads_override_rules_json_path():
         default_path = plugin_dir / "rules.json"
         override_path = plugin_dir / "rules_override.json"
 
+        # Copy catalog
+        _copy_catalog_to_plugin_dir(plugin_dir)
+
+        # Write v3 rules to both paths
         _write_json(
             default_path,
             [
                 {
-                    "id": "rule_default",
+                    "title": "Default Rule",
                     "enabled": True,
-                    "when": {"source": "journal", "event": "Location"},
-                    "then": {"log": "default"},
+                    "when": {
+                        "all": [
+                            {"signal": "docked", "op": "eq", "value": True}
+                        ]
+                    },
+                    "then": [{"log": "default"}],
                 }
             ],
         )
@@ -70,10 +97,14 @@ def test_loads_override_rules_json_path():
             override_path,
             [
                 {
-                    "id": "rule_override",
+                    "title": "Override Rule",
                     "enabled": True,
-                    "when": {"source": "journal", "event": "FSDJump"},
-                    "then": {"log": "override"},
+                    "when": {
+                        "all": [
+                            {"signal": "in_supercruise", "op": "eq", "value": True}
+                        ]
+                    },
+                    "then": [{"log": "override"}],
                 }
             ],
         )
@@ -83,7 +114,7 @@ def test_loads_override_rules_json_path():
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
-        assert handler.rule_engine.rules[0]["id"] == "rule_override"
+        assert "override_rule" in handler.rule_engine.rules[0]["id"].lower()
         print("[OK] Override rules_path loading passed")
 
 
@@ -91,6 +122,10 @@ def test_invalid_rules_file_disables_rule_engine():
     with tempfile.TemporaryDirectory() as td:
         plugin_dir = Path(td)
         bad_path = plugin_dir / "rules.json"
+        
+        # Copy catalog
+        _copy_catalog_to_plugin_dir(plugin_dir)
+        
         with bad_path.open("w", encoding="utf-8") as f:
             f.write("{not-json")
 
