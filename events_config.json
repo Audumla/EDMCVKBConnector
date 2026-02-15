@@ -1,0 +1,441 @@
+{
+  "sources": [
+    {
+      "id": "journal",
+      "name": "Journal",
+      "description": "Events from Elite Dangerous journal files"
+    },
+    {
+      "id": "dashboard",
+      "name": "Dashboard/Status",
+      "description": "Real-time status updates from dashboard"
+    },
+    {
+      "id": "capi",
+      "name": "CAPI",
+      "description": "Commander API data"
+    },
+    {
+      "id": "capi_fleetcarrier",
+      "name": "CAPI Fleet Carrier",
+      "description": "Fleet carrier data from CAPI"
+    }
+  ],
+  "events": [
+    {
+      "source": "journal",
+      "event": "Location",
+      "title": "Location Update",
+      "description": "Commander location in a system",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "FSDJump",
+      "title": "FSD Jump",
+      "description": "Frame Shift Drive jump completed",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "StartJump",
+      "title": "Start Jump",
+      "description": "Frame Shift Drive jump started",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "SupercruiseEntry",
+      "title": "Supercruise Entry",
+      "description": "Entered supercruise",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "SupercruiseExit",
+      "title": "Supercruise Exit",
+      "description": "Exited supercruise",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "Docked",
+      "title": "Docked",
+      "description": "Docked at station or outpost",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "Undocked",
+      "title": "Undocked",
+      "description": "Undocked from station or outpost",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "DockingGranted",
+      "title": "Docking Granted",
+      "description": "Docking request approved",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "DockingDenied",
+      "title": "Docking Denied",
+      "description": "Docking request denied",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "Touchdown",
+      "title": "Touchdown",
+      "description": "Landed on planet surface",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "Liftoff",
+      "title": "Liftoff",
+      "description": "Lifted off from planet surface",
+      "category": "Travel"
+    },
+    {
+      "source": "journal",
+      "event": "Loadout",
+      "title": "Ship Loadout",
+      "description": "Ship configuration and loadout",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "VehicleSwitch",
+      "title": "Vehicle Switch",
+      "description": "Switched between ship/SRV/fighter",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "LaunchSRV",
+      "title": "Launch SRV",
+      "description": "Deployed SRV from ship",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "DockSRV",
+      "title": "Dock SRV",
+      "description": "Recalled SRV to ship",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "LaunchFighter",
+      "title": "Launch Fighter",
+      "description": "Deployed fighter",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "DockFighter",
+      "title": "Dock Fighter",
+      "description": "Recalled fighter",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "FuelScoop",
+      "title": "Fuel Scoop",
+      "description": "Scooping fuel from star",
+      "category": "Ship"
+    },
+    {
+      "source": "journal",
+      "event": "Bounty",
+      "title": "Bounty Awarded",
+      "description": "Bounty reward received",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "CombatBond",
+      "title": "Combat Bond",
+      "description": "Combat bond awarded",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "HullDamage",
+      "title": "Hull Damage",
+      "description": "Ship hull damaged",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "ShieldState",
+      "title": "Shield State",
+      "description": "Shield state changed",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "PVPKill",
+      "title": "PVP Kill",
+      "description": "Player vs player kill",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "Interdicted",
+      "title": "Interdicted",
+      "description": "Ship interdicted",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "SelfDestruct",
+      "title": "Self Destruct",
+      "description": "Self destruct initiated",
+      "category": "Combat"
+    },
+    {
+      "source": "journal",
+      "event": "MarketBuy",
+      "title": "Market Buy",
+      "description": "Commodities purchased",
+      "category": "Trading"
+    },
+    {
+      "source": "journal",
+      "event": "MarketSell",
+      "title": "Market Sell",
+      "description": "Commodities sold",
+      "category": "Trading"
+    },
+    {
+      "source": "journal",
+      "event": "MiningRefined",
+      "title": "Mining Refined",
+      "description": "Ore refined from mining",
+      "category": "Trading"
+    },
+    {
+      "source": "journal",
+      "event": "MaterialCollected",
+      "title": "Material Collected",
+      "description": "Material or data collected",
+      "category": "Trading"
+    },
+    {
+      "source": "journal",
+      "event": "CargoTransfer",
+      "title": "Cargo Transfer",
+      "description": "Cargo transferred",
+      "category": "Trading"
+    },
+    {
+      "source": "journal",
+      "event": "MissionAccepted",
+      "title": "Mission Accepted",
+      "description": "New mission accepted",
+      "category": "Missions"
+    },
+    {
+      "source": "journal",
+      "event": "MissionCompleted",
+      "title": "Mission Completed",
+      "description": "Mission completed",
+      "category": "Missions"
+    },
+    {
+      "source": "journal",
+      "event": "MissionFailed",
+      "title": "Mission Failed",
+      "description": "Mission failed",
+      "category": "Missions"
+    },
+    {
+      "source": "journal",
+      "event": "MissionAbandoned",
+      "title": "Mission Abandoned",
+      "description": "Mission abandoned",
+      "category": "Missions"
+    },
+    {
+      "source": "journal",
+      "event": "Embark",
+      "title": "Embark (On Foot)",
+      "description": "Embarked on foot (Odyssey)",
+      "category": "Odyssey"
+    },
+    {
+      "source": "journal",
+      "event": "Disembark",
+      "title": "Disembark (On Foot)",
+      "description": "Disembarked from ship (Odyssey)",
+      "category": "Odyssey"
+    },
+    {
+      "source": "journal",
+      "event": "BookTaxi",
+      "title": "Book Taxi",
+      "description": "Booked Apex taxi (Odyssey)",
+      "category": "Odyssey"
+    },
+    {
+      "source": "journal",
+      "event": "Backpack",
+      "title": "Backpack Change",
+      "description": "Backpack inventory changed (Odyssey)",
+      "category": "Odyssey"
+    },
+    {
+      "source": "journal",
+      "event": "DiscoveryScan",
+      "title": "Discovery Scan",
+      "description": "Discovery scanner used",
+      "category": "Exploration"
+    },
+    {
+      "source": "journal",
+      "event": "FSSDiscoveryScan",
+      "title": "FSS Discovery Scan",
+      "description": "Full Spectrum System scanner completed",
+      "category": "Exploration"
+    },
+    {
+      "source": "journal",
+      "event": "FSSSignalDiscovered",
+      "title": "FSS Signal Discovered",
+      "description": "Signal discovered in FSS",
+      "category": "Exploration"
+    },
+    {
+      "source": "journal",
+      "event": "SAAScanComplete",
+      "title": "SAA Scan Complete",
+      "description": "Surface Area Analysis scan completed",
+      "category": "Exploration"
+    },
+    {
+      "source": "journal",
+      "event": "Scan",
+      "title": "Basic Scan",
+      "description": "Basic body scan",
+      "category": "Exploration"
+    },
+    {
+      "source": "journal",
+      "event": "CodexEntry",
+      "title": "Codex Entry",
+      "description": "New codex entry discovered",
+      "category": "Exploration"
+    },
+    {
+      "source": "journal",
+      "event": "LoadGame",
+      "title": "Load Game",
+      "description": "Game session started",
+      "category": "Session"
+    },
+    {
+      "source": "journal",
+      "event": "Commander",
+      "title": "Commander Info",
+      "description": "Commander information",
+      "category": "Session"
+    },
+    {
+      "source": "journal",
+      "event": "Fileheader",
+      "title": "File Header",
+      "description": "Journal file header",
+      "category": "Session"
+    },
+    {
+      "source": "journal",
+      "event": "Music",
+      "title": "Music Change",
+      "description": "Game music track changed",
+      "category": "Session"
+    },
+    {
+      "source": "journal",
+      "event": "Promotion",
+      "title": "Promotion",
+      "description": "Rank promotion",
+      "category": "Session"
+    },
+    {
+      "source": "journal",
+      "event": "Progress",
+      "title": "Progress Update",
+      "description": "Progress statistics update",
+      "category": "Session"
+    },
+    {
+      "source": "journal",
+      "event": "Statistics",
+      "title": "Statistics",
+      "description": "Game statistics",
+      "category": "Session"
+    },
+    {
+      "source": "dashboard",
+      "event": "Status",
+      "title": "Status Update",
+      "description": "Real-time status with flags and GUI focus",
+      "category": "Dashboard"
+    },
+    {
+      "source": "capi",
+      "event": "CmdrData",
+      "title": "Commander Data",
+      "description": "Commander profile data from CAPI",
+      "category": "CAPI"
+    },
+    {
+      "source": "capi_fleetcarrier",
+      "event": "CapiFleetCarrier",
+      "title": "Fleet Carrier Data",
+      "description": "Fleet carrier information from CAPI",
+      "category": "CAPI"
+    }
+  ],
+  "condition_types": [
+    {
+      "id": "flags",
+      "name": "Flags",
+      "description": "Dashboard status flags (requires dashboard source)",
+      "operators": ["all_of", "any_of", "none_of", "equals", "changed_to_true", "changed_to_false"]
+    },
+    {
+      "id": "flags2",
+      "name": "Flags2",
+      "description": "Extended dashboard flags (requires dashboard source)",
+      "operators": ["all_of", "any_of", "none_of", "equals", "changed_to_true", "changed_to_false"]
+    },
+    {
+      "id": "gui_focus",
+      "name": "GUI Focus",
+      "description": "Current UI panel focus (requires dashboard source)",
+      "operators": ["equals", "in", "changed_to"]
+    },
+    {
+      "id": "field",
+      "name": "Field",
+      "description": "Match arbitrary event fields",
+      "operators": ["exists", "equals", "in", "not_in", "contains", "gt", "gte", "lt", "lte", "changed", "changed_to"]
+    }
+  ],
+  "shift_flags": [
+    "Shift1",
+    "Shift2",
+    "Subshift1",
+    "Subshift2",
+    "Subshift3",
+    "Subshift4",
+    "Subshift5",
+    "Subshift6",
+    "Subshift7"
+  ]
+}
