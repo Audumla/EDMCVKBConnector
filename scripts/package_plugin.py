@@ -9,7 +9,6 @@ Usage:
     python scripts/package_plugin.py
 """
 
-import re
 import zipfile
 from pathlib import Path
 
@@ -27,6 +26,7 @@ INCLUDE = [
     "rules.json.example",
     "config.json.example",
     "src/edmcruleengine/__init__.py",
+    "src/edmcruleengine/version.py",
     "src/edmcruleengine/config.py",
     "src/edmcruleengine/event_handler.py",
     "src/edmcruleengine/message_formatter.py",
@@ -43,20 +43,11 @@ def archive_relpath(rel: str) -> str:
 
 
 def get_version() -> str:
-    """Extract version from pyproject.toml or PLUGIN_REGISTRY.py."""
-    pyproject = PROJECT_ROOT / "pyproject.toml"
-    if pyproject.exists():
-        match = re.search(r'version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"))
-        if match:
-            return match.group(1)
-
-    registry = PROJECT_ROOT / "PLUGIN_REGISTRY.py"
-    if registry.exists():
-        match = re.search(r'VERSION\s*=\s*"([^"]+)"', registry.read_text(encoding="utf-8"))
-        if match:
-            return match.group(1)
-
-    return "0.0.0"
+    """Load version from the single-source version module."""
+    namespace: dict[str, str] = {}
+    version_file = PROJECT_ROOT / "src" / "edmcruleengine" / "version.py"
+    exec(version_file.read_text(encoding="utf-8"), namespace)
+    return str(namespace.get("__version__", "0.0.0"))
 
 
 def package() -> Path:

@@ -7,10 +7,20 @@ When submitting to the official registry, this information will be used.
 Reference: https://github.com/EDCD/EDMC-Plugin-Registry
 """
 
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parent
+_SRC_DIR = _PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
+from edmcruleengine.version import __version__
+
 PLUGIN_REGISTRY_INFO = {
     # Required Fields
     "pluginName": "EDMC VKB Connector",
-    "pluginVer": "0.1.0",
+    "pluginVer": __version__,
     "autoUpdateEnabled": False,  # Not yet supported by EDMC
     "autoInstallEnabled": False,  # Not yet supported by EDMC
     "pluginAuthors": [
@@ -40,7 +50,7 @@ PLUGIN_REGISTRY_INFO = {
 STANDARDS_COMPLIANCE = {
     "versioning": {
         "compliant": True,
-        "notes": "Uses semantic versioning (0.1.0) as required by EDMC standards"
+        "notes": f"Uses semantic versioning ({__version__}) as required by EDMC standards"
     },
     "compatibility": {
         "compliant": True,

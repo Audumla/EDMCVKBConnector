@@ -40,8 +40,8 @@ except Exception:
     appname = "EDMarketConnector"
     appversion = "0.0.0"
 
-# Plugin metadata
-VERSION = "0.1.0"  # Required by EDMC standards for semantic versioning
+# Plugin metadata (single-source version from package module)
+from edmcruleengine.version import __version__ as VERSION
 
 # Logger setup per EDMC plugin requirements
 # The plugin_name MUST be the plugin folder name.

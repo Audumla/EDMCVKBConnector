@@ -9,7 +9,8 @@ The VKB-Link packet format used by the plugin is implemented in
 import logging
 import sys
 
-__version__ = "0.1.0"
+from .version import __version__
+
 __author__ = "EDMC VKB Connector Contributors"
 __license__ = "MIT"
 
