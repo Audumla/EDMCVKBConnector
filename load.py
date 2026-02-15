@@ -13,6 +13,7 @@ License: MIT
 import logging
 import os
 import json
+from pathlib import Path
 from typing import Any, Optional
 
 try:
@@ -749,19 +750,55 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             _refresh_rules_list(select_idx=min(idx, len(rules_state["rules"]) - 1))
         _persist_rules_with_reload("Deleted selected rule")
 
+    def _edit_selected_rule_visual() -> None:
+        """Open visual editor for selected rule."""
+        idx = rules_state["selected"]
+        if idx is None or idx < 0 or idx >= len(rules_state["rules"]):
+            rules_status_var.set("No rule selected")
+            return
+        
+        try:
+            from edmcruleengine.rule_editor_ui import RuleEditorDialog, load_events_config
+            from edmcruleengine.rules_engine import FLAGS, FLAGS2, GUI_FOCUS_NAME_TO_VALUE
+            
+            # Determine plugin directory for events config
+            if _plugin_dir:
+                plugin_dir = Path(_plugin_dir)
+            else:
+                # Fallback: try to determine from this file's location
+                plugin_dir = Path(__file__).parent
+                logger.warning(f"Plugin dir not set, using file parent: {plugin_dir}")
+            
+            events_config = load_events_config(plugin_dir)
+            
+            rule = rules_state["rules"][idx]
+            dialog = RuleEditorDialog(frame, rule, events_config, FLAGS, FLAGS2, GUI_FOCUS_NAME_TO_VALUE)
+            result = dialog.show()
+            
+            if result is not None:
+                rules_state["rules"][idx] = result
+                _refresh_rules_list(select_idx=idx)
+                _persist_rules_with_reload("Saved rule via visual editor")
+        except Exception as e:
+            logger.error(f"Failed to open visual editor: {e}", exc_info=True)
+            rules_status_var.set(f"Visual editor error: {e}")
+
     rules_list_inner.bind("<Configure>", _on_rules_inner_configure)
     rules_list_canvas.bind("<Configure>", _on_rules_canvas_configure)
-    ttk.Button(rules_buttons, text="Save Rule JSON", command=_save_selected_rule).grid(
+    ttk.Button(rules_buttons, text="Visual Editor", command=_edit_selected_rule_visual).grid(
         row=0, column=0, sticky="w"
     )
-    ttk.Button(rules_buttons, text="Reload File", command=_reload_rules_file).grid(
+    ttk.Button(rules_buttons, text="Save JSON", command=_save_selected_rule).grid(
         row=0, column=1, sticky="w", padx=(6, 0)
     )
-    ttk.Button(rules_buttons, text="New Rule", command=_new_rule).grid(
+    ttk.Button(rules_buttons, text="Reload File", command=_reload_rules_file).grid(
         row=0, column=2, sticky="w", padx=(6, 0)
     )
-    ttk.Button(rules_buttons, text="Delete Rule", command=_delete_selected_rule).grid(
+    ttk.Button(rules_buttons, text="New Rule", command=_new_rule).grid(
         row=0, column=3, sticky="w", padx=(6, 0)
+    )
+    ttk.Button(rules_buttons, text="Delete Rule", command=_delete_selected_rule).grid(
+        row=0, column=4, sticky="w", padx=(6, 0)
     )
 
     _refresh_rules_list()
