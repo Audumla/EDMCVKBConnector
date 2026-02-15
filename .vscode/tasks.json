@@ -4,7 +4,7 @@
         {
             "label": "EDMC: Bootstrap Dev Environment",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
                 "scripts/bootstrap_dev_env.py"
             ],
@@ -14,7 +14,7 @@
         {
             "label": "EDMC: Bootstrap + Run Tests",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
                 "scripts/bootstrap_dev_env.py",
                 "--run-tests"
@@ -25,7 +25,7 @@
         {
             "label": "EDMC: Run EDMC (DEV - Isolated Config)",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
                 "scripts/run_edmc_from_dev.py"
             ],
@@ -35,7 +35,7 @@
         {
             "label": "EDMC: Run EDMC (DEV - System Config)",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
                 "scripts/run_edmc_from_dev.py",
                 "--use-system-config"
@@ -46,12 +46,22 @@
         {
             "label": "EDMC: Package Plugin",
             "type": "shell",
-            "command": "python",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
                 "scripts/package_plugin.py"
             ],
             "problemMatcher": [],
             "detail": "Create distributable ZIP file in dist/ directory"
+        },
+        {
+            "label": "EDMC: UI Bootstrap (Rule Editor)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "test/ui_bootstrap_runner.py"
+            ],
+            "problemMatcher": [],
+            "detail": "Launch the rule editor UI for manual testing"
         }
     ]
 }

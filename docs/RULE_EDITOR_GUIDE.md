@@ -1,8 +1,8 @@
-# V3 Rule Editor UI - User Guide
+# Rule Editor UI - User Guide
 
 ## Overview
 
-The v3 Rule Editor is a catalog-driven visual interface for creating and editing VKB shift rules in Elite Dangerous Market Connector. It provides an intuitive way to create complex rules without writing JSON manually.
+The Rule Editor is a catalog-driven visual interface for creating and editing VKB shift rules in Elite Dangerous Market Connector. It provides an intuitive way to create complex rules without writing JSON manually.
 
 ## Key Features
 
@@ -447,7 +447,7 @@ This prevents accidental data loss when catalog is incomplete.
 
 ### File Format
 
-Rules are saved in v3 JSON format:
+Rules are saved in JSON format:
 
 ```json
 [
@@ -494,8 +494,8 @@ The editor uses standard tkinter widgets which should work with screen readers, 
 - Enable debug mode for verbose logging
 
 **Documentation:**
-- See `V3_SCHEMA_REFERENCE.md` for technical details
-- See `IMPLEMENTATION_COMPLETE_V3.md` for implementation info
+- See `RULES_SCHEMA.md` for technical details
+- See `RULE_EDITOR_IMPLEMENTATION.md` for implementation info
 
 **Support:**
 - Report issues on GitHub
@@ -504,6 +504,7 @@ The editor uses standard tkinter widgets which should work with screen readers, 
 
 ---
 
-**Version:** 3.0  
+**Version:** 1.0  
 **Last Updated:** 2026-02-15  
-**Compatible with:** signals_catalog.json version 3
+**Compatible with:** signals_catalog.json version 1
+

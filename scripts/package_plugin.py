@@ -25,12 +25,17 @@ INCLUDE = [
     "README.md",
     "rules.json.example",
     "config.json.example",
+    "signals_catalog.json",
     "src/edmcruleengine/__init__.py",
     "src/edmcruleengine/version.py",
     "src/edmcruleengine/config.py",
     "src/edmcruleengine/event_handler.py",
     "src/edmcruleengine/message_formatter.py",
+    "src/edmcruleengine/rule_editor.py",
+    "src/edmcruleengine/rule_loader.py",
     "src/edmcruleengine/rules_engine.py",
+    "src/edmcruleengine/signal_derivation.py",
+    "src/edmcruleengine/signals_catalog.py",
     "src/edmcruleengine/vkb_client.py",
 ]
 

@@ -20,7 +20,8 @@ from edmcruleengine.vkb_client import VKBClient
 from edmcruleengine.event_handler import EventHandler
 from test.mock_vkb_server import MockVKBServer
 
-RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
+RULES_FILE = Path(__file__).parent / "fixtures" / "rules_catalog.json"
+PLUGIN_ROOT = Path(__file__).parent.parent
 
 
 class _TestConfig:
@@ -215,7 +216,7 @@ def test_connection_with_event_handler():
     
     with running_mock_server(port=50999) as server:
         config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=50999)
-        handler = EventHandler(config, plugin_dir=str(RULES_FILE.parent))
+        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
         
         # Update config to use test port
         handler.vkb_client.port = 50999

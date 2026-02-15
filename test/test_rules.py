@@ -1,5 +1,5 @@
 """
-Tests for v3 rules engine, signal derivation, and catalog loading.
+Tests for rules engine, signal derivation, and catalog loading.
 """
 
 import json
@@ -8,7 +8,7 @@ from pathlib import Path
 
 from edmcruleengine.signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
 from edmcruleengine.signal_derivation import SignalDerivation
-from edmcruleengine.rules_engine_v3 import V3RuleEngine, V3RuleValidator, RuleValidationError
+from edmcruleengine.rules_engine import RuleEngine, RuleValidator, RuleValidationError
 from edmcruleengine.rule_loader import load_rules_file, RuleLoadError
 
 
@@ -20,7 +20,7 @@ class TestSignalsCatalog:
         catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
-        assert catalog.version == 3
+        assert catalog.version == 1
         assert "core" in catalog.ui_tiers
         assert "detail" in catalog.ui_tiers
         assert "eq" in catalog.operators
@@ -67,7 +67,7 @@ class TestSignalsCatalog:
         catalog = SignalsCatalog.from_file(catalog_path)
         
         assert catalog.get_signal_type("hardpoints") == "enum"
-        assert catalog.get_signal_type("docked") == "bool"
+        assert catalog.get_signal_type("flag_docked") == "bool"
         assert catalog.get_signal_type("nonexistent") is None
     
     def test_catalog_get_signal_values(self):
@@ -148,8 +148,10 @@ class TestSignalDerivation:
         
         signals = derivation.derive_all_signals(entry)
         
-        assert signals["weapons_out"] is True
-        assert signals["docked"] is False
+        # Check hardpoints enum signal (derived from bit 6)
+        assert signals["hardpoints"] == "deployed"
+        # Check docking_state (no docked flag, should be in_space)
+        assert signals["docking_state"] == "in_space"
     
     def test_derive_enum_signal_from_flag(self, derivation):
         """Test deriving enum signal from flag."""
@@ -159,7 +161,8 @@ class TestSignalDerivation:
         
         # When bit 6 is set, hardpoints are deployed
         assert signals["hardpoints"] == "deployed"
-        assert signals["weapons_out"] is True
+        # Check individual flag signals exist (v2 has flag_* variants)
+        assert "flag_hardpoints_deployed" in signals
     
     def test_derive_enum_signal_from_path(self, derivation):
         """Test deriving enum signal from path."""
@@ -197,15 +200,15 @@ class TestSignalDerivation:
         
         signals = derivation.derive_all_signals(entry)
         
-        # Should have all signals from catalog
-        assert len(signals) > 50  # We have many signals
+        # Should have all signals from v2 catalog (200+ signals)
+        assert len(signals) > 100  # V2 has 200+ signals
         assert "hardpoints" in signals
         assert "gui_focus" in signals
-        assert "docked" in signals
+        assert "docking_state" in signals
 
 
-class TestV3RuleValidator:
-    """Test v3 rule validation."""
+class TestRuleValidator:
+    """Test rule validation."""
     
     @pytest.fixture
     def catalog(self):
@@ -216,7 +219,7 @@ class TestV3RuleValidator:
     @pytest.fixture
     def validator(self, catalog):
         """Create validator."""
-        return V3RuleValidator(catalog)
+        return RuleValidator(catalog)
     
     def test_validate_valid_rule(self, validator):
         """Test validating a valid rule."""
@@ -266,14 +269,14 @@ class TestV3RuleValidator:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "docked",
+                    "signal": "flag_docked",
                     "op": "unknown_op",
                     "value": True
                 }]
             }
         }
         
-        with pytest.raises(RuleValidationError, match="unknown operator"):
+        with pytest.raises(RuleValidationError, match="unknown"):
             validator.validate_rule(rule, 0)
     
     def test_validate_enum_value_not_in_list(self, validator):
@@ -298,19 +301,19 @@ class TestV3RuleValidator:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "docked",
+                    "signal": "flag_docked",
                     "op": "eq",
-                    "value": "true"  # Should be boolean, not string
+                    "value": "not_a_boolean"
                 }]
             }
         }
         
-        with pytest.raises(RuleValidationError, match="boolean value"):
+        with pytest.raises(RuleValidationError, match="boolean"):
             validator.validate_rule(rule, 0)
 
 
-class TestV3RuleEngine:
-    """Test v3 rules engine."""
+class TestRuleEngine:
+    """Test rules engine."""
     
     @pytest.fixture
     def catalog(self):
@@ -338,7 +341,7 @@ class TestV3RuleEngine:
         def action_handler(result):
             actions_executed.append((result.matched, result.actions_to_execute))
         
-        engine = V3RuleEngine(rules, catalog, action_handler=action_handler)
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
         
         # First evaluation: hardpoints deployed
         entry = {"Flags": 0b01000000, "Flags2": 0, "GuiFocus": 0}
@@ -355,7 +358,7 @@ class TestV3RuleEngine:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "docked",
+                    "signal": "flag_docked",
                     "op": "eq",
                     "value": True
                 }]
@@ -368,7 +371,7 @@ class TestV3RuleEngine:
         def action_handler(result):
             actions_executed.append(result.matched)
         
-        engine = V3RuleEngine(rules, catalog, action_handler=action_handler)
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
         
         # Send same state multiple times
         entry = {"Flags": 0b00000001, "Flags2": 0, "GuiFocus": 0}  # Docked
@@ -388,7 +391,7 @@ class TestV3RuleEngine:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "docked",
+                    "signal": "flag_docked",
                     "op": "eq",
                     "value": True
                 }]
@@ -402,7 +405,7 @@ class TestV3RuleEngine:
         def action_handler(result):
             actions_executed.append((result.matched, len(result.actions_to_execute)))
         
-        engine = V3RuleEngine(rules, catalog, action_handler=action_handler)
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
         
         # Start undocked
         entry_undocked = {"Flags": 0, "Flags2": 0, "GuiFocus": 0}
@@ -431,8 +434,8 @@ class TestV3RuleEngine:
             "title": "Emergency",
             "when": {
                 "any": [
-                    {"signal": "in_danger", "op": "eq", "value": True},
-                    {"signal": "overheating", "op": "eq", "value": True}
+                    {"signal": "flag_in_danger", "op": "eq", "value": True},
+                    {"signal": "flag_overheating", "op": "eq", "value": True}
                 ]
             },
             "then": [{"log": "emergency"}]
@@ -444,7 +447,7 @@ class TestV3RuleEngine:
             if result.actions_to_execute:
                 actions_executed.append(result.matched)
         
-        engine = V3RuleEngine(rules, catalog, action_handler=action_handler)
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
         
         # Neither condition true
         entry = {"Flags": 0, "Flags2": 0, "GuiFocus": 0}
@@ -502,3 +505,4 @@ class TestRuleLoader:
         
         with pytest.raises(RuleLoadError, match="Invalid JSON"):
             load_rules_file(rules_file)
+

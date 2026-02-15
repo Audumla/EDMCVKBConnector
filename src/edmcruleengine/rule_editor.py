@@ -1,7 +1,7 @@
 """
-V3 Catalog-Driven Rule Editor UI for EDMC VKB Connector.
+Catalog-Driven Rule Editor UI for EDMC VKB Connector.
 
-Provides a visual editor for creating and editing rules using the v3 schema:
+Provides a visual editor for creating and editing rules using the schema:
 - Catalog-driven signals, operators, and enum values
 - Two-tier signal visibility (core/detail)
 - When builder with all/any conditions
@@ -26,16 +26,16 @@ SUBSHIFT_TOKENS = [f"Subshift{i}" for i in range(1, 8)]
 ALL_SHIFT_TOKENS = SHIFT_TOKENS + SUBSHIFT_TOKENS
 
 
-class V3RuleEditorUI:
+class RuleEditorUI:
     """
-    Main UI for v3 catalog-driven rule editor.
+    Main UI for catalog-driven rule editor.
     
     Provides rules list view and rule editor with catalog-driven controls.
     """
     
     def __init__(self, parent, rules_file: Path, plugin_dir: Path):
         """
-        Initialize the v3 rule editor UI.
+        Initialize the rule editor UI.
         
         Args:
             parent: Parent tkinter widget
@@ -69,21 +69,40 @@ class V3RuleEditorUI:
         # Current view state
         self.current_view = "list"  # "list" or "editor"
         self.editing_rule_index: Optional[int] = None
-        self.active_editor: Optional["V3RuleEditor"] = None
+        self.active_editor: Optional["RuleEditor"] = None
         
         # Create main window
         self.window = tk.Toplevel(parent)
-        self.window.title("VKB Rule Editor (v3)")
+        self.window.title("VKB Rule Editor")
         self.window.geometry("1000x700")
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         
         # Build UI
         self._build_ui()
         
-        # Center window
+        # Center window on screen (handle withdrawn parent)
         self.window.update_idletasks()
-        x = parent.winfo_rootx() + (parent.winfo_width() - self.window.winfo_width()) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - self.window.winfo_height()) // 2
+        
+        # Try to center relative to parent if visible
+        parent_width = parent.winfo_width()
+        parent_height = parent.winfo_height()
+        
+        if parent_width > 1 and parent_height > 1:
+            # Parent is visible, center relative to it
+            x = parent.winfo_rootx() + (parent_width - self.window.winfo_width()) // 2
+            y = parent.winfo_rooty() + (parent_height - self.window.winfo_height()) // 2
+        else:
+            # Parent is withdrawn, center on screen
+            screen_width = self.window.winfo_screenwidth()
+            screen_height = self.window.winfo_screenheight()
+            window_width = self.window.winfo_width()
+            window_height = self.window.winfo_height()
+            x = (screen_width - window_width) // 2
+            y = (screen_height - window_height) // 2
+        
+        # Ensure window is not off-screen (negative coordinates)
+        x = max(0, x)
+        y = max(0, y)
         self.window.geometry(f"+{x}+{y}")
     
     def _load_rules(self):
@@ -195,11 +214,11 @@ class V3RuleEditorUI:
         
         # Create list view
         list_frame = ttk.Frame(self.view_container)
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
         # Header with New Rule button
         header_frame = ttk.Frame(list_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 10))
+        header_frame.pack(fill=tk.X, pady=(0, 8))
         
         ttk.Label(header_frame, text="Rules", font=("TkDefaultFont", 14, "bold")).pack(side=tk.LEFT)
         ttk.Button(header_frame, text="➕ New Rule", command=self._new_rule).pack(side=tk.RIGHT)
@@ -232,7 +251,7 @@ class V3RuleEditorUI:
         if not self.rules:
             # Empty state
             empty_frame = ttk.Frame(rules_frame)
-            empty_frame.pack(pady=50)
+            empty_frame.pack(pady=30)
             ttk.Label(
                 empty_frame,
                 text="No rules yet",
@@ -249,48 +268,44 @@ class V3RuleEditorUI:
     
     def _create_rule_list_item(self, parent, idx: int, rule: Dict[str, Any]):
         """Create a single rule list item."""
-        item_frame = ttk.LabelFrame(parent, text="", padding=10)
-        item_frame.pack(fill=tk.X, pady=5)
+        item_frame = ttk.Frame(parent)
+        item_frame.pack(fill=tk.X, pady=3)
         
-        # Top row: enabled toggle, title, actions
+        # Top row: title (with ID and enabled status) + actions
         top_row = ttk.Frame(item_frame)
         top_row.pack(fill=tk.X)
         
-        # Enabled toggle
-        enabled_var = tk.BooleanVar(value=rule.get("enabled", True))
-        def toggle_enabled():
-            self.rules[idx]["enabled"] = enabled_var.get()
-            self.unsaved_changes = True
-            self._save_rules()
-        
-        ttk.Checkbutton(
-            top_row,
-            text="",
-            variable=enabled_var,
-            command=toggle_enabled
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        # Title
+        # Title with ID and enabled status indicator
         title = rule.get("title", rule.get("id", "Untitled"))
+        rule_id = rule.get("id", "")
+        enabled = rule.get("enabled", True)
+        
+        # Build title label with ID and status
+        title_parts = [title]
+        if rule_id:
+            title_parts.append(f"[{rule_id}]")
+        enabled_marker = "●" if enabled else "○"
+        title_text = f"{enabled_marker} {' '.join(title_parts)}"
+        
         ttk.Label(
             top_row,
-            text=title,
-            font=("TkDefaultFont", 11, "bold")
+            text=title_text,
+            font=("TkDefaultFont", 10, "bold")
         ).pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Actions
-        ttk.Button(top_row, text="✏️ Edit", width=8, command=lambda: self._edit_rule(idx)).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(top_row, text="📋 Duplicate", width=12, command=lambda: self._duplicate_rule(idx)).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(top_row, text="🗑️ Delete", width=10, command=lambda: self._delete_rule(idx)).pack(side=tk.RIGHT, padx=2)
+        # Actions (compact)
+        ttk.Button(top_row, text="Edit", width=6, command=lambda: self._edit_rule(idx)).pack(side=tk.RIGHT, padx=1)
+        ttk.Button(top_row, text="Dup", width=4, command=lambda: self._duplicate_rule(idx)).pack(side=tk.RIGHT, padx=1)
+        ttk.Button(top_row, text="Del", width=4, command=lambda: self._delete_rule(idx)).pack(side=tk.RIGHT, padx=1)
         
-        # Summary row
+        # Summary row - readable prose format
         summary = self._generate_rule_summary(rule)
         if summary:
-            summary_label = ttk.Label(item_frame, text=summary, foreground="gray")
-            summary_label.pack(fill=tk.X, pady=(5, 0))
+            summary_label = ttk.Label(item_frame, text=summary, foreground="gray", font=("TkDefaultFont", 9), wraplength=900, justify=tk.LEFT)
+            summary_label.pack(fill=tk.X, padx=30, pady=(0, 2))
     
     def _generate_rule_summary(self, rule: Dict[str, Any]) -> str:
-        """Generate a short summary of the rule."""
+        """Generate a readable summary of the rule."""
         parts = []
         
         # When conditions
@@ -299,26 +314,120 @@ class V3RuleEditorUI:
         any_conds = when.get("any", [])
         
         if all_conds or any_conds:
-            cond_parts = []
-            if all_conds:
-                cond_parts.append(f"{len(all_conds)} ALL")
+            cond_descriptions = []
+            
+            # Add ALL conditions
+            for cond in all_conds:
+                desc = self._describe_condition(cond)
+                if desc:
+                    cond_descriptions.append(desc)
+            
+            # Add ANY conditions
             if any_conds:
-                cond_parts.append(f"{len(any_conds)} ANY")
-            parts.append(f"When: {' and '.join(cond_parts)}")
+                any_descs = []
+                for cond in any_conds:
+                    desc = self._describe_condition(cond)
+                    if desc:
+                        any_descs.append(desc)
+                if any_descs:
+                    cond_descriptions.append(f"({' OR '.join(any_descs)})")
+            
+            if cond_descriptions:
+                parts.append(f"When: {' AND '.join(cond_descriptions)}")
+            else:
+                parts.append("When: (always)")
         else:
             parts.append("When: (always)")
         
         # Then actions
         then_actions = rule.get("then", [])
         if then_actions:
-            parts.append(f"Then: {len(then_actions)} action(s)")
+            action_parts = []
+            for action in then_actions:
+                for action_type, value in action.items():
+                    if action_type == "vkb_set_shift":
+                        tokens = value if isinstance(value, list) else [value]
+                        action_parts.append(f"Set {', '.join(tokens)}")
+                    elif action_type == "vkb_clear_shift":
+                        tokens = value if isinstance(value, list) else [value]
+                        action_parts.append(f"Clear {', '.join(tokens)}")
+                    elif action_type == "log":
+                        action_parts.append(f'Log "{value}"')
+            if action_parts:
+                parts.append(f"Then: {'; '.join(action_parts)}")
         
         # Else actions
         else_actions = rule.get("else", [])
         if else_actions:
-            parts.append(f"Else: {len(else_actions)} action(s)")
+            action_parts = []
+            for action in else_actions:
+                for action_type, value in action.items():
+                    if action_type == "vkb_set_shift":
+                        tokens = value if isinstance(value, list) else [value]
+                        action_parts.append(f"Set {', '.join(tokens)}")
+                    elif action_type == "vkb_clear_shift":
+                        tokens = value if isinstance(value, list) else [value]
+                        action_parts.append(f"Clear {', '.join(tokens)}")
+                    elif action_type == "log":
+                        action_parts.append(f'Log "{value}"')
+            if action_parts:
+                parts.append(f"Else: {'; '.join(action_parts)}")
         
-        return " • ".join(parts)
+        return " | ".join(parts)
+    
+    def _describe_condition(self, condition: Dict[str, Any]) -> Optional[str]:
+        """Generate a readable description of a single condition."""
+        signal_id = condition.get("signal")
+        op_token = condition.get("op")
+        value = condition.get("value")
+        
+        if not signal_id or not self.catalog:
+            return None
+        
+        # Get signal name
+        signal_def = self.catalog.signals.get(signal_id)
+        if not signal_def:
+            return None
+        
+        signal_name = signal_def.get("ui", {}).get("label", signal_id)
+        
+        # Get operator symbol
+        op_def = self.catalog.operators.get(op_token)
+        op_symbol = op_def.get("symbol", op_token) if op_def else op_token
+        
+        # Format value
+        if isinstance(value, bool):
+            value_str = str(value).lower()
+        elif isinstance(value, list):
+            # Look up enum display values
+            signal_type = signal_def.get("type", "text")
+            if signal_type == "enum":
+                displays = []
+                for v in value:
+                    for item in signal_def.get("values", []):
+                        if item.get("value") == v:
+                            label = item.get("label", v)
+                            displays.append(label)
+                            break
+                    else:
+                        displays.append(str(v))
+                value_str = ", ".join(displays)
+            else:
+                value_str = ", ".join(str(v) for v in value)
+        else:
+            # Single value - check if it's an enum
+            signal_type = signal_def.get("type", "text")
+            if signal_type == "enum":
+                for item in signal_def.get("values", []):
+                    if item.get("value") == value:
+                        value_str = item.get("label", value)
+                        break
+                else:
+                    value_str = str(value)
+            else:
+                value_str = str(value)
+        
+        return f"{signal_name} {op_symbol} {value_str}"
     
     def _new_rule(self):
         """Create a new rule."""
@@ -381,7 +490,7 @@ class V3RuleEditorUI:
             return
         
         # Create editor (will be implemented in next phase)
-        self.active_editor = V3RuleEditor(
+        self.active_editor = RuleEditor(
             self.view_container,
             self.rules[self.editing_rule_index],
             self.catalog,
@@ -423,7 +532,7 @@ class V3RuleEditorUI:
         self.window.destroy()
 
 
-class V3RuleEditor:
+class RuleEditor:
     """
     Rule editor component for editing a single rule.
     
@@ -458,11 +567,14 @@ class V3RuleEditor:
         # Track changes
         self.has_changes = False
         
+        # Load icon mapping
+        self._load_icon_map()
+        
         # Build signal lookup tables from catalog
         self._build_lookup_tables()
         
-        # Tier filter state
-        self.show_detail_tier = tk.BooleanVar(value=False)
+        # Tier filter state - always show both tiers
+        self.show_detail_tier = tk.BooleanVar(value=True)
         
         # Build UI
         self._build_ui()
@@ -474,6 +586,7 @@ class V3RuleEditor:
         self.all_signals: Dict[str, Dict] = {}
         self.signal_display_to_id: Dict[str, str] = {}
         self.signal_id_to_display: Dict[str, str] = {}
+        self.signal_id_to_simple_display: Dict[str, str] = {}  # Without category prefix
         
         for signal_id, signal_def in self.catalog.signals.items():
             self.all_signals[signal_id] = signal_def
@@ -486,27 +599,69 @@ class V3RuleEditor:
         
         # Get operators
         self.operators = self.catalog.operators
+        # Use only operator symbols for display (cleaner UI)
         self.operator_display_to_token = {
-            f"{op_def['symbol']} {op_def['label']}": token
+            op_def['symbol']: token
             for token, op_def in self.operators.items()
         }
         self.operator_token_to_display = {
-            token: f"{op_def['symbol']} {op_def['label']}" for token, op_def in self.operators.items()
+            token: op_def['symbol'] for token, op_def in self.operators.items()
         }
         
         # Get tiers
         self.tiers = self.catalog.ui_tiers
 
+    def _load_icon_map(self):
+        """Load icon name to character mapping from icon_map.json and ansi_icon_map.json."""
+        self.icon_map: Dict[str, str] = {}
+        self.ansi_icon_map: Dict[str, str] = {}
+        try:
+            icon_map_path = Path(__file__).parent.parent.parent / "icon_map.json"
+            if icon_map_path.exists():
+                with open(icon_map_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.icon_map = data.get("icons", {})
+                logger.debug(f"Loaded {len(self.icon_map)} icon mappings")
+            else:
+                logger.warning(f"Icon map not found at {icon_map_path}")
+                # Provide basic icons as fallback
+                self.icon_map = {
+                    "shift": "⇧",
+                    "screen": "🖥️",
+                    "ship": "🚀",
+                    "walk": "🚶"
+                }
+        except Exception as e:
+            logger.error(f"Failed to load icon map: {e}")
+            self.icon_map = {}
+        
+        # Load ANSI icon map
+        try:
+            ansi_icon_path = Path(__file__).parent.parent.parent / "ansi_icon_map.json"
+            if ansi_icon_path.exists():
+                with open(ansi_icon_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.ansi_icon_map = data.get("icons", {})
+                logger.debug(f"Loaded {len(self.ansi_icon_map)} ANSI icon mappings")
+            else:
+                logger.debug(f"ANSI icon map not found at {ansi_icon_path}")
+        except Exception as e:
+            logger.error(f"Failed to load ANSI icon map: {e}")
+
     def _build_signal_display_maps(self):
         """Build display labels for signals and ensure uniqueness."""
+        self.icon_map = getattr(self, "icon_map", {})
+        if not self.icon_map:
+            self._load_icon_map()
         display_counts: Dict[str, int] = {}
 
         for category in sorted(self.signals_by_category.keys()):
             for signal_id, signal_def in self.signals_by_category[category]:
                 ui = signal_def.get("ui", {})
                 label = ui.get("label", signal_id)
-                icon = ui.get("icon", "")
-                icon_label = f"{icon} {label}".strip() if icon else label
+                icon_name = ui.get("icon", "")
+                icon_char = self.icon_map.get(icon_name, "") if icon_name else ""
+                icon_label = f"{icon_char} {label}".strip() if icon_char else label
                 base_display = f"{category}: {icon_label}"
                 display_counts[base_display] = display_counts.get(base_display, 0) + 1
 
@@ -514,8 +669,9 @@ class V3RuleEditor:
             for signal_id, signal_def in self.signals_by_category[category]:
                 ui = signal_def.get("ui", {})
                 label = ui.get("label", signal_id)
-                icon = ui.get("icon", "")
-                icon_label = f"{icon} {label}".strip() if icon else label
+                icon_name = ui.get("icon", "")
+                icon_char = self.icon_map.get(icon_name, "") if icon_name else ""
+                icon_label = f"{icon_char} {label}".strip() if icon_char else label
                 base_display = f"{category}: {icon_label}"
                 if display_counts.get(base_display, 0) > 1:
                     display = f"{base_display} ({signal_id})"
@@ -524,6 +680,10 @@ class V3RuleEditor:
 
                 self.signal_display_to_id[display] = signal_id
                 self.signal_id_to_display[signal_id] = display
+                
+                # Also store simple display (without category) for category-specific dropdowns
+                if signal_id not in self.signal_id_to_simple_display:
+                    self.signal_id_to_simple_display[signal_id] = icon_label
     
     def _build_ui(self):
         """Build the editor UI."""
@@ -572,7 +732,7 @@ class V3RuleEditor:
         ttk.Button(button_frame, text="Cancel", command=self._on_back, width=15).pack(side=tk.RIGHT)
     
     def _build_basic_fields(self, parent):
-        """Build basic fields (title, enabled, id)."""
+        """Build basic fields (title, id)."""
         basic_frame = ttk.LabelFrame(parent, text="Basic Information", padding=10)
         basic_frame.pack(fill=tk.X, pady=(0, 10))
         
@@ -584,73 +744,44 @@ class V3RuleEditor:
         self.title_var.trace_add("write", lambda *args: self._on_title_changed())
         ttk.Entry(title_row, textvariable=self.title_var, width=50).pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # Enabled toggle
-        enabled_row = ttk.Frame(basic_frame)
-        enabled_row.pack(fill=tk.X, pady=5)
-        ttk.Label(enabled_row, text="Enabled:", width=15).pack(side=tk.LEFT)
+        # Rule ID (always shown, read-only)
+        self.id_preview_var = tk.StringVar(value="")
+        id_row = ttk.Frame(basic_frame)
+        id_row.pack(fill=tk.X, pady=5)
+        ttk.Label(id_row, text="ID:", width=15, foreground="gray").pack(side=tk.LEFT)
+        ttk.Label(id_row, textvariable=self.id_preview_var, foreground="gray").pack(side=tk.LEFT)
+        self._update_id_preview()
+        
+        # Enabled state (always tracked internally, not shown in UI)
         self.enabled_var = tk.BooleanVar(value=self.rule.get("enabled", True))
         self.enabled_var.trace_add("write", lambda *args: self._mark_changed())
-        ttk.Checkbutton(enabled_row, variable=self.enabled_var).pack(side=tk.LEFT)
-        
-        # Optional ID display (read-only, hidden by default)
-        self.show_id_var = tk.BooleanVar(value=False)
-        show_id_row = ttk.Frame(basic_frame)
-        show_id_row.pack(fill=tk.X, pady=(5, 0))
-        ttk.Checkbutton(show_id_row, text="Show ID", variable=self.show_id_var, command=self._update_id_preview).pack(side=tk.LEFT, padx=(0, 10))
-
-        self.id_preview_var = tk.StringVar(value="")
-        self.id_row = ttk.Frame(basic_frame)
-        self.id_label = ttk.Label(self.id_row, text="ID:", width=15, foreground="gray")
-        self.id_value = ttk.Label(self.id_row, textvariable=self.id_preview_var, foreground="gray")
-        self._update_id_preview()
     
     def _build_when_section(self, parent):
         """Build the When condition builder section."""
-        when_frame = ttk.LabelFrame(parent, text="When (Conditions)", padding=10)
-        when_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
-        
-        # Tier toggle
-        tier_frame = ttk.Frame(when_frame)
-        tier_frame.pack(fill=tk.X, pady=(0, 10))
-        ttk.Label(tier_frame, text="Signals:").pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Radiobutton(
-            tier_frame,
-            text=f"🌟 {self.tiers['core']['label']} only",
-            variable=self.show_detail_tier,
-            value=False,
-            command=self._on_tier_changed
-        ).pack(side=tk.LEFT, padx=5)
-        ttk.Radiobutton(
-            tier_frame,
-            text=f"🌟 {self.tiers['core']['label']} + {self.tiers['detail']['label']}",
-            variable=self.show_detail_tier,
-            value=True,
-            command=self._on_tier_changed
-        ).pack(side=tk.LEFT, padx=5)
+        when_frame = ttk.LabelFrame(parent, text="When (Conditions)", padding=8)
+        when_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         
         # All of these (all)
-        self.all_frame = ttk.LabelFrame(when_frame, text="✓ All of these", padding=10)
-        self.all_frame.pack(fill=tk.X, pady=(0, 10))
+        self.all_frame = ttk.LabelFrame(when_frame, text="✓ All of these", padding=8)
+        self.all_frame.pack(fill=tk.X, pady=(0, 8))
         
+        self.all_add_button = ttk.Button(self.all_frame, text="+ Add condition", command=lambda: self._add_condition("all"))
+        self.all_add_button.pack(anchor=tk.W, pady=(3, 0))
         self.all_conditions = []
         self._load_conditions("all")
-
-        self.all_add_button = ttk.Button(self.all_frame, text="➕ Add condition", command=lambda: self._add_condition("all"))
-        self.all_add_button.pack(pady=(5, 0))
         
         # Any of these (any)
-        self.any_frame = ttk.LabelFrame(when_frame, text="⚡ Any of these", padding=10)
+        self.any_frame = ttk.LabelFrame(when_frame, text="⚡ Any of these", padding=8)
         self.any_frame.pack(fill=tk.X)
         
+        self.any_add_button = ttk.Button(self.any_frame, text="+ Add condition", command=lambda: self._add_condition("any"))
+        self.any_add_button.pack(anchor=tk.W, pady=(3, 0))
         self.any_conditions = []
         self._load_conditions("any")
 
-        self.any_add_button = ttk.Button(self.any_frame, text="➕ Add condition", command=lambda: self._add_condition("any"))
-        self.any_add_button.pack(pady=(5, 0))
-
         # Empty state hints
         self.when_hint_label = ttk.Label(when_frame, text="💡 Add a condition to start", foreground="gray")
-        self.when_hint_label.pack(pady=10)
+        self.when_hint_label.pack(pady=8)
         self._update_when_hint()
     
     def _load_conditions(self, group: str):
@@ -671,20 +802,25 @@ class V3RuleEditor:
         row_frame = ttk.Frame(cond_container)
         row_frame.pack(fill=tk.X)
         
-        # Signal dropdown
+        # Category dropdown (first step)
+        category_var = tk.StringVar(value="")
+        category_combo = ttk.Combobox(row_frame, textvariable=category_var, state="readonly", width=12)
+        category_combo.pack(side=tk.LEFT, padx=1)
+        
+        # Signal dropdown (second step, populated based on category)
         signal_var = tk.StringVar(value=condition.get("signal", "") if condition else "")
-        signal_combo = ttk.Combobox(row_frame, textvariable=signal_var, state="readonly", width=30)
-        signal_combo.pack(side=tk.LEFT, padx=2)
+        signal_combo = ttk.Combobox(row_frame, textvariable=signal_var, state="readonly", width=18)
+        signal_combo.pack(side=tk.LEFT, padx=1)
         
         # Operator dropdown
         op_var = tk.StringVar(value=condition.get("op", "") if condition else "")
-        op_combo = ttk.Combobox(row_frame, textvariable=op_var, state="readonly", width=16)
-        op_combo.pack(side=tk.LEFT, padx=2)
+        op_combo = ttk.Combobox(row_frame, textvariable=op_var, state="readonly", width=4)
+        op_combo.pack(side=tk.LEFT, padx=1)
         
         # Value control (dynamic based on signal type)
         value_var = tk.StringVar(value=str(condition.get("value", "")) if condition else "")
         value_widget_frame = ttk.Frame(row_frame)
-        value_widget_frame.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
+        value_widget_frame.pack(side=tk.LEFT, padx=1, fill=tk.X, expand=True)
         
         # Row action buttons
         def remove_cond():
@@ -702,10 +838,10 @@ class V3RuleEditor:
         def duplicate_row():
             self._duplicate_condition(cond_data)
         
-        ttk.Button(row_frame, text="⧉", width=3, command=duplicate_row).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(row_frame, text="↓", width=3, command=move_down).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(row_frame, text="↑", width=3, command=move_up).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(row_frame, text="🗑️", width=3, command=remove_cond).pack(side=tk.RIGHT, padx=2)
+        ttk.Button(row_frame, text="⧉", width=3, command=duplicate_row).pack(side=tk.RIGHT, padx=1)
+        ttk.Button(row_frame, text="↓", width=3, command=move_down).pack(side=tk.RIGHT, padx=1)
+        ttk.Button(row_frame, text="↑", width=3, command=move_up).pack(side=tk.RIGHT, padx=1)
+        ttk.Button(row_frame, text="🗑️", width=3, command=remove_cond).pack(side=tk.RIGHT, padx=1)
 
         # Inline error label
         error_label = ttk.Label(cond_container, text="", foreground="red")
@@ -716,6 +852,8 @@ class V3RuleEditor:
             "frame": cond_container,
             "row_frame": row_frame,
             "group": group,
+            "category_var": category_var,
+            "category_combo": category_combo,
             "signal_var": signal_var,
             "signal_combo": signal_combo,
             "op_var": op_var,
@@ -732,17 +870,30 @@ class V3RuleEditor:
             "unknown_value": False,
             "enum_display_to_value": {},
             "enum_value_to_display": {},
+            "enum_sections": {},
+            "enum_section_var": None,
             "error_label": error_label,
             "raw_condition": condition
         }
         target_list.append(cond_data)
         
-        # Populate signal dropdown
-        self._populate_signal_dropdown(signal_combo)
+        # Populate category dropdown
+        self._populate_category_dropdown(category_combo, cond_data)
+        
+        # Setup category change handler
+        def on_category_change(event=None):
+            selected_category = category_var.get()
+            self._populate_signal_dropdown_for_category(signal_combo, selected_category)
+            signal_var.set("")
+            cond_data["signal_id"] = None
+            self._update_condition_value_widget(cond_data, None, None)
+            self._mark_changed()
+        
+        category_combo.bind("<<ComboboxSelected>>", on_category_change)
         
         # Setup signal change handler
         def on_signal_change(event=None):
-            self._on_condition_signal_changed(cond_data)
+            self._on_signal_changed_in_category_dropdown(cond_data)
             self._mark_changed()
             self._set_condition_error(cond_data, "")
         
@@ -762,8 +913,49 @@ class V3RuleEditor:
         else:
             self._update_when_hint()
     
+    def _populate_category_dropdown(self, combo: ttk.Combobox, cond_data: Dict):
+        """Populate category dropdown."""
+        show_detail = self.show_detail_tier.get()
+        categories = []
+        
+        for category, sigs in self.signals_by_category.items():
+            # Check if category has any visible signals
+            has_visible = False
+            for signal_id, signal_def in sigs:
+                tier = signal_def.get("ui", {}).get("tier", "core")
+                if tier == "core" or show_detail:
+                    has_visible = True
+                    break
+            if has_visible:
+                categories.append(category)
+        
+        combo["values"] = sorted(categories)
+        
+        # Pre-select category if loading existing condition
+        if cond_data["signal_var"].get() and cond_data["signal_var"].get() in self.signal_display_to_id:
+            signal_id = self.signal_display_to_id[cond_data["signal_var"].get()]
+            signal_def = self.all_signals.get(signal_id)
+            if signal_def:
+                category = signal_def.get("ui", {}).get("category", "Other")
+                combo.set(category)
+    
+    def _populate_signal_dropdown_for_category(self, combo: ttk.Combobox, category: str):
+        """Populate signal dropdown for a specific category with simple labels (no category prefix)."""
+        signals = []
+        show_detail = self.show_detail_tier.get()
+        
+        if category in self.signals_by_category:
+            for signal_id, signal_def in self.signals_by_category[category]:
+                tier = signal_def.get("ui", {}).get("tier", "core")
+                if tier == "core" or show_detail:
+                    simple_display = self.signal_id_to_simple_display.get(signal_id, signal_id)
+                    if simple_display:
+                        signals.append(simple_display)
+        
+        combo["values"] = sorted(signals)
+    
     def _populate_signal_dropdown(self, combo: ttk.Combobox):
-        """Populate signal dropdown with filtered signals."""
+        """Populate signal dropdown with filtered signals (legacy, used for unknown signals)."""
         signals = []
         show_detail = self.show_detail_tier.get()
 
@@ -779,9 +971,12 @@ class V3RuleEditor:
     
     def _on_tier_changed(self):
         """Handle tier filter toggle."""
-        # Repopulate all signal dropdowns
+        # Repopulate all category and signal dropdowns
         for cond_data in self.all_conditions + self.any_conditions:
-            self._populate_signal_dropdown(cond_data["signal_combo"])
+            self._populate_category_dropdown(cond_data["category_combo"], cond_data)
+            category = cond_data["category_var"].get()
+            if category:
+                self._populate_signal_dropdown_for_category(cond_data["signal_combo"], category)
             self._ensure_combo_value(cond_data["signal_combo"], cond_data["signal_var"].get())
 
     def _ensure_combo_value(self, combo: ttk.Combobox, value: str):
@@ -793,30 +988,55 @@ class V3RuleEditor:
             values.insert(0, value)
             combo["values"] = values
     
+    def _on_signal_changed_in_category_dropdown(self, cond_data: Dict):
+        """Handle signal selection - need to map simple display to signal_id."""
+        simple_display = cond_data["signal_var"].get()
+        if not simple_display:
+            cond_data["signal_id"] = None
+            return
+        
+        # Find the signal_id by looking up which signal has this simple display
+        category = cond_data["category_var"].get()
+        if category in self.signals_by_category:
+            for signal_id, signal_def in self.signals_by_category[category]:
+                simple = self.signal_id_to_simple_display.get(signal_id, signal_id)
+                if simple == simple_display:
+                    cond_data["signal_id"] = signal_id
+                    self._on_condition_signal_changed(cond_data)
+                    return
+    
     def _on_condition_signal_changed(self, cond_data: Dict, initial_condition: Optional[Dict] = None):
         """Handle signal selection change in a condition."""
         signal_text = cond_data["signal_var"].get()
         cond_data["unknown_signal"] = False
         cond_data["unknown_operator"] = False
         cond_data["unknown_value"] = False
-        cond_data["signal_id"] = None
+        
+        # Preserve signal_id if already set (e.g., when loading from rule)
+        signal_id = cond_data.get("signal_id")
 
         if not signal_text:
+            cond_data["signal_id"] = None
             self._update_condition_value_widget(cond_data, None, None)
             return
 
-        if signal_text in self.signal_display_to_id:
-            signal_id = self.signal_display_to_id[signal_text]
-            cond_data["signal_id"] = signal_id
-            signal_def = self.all_signals.get(signal_id)
-        elif signal_text.startswith("Unknown signal:"):
-            signal_id = signal_text.split("Unknown signal:", 1)[1].strip()
-            cond_data["signal_id"] = signal_id
-            cond_data["unknown_signal"] = True
-            signal_def = None
+        # Try to find signal_id from the signal text
+        if not signal_id:
+            if signal_text in self.signal_display_to_id:
+                signal_id = self.signal_display_to_id[signal_text]
+                cond_data["signal_id"] = signal_id
+                signal_def = self.all_signals.get(signal_id)
+            elif signal_text.startswith("Unknown signal:"):
+                signal_id = signal_text.split("Unknown signal:", 1)[1].strip()
+                cond_data["signal_id"] = signal_id
+                cond_data["unknown_signal"] = True
+                signal_def = None
+            else:
+                self._update_condition_value_widget(cond_data, None, None)
+                return
         else:
-            self._update_condition_value_widget(cond_data, None, None)
-            return
+            # signal_id is already known, get its definition
+            signal_def = self.all_signals.get(signal_id)
 
         if signal_def:
             signal_type = signal_def.get("type", "bool")
@@ -879,6 +1099,8 @@ class V3RuleEditor:
         cond_data["value_selected_label"] = None
         cond_data["enum_display_to_value"] = {}
         cond_data["enum_value_to_display"] = {}
+        cond_data["enum_sections"] = {}
+        cond_data["enum_section_var"] = None
         cond_data["value_kind"] = None
         
         if not signal_def or cond_data.get("unknown_signal") or cond_data.get("unknown_operator"):
@@ -914,10 +1136,67 @@ class V3RuleEditor:
             value_labels, display_to_value, value_to_display = self._get_enum_display_maps(signal_def)
             cond_data["enum_display_to_value"] = display_to_value
             cond_data["enum_value_to_display"] = value_to_display
+            signal_id = cond_data.get("signal_id")
+            enum_sections = self._get_enum_hierarchy(signal_id, signal_def, value_to_display)
+            cond_data["enum_sections"] = enum_sections or {}
 
             is_multi = op_token in ["in", "nin"]
 
-            if is_multi:
+            if is_multi and enum_sections:
+                section_row = ttk.Frame(cond_data["value_widget_frame"])
+                section_row.pack(fill=tk.X, expand=True)
+                ttk.Label(section_row, text="Group:", width=6).pack(side=tk.LEFT, padx=(0, 4))
+                section_var = tk.StringVar(value=next(iter(enum_sections.keys())))
+                section_combo = ttk.Combobox(
+                    section_row,
+                    textvariable=section_var,
+                    values=list(enum_sections.keys()),
+                    state="readonly",
+                    width=28
+                )
+                section_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                cond_data["enum_section_var"] = section_var
+
+                list_frame = ttk.Frame(cond_data["value_widget_frame"])
+                list_frame.pack(fill=tk.X, expand=True)
+
+                listbox = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, height=6)
+                listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+                cond_data["value_listbox"] = listbox
+                cond_data["value_kind"] = "enum_multi"
+
+                selected_label = ttk.Label(cond_data["value_widget_frame"], text="", foreground="gray")
+                selected_label.pack(fill=tk.X, pady=(2, 0))
+                cond_data["value_selected_label"] = selected_label
+
+                def refresh_listbox():
+                    selected_values = {
+                        cond_data["enum_display_to_value"].get(listbox.get(i), listbox.get(i))
+                        for i in listbox.curselection()
+                    }
+                    listbox.delete(0, tk.END)
+                    for label in enum_sections.get(section_var.get(), []):
+                        listbox.insert(tk.END, label)
+                    for idx, label in enumerate(listbox.get(0, tk.END)):
+                        raw = cond_data["enum_display_to_value"].get(label, label)
+                        if raw in selected_values:
+                            listbox.selection_set(idx)
+                    on_select()
+
+                def on_select(event=None):
+                    selections = [listbox.get(i) for i in listbox.curselection()]
+                    if selections:
+                        selected_label.configure(text="Selected: " + ", ".join(selections))
+                    else:
+                        selected_label.configure(text="")
+                    self._mark_changed()
+
+                section_combo.bind("<<ComboboxSelected>>", lambda event=None: refresh_listbox())
+                listbox.bind("<<ListboxSelect>>", on_select)
+                refresh_listbox()
+                cond_data["value_widget"] = listbox
+            elif is_multi:
                 list_frame = ttk.Frame(cond_data["value_widget_frame"])
                 list_frame.pack(fill=tk.X, expand=True)
 
@@ -943,6 +1222,43 @@ class V3RuleEditor:
 
                 listbox.bind("<<ListboxSelect>>", on_select)
                 cond_data["value_widget"] = listbox
+            elif enum_sections:
+                section_row = ttk.Frame(cond_data["value_widget_frame"])
+                section_row.pack(fill=tk.X, expand=True)
+
+                ttk.Label(section_row, text="Group:", width=6).pack(side=tk.LEFT, padx=(0, 4))
+                section_var = tk.StringVar(value=next(iter(enum_sections.keys())))
+                section_combo = ttk.Combobox(
+                    section_row,
+                    textvariable=section_var,
+                    values=list(enum_sections.keys()),
+                    state="readonly",
+                    width=28
+                )
+                section_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                cond_data["enum_section_var"] = section_var
+
+                value_combo = ttk.Combobox(
+                    cond_data["value_widget_frame"],
+                    textvariable=cond_data["value_var"],
+                    values=[],
+                    state="readonly",
+                    width=30
+                )
+                value_combo.pack(fill=tk.X, expand=True, pady=(2, 0))
+                cond_data["value_widget"] = value_combo
+                cond_data["value_kind"] = "enum_single"
+                cond_data["value_var"].trace_add("write", lambda *args: self._mark_changed())
+
+                def refresh_values():
+                    labels = enum_sections.get(section_var.get(), [])
+                    value_combo["values"] = labels
+                    current = cond_data["value_var"].get()
+                    if current not in labels:
+                        cond_data["value_var"].set(labels[0] if labels else "")
+
+                section_combo.bind("<<ComboboxSelected>>", lambda event=None: refresh_values())
+                refresh_values()
             else:
                 value_combo = ttk.Combobox(
                     cond_data["value_widget_frame"],
@@ -958,6 +1274,87 @@ class V3RuleEditor:
 
                 if not cond_data["value_var"].get() and value_labels:
                     value_combo.current(0)
+
+    def _get_enum_hierarchy(
+        self,
+        signal_id: Optional[str],
+        signal_def: Dict[str, Any],
+        value_to_display: Dict[Any, str],
+    ) -> Optional[Dict[str, List[str]]]:
+        """Return grouped enum labels for hierarchical selection when available."""
+        if not signal_id:
+            return None
+
+        source_mapping = signal_def.get("source_mapping", {})
+        category_id = source_mapping.get("category_id")
+        is_journal_event = signal_id == "journal_event" or category_id == "all-journal"
+        is_edmc_event = signal_id == "edmc_event" or category_id == "all-events"
+        if not is_journal_event and not is_edmc_event:
+            return None
+
+        source_taxonomy = getattr(self.catalog, "_data", {}).get("source_taxonomy", {})
+        inventory = source_taxonomy.get("inventory", {})
+        journal_inventory = inventory.get("journal", {})
+        by_section = journal_inventory.get("by_section", [])
+        if not isinstance(by_section, list) or not by_section:
+            return None
+
+        grouped: Dict[str, List[str]] = {}
+        all_labels: List[str] = []
+        for section_data in by_section:
+            section_name = section_data.get("section")
+            if not section_name:
+                continue
+            labels: List[str] = []
+            for event_data in section_data.get("events", []):
+                event_name = event_data.get("name")
+                if event_name in value_to_display:
+                    display = value_to_display[event_name]
+                    labels.append(display)
+                    if display not in all_labels:
+                        all_labels.append(display)
+            if labels:
+                prefix = "Journal / " if is_edmc_event else ""
+                grouped[f"{prefix}{section_name}"] = labels
+
+        if is_edmc_event:
+            dashboard_events = inventory.get("notifications", {}).get("events", [])
+            dashboard_labels: List[str] = []
+            for event_data in dashboard_events:
+                event_name = event_data.get("name")
+                if event_name in value_to_display:
+                    label = value_to_display[event_name]
+                    dashboard_labels.append(label)
+                    if label not in all_labels:
+                        all_labels.append(label)
+            if dashboard_labels:
+                grouped["Dashboard"] = dashboard_labels
+
+            capi_events = inventory.get("capi", {}).get("events", [])
+            capi_groups: Dict[str, List[str]] = {}
+            source_group_label = {
+                "capi": "CAPI / Live",
+                "capi_legacy": "CAPI / Legacy",
+                "capi_fleetcarrier": "CAPI / Fleet Carrier",
+            }
+            for event_data in capi_events:
+                event_name = event_data.get("name")
+                source_name = event_data.get("source", "capi")
+                if event_name in value_to_display:
+                    label = value_to_display[event_name]
+                    group_name = source_group_label.get(source_name, "CAPI")
+                    capi_groups.setdefault(group_name, []).append(label)
+                    if label not in all_labels:
+                        all_labels.append(label)
+            for group_name, labels in capi_groups.items():
+                grouped[group_name] = labels
+
+        if not grouped:
+            return None
+
+        if len(grouped) > 1:
+            grouped = {"All": all_labels, **grouped}
+        return grouped
     
     def _set_condition_value(self, cond_data: Dict, value: Any):
         """Set the value for a condition after widget is created."""
@@ -993,6 +1390,16 @@ class V3RuleEditor:
                     if display not in values:
                         values.insert(0, display)
                         cond_data["value_widget"]["values"] = values
+            section_var = cond_data.get("enum_section_var")
+            enum_sections = cond_data.get("enum_sections", {})
+            if section_var and enum_sections and display:
+                for section_name, labels in enum_sections.items():
+                    if display in labels:
+                        section_var.set(section_name)
+                        widget = cond_data.get("value_widget")
+                        if widget and isinstance(widget, ttk.Combobox):
+                            widget["values"] = labels
+                        break
             cond_data["value_var"].set(str(display) if display else str(value))
 
     def _get_enum_display_maps(self, signal_def: Dict) -> Tuple[List[str], Dict[str, Any], Dict[Any, str]]:
@@ -1001,11 +1408,14 @@ class V3RuleEditor:
         value_to_display: Dict[Any, str] = {}
         display_values: List[str] = []
 
+        icon_map = getattr(self, "icon_map", {})
+
         for item in signal_def.get("values", []):
             value = item.get("value")
             label = item.get("label", value)
-            icon = item.get("icon", "")
-            display = f"{icon} {label}".strip() if icon else label
+            icon_name = item.get("icon", "")
+            icon_char = icon_map.get(icon_name, "") if icon_name else ""
+            display = f"{icon_char} {label}".strip() if icon_char else label
             display_values.append(display)
             display_to_value[display] = value
             value_to_display[value] = display
@@ -1016,9 +1426,16 @@ class V3RuleEditor:
         """Populate condition row from a rule condition dict."""
         signal_id = condition.get("signal")
         if signal_id:
-            display = self.signal_id_to_display.get(signal_id)
-            if display:
-                cond_data["signal_var"].set(display)
+            signal_def = self.all_signals.get(signal_id)
+            if signal_def:
+                # Set category first, then populate signals for that category
+                category = signal_def.get("ui", {}).get("category", "Other")
+                cond_data["category_var"].set(category)
+                self._populate_signal_dropdown_for_category(cond_data["signal_combo"], category)
+                
+                # Use simple_display (without category prefix) for the signal dropdown
+                simple_display = self.signal_id_to_simple_display.get(signal_id, signal_id)
+                cond_data["signal_var"].set(simple_display)
                 cond_data["signal_id"] = signal_id
             else:
                 unknown_display = f"Unknown signal: {signal_id}"
@@ -1050,6 +1467,8 @@ class V3RuleEditor:
 
     def _update_when_hint(self):
         """Show or hide the empty-state hint for conditions."""
+        if not hasattr(self, "when_hint_label"):
+            return
         if self.all_conditions or self.any_conditions:
             self.when_hint_label.pack_forget()
         else:
@@ -1087,254 +1506,159 @@ class V3RuleEditor:
         self._mark_changed()
     
     def _build_then_section(self, parent):
-        """Build the Then actions section."""
-        then_frame = ttk.LabelFrame(
-            parent,
-            text="Then (when it becomes true) - fires on false → true",
-            padding=10
-        )
-        then_frame.pack(fill=tk.X, pady=(0, 10))
+        """Build the Combined Actions section (replaces separate Then/Else)."""
+        actions_frame = ttk.LabelFrame(parent, text="Then", padding=8)
+        actions_frame.pack(fill=tk.X, pady=(0, 8))
         
-        self.then_actions = []
-        self._load_actions("then", then_frame)
-
-        self.then_add_button = ttk.Button(then_frame, text="➕ Add action", command=lambda: self._add_action("then", then_frame))
-        self.then_add_button.pack(pady=(5, 0))
-
-        self.then_hint_label = ttk.Label(then_frame, text="💡 Add a Then action so something happens", foreground="gray")
-        self.then_hint_label.pack(pady=5)
-        self._update_action_hints()
+        # Clear actions - inline with icon
+        clear_row = ttk.Frame(actions_frame)
+        clear_row.pack(fill=tk.X, pady=(0, 6))
+        
+        # Get clear icon from map
+        clear_icon = self.icon_map.get("minus", "➖")
+        ttk.Label(clear_row, text=clear_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
+        
+        # Find existing clear shifts
+        existing_clear_shifts = []
+        for action in self.rule.get("then", []):
+            if "vkb_clear_shift" in action:
+                shifts = action["vkb_clear_shift"]
+                existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
+                break
+        
+        clear_shift_var = tk.StringVar(value=existing_clear_shifts[0] if existing_clear_shifts else "")
+        for token in ALL_SHIFT_TOKENS:
+            rb = ttk.Radiobutton(clear_row, text=token, variable=clear_shift_var, value=token, command=lambda: self._mark_changed())
+            rb.pack(side=tk.LEFT, padx=2)
+        
+        self.clear_shift_var = clear_shift_var
+        
+        # Set actions - inline with icon
+        set_row = ttk.Frame(actions_frame)
+        set_row.pack(fill=tk.X, pady=(0, 6))
+        
+        # Get set icon from map
+        set_icon = self.icon_map.get("plus", "➕")
+        ttk.Label(set_row, text=set_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
+        
+        # Find existing set shifts
+        existing_set_shifts = []
+        for action in self.rule.get("then", []):
+            if "vkb_set_shift" in action:
+                shifts = action["vkb_set_shift"]
+                existing_set_shifts = shifts if isinstance(shifts, list) else [shifts]
+                break
+        
+        set_shift_var = tk.StringVar(value=existing_set_shifts[0] if existing_set_shifts else "")
+        for token in ALL_SHIFT_TOKENS:
+            rb = ttk.Radiobutton(set_row, text=token, variable=set_shift_var, value=token, command=lambda: self._mark_changed())
+            rb.pack(side=tk.LEFT, padx=2)
+        
+        self.set_shift_var = set_shift_var
+        
+        # Log message - inline with icon
+        log_row = ttk.Frame(actions_frame)
+        log_row.pack(fill=tk.X)
+        
+        log_icon = self.icon_map.get("message", "💬")
+        ttk.Label(log_row, text=log_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
+        
+        # Get existing log message
+        log_message = ""
+        for action in self.rule.get("then", []):
+            if "log" in action:
+                log_message = action["log"]
+                break
+        
+        log_var = tk.StringVar(value=log_message)
+        entry = ttk.Entry(log_row, textvariable=log_var, width=60)
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        self.log_var = log_var
+        log_var.trace_add("write", lambda *args: self._mark_changed())
     
+
     def _build_else_section(self, parent):
-        """Build the Else actions section."""
-        else_frame = ttk.LabelFrame(
-            parent,
-            text="Else (when it becomes false) - fires on true → false",
-            padding=10
-        )
+        """Build the Else Actions section."""
+        else_frame = ttk.LabelFrame(parent, text="Else", padding=8)
         else_frame.pack(fill=tk.X)
         
-        self.else_actions = []
-        self._load_actions("else", else_frame)
-
-        self.else_add_button = ttk.Button(else_frame, text="➕ Add action", command=lambda: self._add_action("else", else_frame))
-        self.else_add_button.pack(pady=(5, 0))
-
-        self.else_hint_label = ttk.Label(else_frame, text="", foreground="gray")
-        self.else_hint_label.pack(pady=5)
-        self._update_action_hints()
-    
-    def _load_actions(self, group: str, parent_frame):
-        """Load existing actions for a group."""
-        actions = self.rule.get(group, [])
-        for action in actions:
-            self._add_action(group, parent_frame, action)
-    
-    def _add_action(self, group: str, parent_frame, action: Optional[Dict] = None):
-        """Add an action row to the specified group."""
-        target_list = self.then_actions if group == "then" else self.else_actions
-        add_button = self.then_add_button if group == "then" else self.else_add_button
+        # Clear actions - inline with icon
+        clear_row = ttk.Frame(else_frame)
+        clear_row.pack(fill=tk.X, pady=(0, 6))
         
-        # Action container
-        action_container = ttk.Frame(parent_frame)
-        action_container.pack(fill=tk.X, pady=2, before=add_button)
-        row_frame = ttk.Frame(action_container)
-        row_frame.pack(fill=tk.X)
+        # Get clear icon from map
+        clear_icon = self.icon_map.get("minus", "➖")
+        ttk.Label(clear_row, text=clear_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
         
-        # Action type dropdown
-        action_type_var = tk.StringVar(value="")
-        if action:
+        # Find existing clear shifts in else
+        existing_clear_shifts = []
+        for action in self.rule.get("else", []):
+            if "vkb_clear_shift" in action:
+                shifts = action["vkb_clear_shift"]
+                existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
+                break
+        
+        else_clear_shift_var = tk.StringVar(value=existing_clear_shifts[0] if existing_clear_shifts else "")
+        for token in ALL_SHIFT_TOKENS:
+            rb = ttk.Radiobutton(clear_row, text=token, variable=else_clear_shift_var, value=token, command=lambda: self._mark_changed())
+            rb.pack(side=tk.LEFT, padx=2)
+        
+        self.else_clear_shift_var = else_clear_shift_var
+        
+        # Set actions - inline with icon
+        set_row = ttk.Frame(else_frame)
+        set_row.pack(fill=tk.X, pady=(0, 6))
+        
+        # Get set icon from map
+        set_icon = self.icon_map.get("plus", "➕")
+        ttk.Label(set_row, text=set_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
+        
+        # Find existing set shifts in else
+        existing_set_shifts = []
+        for action in self.rule.get("else", []):
             if "vkb_set_shift" in action:
-                action_type_var.set("vkb_set_shift")
-            elif "vkb_clear_shift" in action:
-                action_type_var.set("vkb_clear_shift")
-            elif "log" in action:
-                action_type_var.set("log")
-            else:
-                action_type_var.set(f"Unknown action: {next(iter(action.keys()), '')}")
+                shifts = action["vkb_set_shift"]
+                existing_set_shifts = shifts if isinstance(shifts, list) else [shifts]
+                break
         
-        type_combo = ttk.Combobox(
-            row_frame,
-            textvariable=action_type_var,
-            values=["vkb_set_shift", "vkb_clear_shift", "log"],
-            state="readonly",
-            width=20
-        )
-        type_combo.pack(side=tk.LEFT, padx=2)
+        else_set_shift_var = tk.StringVar(value=existing_set_shifts[0] if existing_set_shifts else "")
+        for token in ALL_SHIFT_TOKENS:
+            rb = ttk.Radiobutton(set_row, text=token, variable=else_set_shift_var, value=token, command=lambda: self._mark_changed())
+            rb.pack(side=tk.LEFT, padx=2)
         
-        # Value frame (dynamic based on action type)
-        value_frame = ttk.Frame(row_frame)
-        value_frame.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
+        self.else_set_shift_var = else_set_shift_var
         
-        # Row action buttons
-        def remove_action():
-            action_container.destroy()
-            target_list.remove(action_data)
-            self._mark_changed()
-            self._update_action_hints()
-
-        def move_up():
-            self._move_action(action_data, -1)
-
-        def move_down():
-            self._move_action(action_data, 1)
-
-        ttk.Button(row_frame, text="↓", width=3, command=move_down).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(row_frame, text="↑", width=3, command=move_up).pack(side=tk.RIGHT, padx=2)
-        ttk.Button(row_frame, text="🗑️", width=3, command=remove_action).pack(side=tk.RIGHT, padx=2)
-
-        # Inline error label
-        error_label = ttk.Label(action_container, text="", foreground="red")
-        error_label.pack(fill=tk.X, padx=4)
+        # Log message - inline with icon
+        log_row = ttk.Frame(else_frame)
+        log_row.pack(fill=tk.X)
         
-        # Store action data
-        action_data = {
-            "frame": action_container,
-            "row_frame": row_frame,
-            "group": group,
-            "type_var": action_type_var,
-            "type_combo": type_combo,
-            "value_frame": value_frame,
-            "value_widgets": [],
-            "error_label": error_label,
-            "unknown_action": action_type_var.get().startswith("Unknown action:"),
-            "raw_action": action
-        }
-        target_list.append(action_data)
+        log_icon = self.icon_map.get("message", "💬")
+        ttk.Label(log_row, text=log_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
         
-        # Setup type change handler
-        def on_type_change(event=None):
-            self._update_action_value_widget(action_data, action)
-            self._mark_changed()
-            action_data["unknown_action"] = action_data["type_var"].get().startswith("Unknown action:")
-            self._set_action_error(action_data, "")
+        # Get existing log message
+        log_message = ""
+        for action in self.rule.get("else", []):
+            if "log" in action:
+                log_message = action["log"]
+                break
         
-        type_combo.bind("<<ComboboxSelected>>", on_type_change)
+        else_log_var = tk.StringVar(value=log_message)
+        entry = ttk.Entry(log_row, textvariable=else_log_var, width=60)
+        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
-        # If loading existing action, populate value widget
-        if action:
-            on_type_change()
-            self._ensure_combo_value(type_combo, action_type_var.get())
-        else:
-            self._update_action_hints()
+        self.else_log_var = else_log_var
+        else_log_var.trace_add("write", lambda *args: self._mark_changed())
     
-    def _update_action_value_widget(self, action_data: Dict, initial_action: Optional[Dict] = None):
-        """Update the value widget for an action based on type."""
-        # Clear existing widgets
-        for widget in action_data["value_frame"].winfo_children():
-            widget.destroy()
-        action_data["value_widgets"] = []
-        
-        action_type = action_data["type_var"].get()
-        if action_type.startswith("Unknown action:"):
-            ttk.Label(action_data["value_frame"], text="Resolve unknown action before saving", foreground="gray").pack(side=tk.LEFT)
-            return
-        
-        if action_type in ["vkb_set_shift", "vkb_clear_shift"]:
-            # Shift token multi-select
-            ttk.Label(action_data["value_frame"], text="Tokens:").pack(side=tk.LEFT, padx=(0, 5))
-            
-            # Get initial tokens
-            initial_tokens = []
-            if initial_action and action_type in initial_action:
-                initial_tokens = initial_action[action_type]
 
-            list_frame = ttk.Frame(action_data["value_frame"])
-            list_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-            listbox = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, height=min(4, len(ALL_SHIFT_TOKENS)))
-            for token in ALL_SHIFT_TOKENS:
-                listbox.insert(tk.END, token)
-            listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-            for token in initial_tokens:
-                if token in ALL_SHIFT_TOKENS:
-                    idx = ALL_SHIFT_TOKENS.index(token)
-                    listbox.selection_set(idx)
-
-            selected_label = ttk.Label(action_data["value_frame"], text="", foreground="gray")
-            selected_label.pack(fill=tk.X, pady=(2, 0))
-
-            def on_select(event=None):
-                selections = [listbox.get(i) for i in listbox.curselection()]
-                if selections:
-                    selected_label.configure(text="Selected: " + ", ".join(selections))
-                else:
-                    selected_label.configure(text="")
-                self._mark_changed()
-
-            listbox.bind("<<ListboxSelect>>", on_select)
-            action_data["value_widgets"].append(("listbox", listbox))
-            on_select()
-        
-        elif action_type == "log":
-            # Log message text entry
-            ttk.Label(action_data["value_frame"], text="Message:").pack(side=tk.LEFT, padx=(0, 5))
-            
-            initial_message = ""
-            if initial_action and "log" in initial_action:
-                initial_message = initial_action["log"]
-            
-            message_var = tk.StringVar(value=initial_message)
-            entry = ttk.Entry(action_data["value_frame"], textvariable=message_var, width=40)
-            entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-            action_data["value_widgets"].append(("message", message_var))
-
-            message_var.trace_add("write", lambda *args: self._mark_changed())
-
-    def _set_action_error(self, action_data: Dict, message: str):
-        """Set inline error message for an action row."""
-        action_data["error_label"].configure(text=message)
-
-    def _update_action_hints(self):
-        """Show or hide empty-state hints for actions."""
-        if self.then_actions:
-            self.then_hint_label.pack_forget()
-        else:
-            self.then_hint_label.pack(pady=5)
-
-        if self.else_actions:
-            self.else_hint_label.pack_forget()
-        else:
-            self.else_hint_label.configure(text="💡 Add an Else action for the false state (optional)")
-            self.else_hint_label.pack(pady=5)
-
-    def _refresh_action_order(self, group: str):
-        """Repack action rows in their current list order."""
-        target_list = self.then_actions if group == "then" else self.else_actions
-        add_button = self.then_add_button if group == "then" else self.else_add_button
-
-        for action_data in target_list:
-            action_data["frame"].pack_forget()
-            action_data["frame"].pack(fill=tk.X, pady=2, before=add_button)
-
-    def _move_action(self, action_data: Dict, direction: int):
-        """Move an action row up or down within its group."""
-        target_list = self.then_actions if action_data["group"] == "then" else self.else_actions
-        index = target_list.index(action_data)
-        new_index = index + direction
-        if new_index < 0 or new_index >= len(target_list):
-            return
-        target_list.insert(new_index, target_list.pop(index))
-        self._refresh_action_order(action_data["group"])
-        self._mark_changed()
 
     def _on_title_changed(self):
         """Handle title changes for change tracking and ID preview."""
         self._mark_changed()
-        if self.show_id_var.get():
-            self._update_id_preview()
+        self._update_id_preview()
 
     def _update_id_preview(self):
-        """Show or hide the derived ID preview."""
-        if not self.show_id_var.get():
-            self.id_row.pack_forget()
-            return
-
-        self.id_row.pack(fill=tk.X, pady=5)
-        self.id_label.pack(side=tk.LEFT)
-        self.id_value.pack(side=tk.LEFT)
-
+        """Update the displayed ID preview."""
         if self.rule.get("id"):
             self.id_preview_var.set(self.rule.get("id"))
         else:
@@ -1392,32 +1716,7 @@ class V3RuleEditor:
             else:
                 self._set_condition_error(cond_data, "")
         
-        # Validate actions
-        for action_data in self.then_actions + self.else_actions:
-            action_type = action_data["type_var"].get()
-            
-            row_errors = []
-
-            if not action_type:
-                row_errors.append("Select an action type")
-            elif action_type.startswith("Unknown action:"):
-                row_errors.append("Unknown action")
-
-            if action_type in ["vkb_set_shift", "vkb_clear_shift"]:
-                listbox = next((widget for name, widget in action_data["value_widgets"] if name == "listbox"), None)
-                if not listbox or not listbox.curselection():
-                    row_errors.append(f"{action_type} must select at least one token")
-            
-            elif action_type == "log":
-                message = next((var.get() for name, var in action_data["value_widgets"] if name == "message"), "")
-                if not message.strip():
-                    row_errors.append("Log action must have a non-empty message")
-
-            if row_errors:
-                self._set_action_error(action_data, "; ".join(row_errors))
-                errors.extend(row_errors)
-            else:
-                self._set_action_error(action_data, "")
+        # Actions are optional and simplified - no specific validation needed
         
         return (len(errors) == 0, errors)
     
@@ -1448,16 +1747,37 @@ class V3RuleEditor:
             if cond:
                 rule["when"]["any"].append(cond)
         
-        # Build actions
-        for action_data in self.then_actions:
-            action = self._build_action_from_ui(action_data)
-            if action:
-                rule["then"].append(action)
+        # Build Then actions
+        if hasattr(self, "clear_shift_var"):
+            clear_shift = self.clear_shift_var.get()
+            if clear_shift:
+                rule["then"].append({"vkb_clear_shift": [clear_shift]})
         
-        for action_data in self.else_actions:
-            action = self._build_action_from_ui(action_data)
-            if action:
-                rule["else"].append(action)
+        if hasattr(self, "set_shift_var"):
+            set_shift = self.set_shift_var.get()
+            if set_shift:
+                rule["then"].append({"vkb_set_shift": [set_shift]})
+        
+        if hasattr(self, "log_var"):
+            log_msg = self.log_var.get().strip()
+            if log_msg:
+                rule["then"].append({"log": log_msg})
+        
+        # Build Else actions
+        if hasattr(self, "else_clear_shift_var"):
+            else_clear_shift = self.else_clear_shift_var.get()
+            if else_clear_shift:
+                rule["else"].append({"vkb_clear_shift": [else_clear_shift]})
+        
+        if hasattr(self, "else_set_shift_var"):
+            else_set_shift = self.else_set_shift_var.get()
+            if else_set_shift:
+                rule["else"].append({"vkb_set_shift": [else_set_shift]})
+        
+        if hasattr(self, "else_log_var"):
+            else_log_msg = self.else_log_var.get().strip()
+            if else_log_msg:
+                rule["else"].append({"log": else_log_msg})
         
         return rule
     
@@ -1500,32 +1820,6 @@ class V3RuleEditor:
             "value": value
         }
     
-    def _build_action_from_ui(self, action_data: Dict) -> Optional[Dict[str, Any]]:
-        """Build an action dictionary from UI state."""
-        action_type = action_data["type_var"].get()
-        
-        if not action_type:
-            return None
-        if action_type.startswith("Unknown action:"):
-            return None
-        
-        if action_type in ["vkb_set_shift", "vkb_clear_shift"]:
-            # Collect selected tokens
-            listbox = next((widget for name, widget in action_data["value_widgets"] if name == "listbox"), None)
-            tokens = [listbox.get(i) for i in listbox.curselection()] if listbox else []
-            if not tokens:
-                return None
-            return {action_type: tokens}
-        
-        elif action_type == "log":
-            # Get log message
-            message = next((var.get() for name, var in action_data["value_widgets"] if name == "message"), "")
-            if not message.strip():
-                return None
-            return {"log": message.strip()}
-        
-        return None
-    
     def _save(self):
         """Save the rule."""
         # Validate
@@ -1551,9 +1845,9 @@ class V3RuleEditor:
             self.on_cancel_callback()
 
 
-def show_v3_rule_editor(parent, rules_file: Path, plugin_dir: Path):
+def show_rule_editor(parent, rules_file: Path, plugin_dir: Path):
     """
-    Show the v3 rule editor UI.
+    Show the rule editor UI.
     
     Args:
         parent: Parent tkinter widget
@@ -1561,9 +1855,10 @@ def show_v3_rule_editor(parent, rules_file: Path, plugin_dir: Path):
         plugin_dir: Plugin directory path
     """
     try:
-        editor = V3RuleEditorUI(parent, rules_file, plugin_dir)
+        editor = RuleEditorUI(parent, rules_file, plugin_dir)
         return editor.window
     except Exception as e:
         logger.error(f"Failed to open rule editor: {e}", exc_info=True)
         messagebox.showerror("Error", f"Failed to open rule editor:\n{e}")
         return None
+

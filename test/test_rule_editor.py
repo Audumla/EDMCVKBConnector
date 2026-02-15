@@ -1,4 +1,4 @@
-"""Tests for v3 rule editor UI."""
+"""Tests for rule editor UI."""
 
 import json
 import tempfile
@@ -7,17 +7,17 @@ from pathlib import Path
 # Note: These tests verify the structure but don't test actual UI rendering
 # since that requires a display. Manual testing is required for full verification.
 
-def test_v3_editor_can_import():
-    """Test that the v3 editor module can be imported."""
-    from edmcruleengine.rule_editor_v3 import V3RuleEditorUI, V3RuleEditor, show_v3_rule_editor
-    assert V3RuleEditorUI is not None
-    assert V3RuleEditor is not None
-    assert show_v3_rule_editor is not None
+def test_editor_can_import():
+    """Test that the editor module can be imported."""
+    from edmcruleengine.rule_editor import RuleEditorUI, RuleEditor, show_rule_editor
+    assert RuleEditorUI is not None
+    assert RuleEditor is not None
+    assert show_rule_editor is not None
 
 
 def test_shift_tokens_defined():
     """Test that shift tokens are properly defined."""
-    from edmcruleengine.rule_editor_v3 import SHIFT_TOKENS, SUBSHIFT_TOKENS, ALL_SHIFT_TOKENS
+    from edmcruleengine.rule_editor import SHIFT_TOKENS, SUBSHIFT_TOKENS, ALL_SHIFT_TOKENS
     
     assert SHIFT_TOKENS == ["Shift1", "Shift2"]
     assert len(SUBSHIFT_TOKENS) == 7
@@ -35,6 +35,7 @@ def test_rule_summary_generation():
 
 
 if __name__ == "__main__":
-    test_v3_editor_can_import()
+    test_editor_can_import()
     test_shift_tokens_defined()
-    print("[OK] Basic v3 editor tests passed")
+    print("[OK] Basic editor tests passed")
+

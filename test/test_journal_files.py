@@ -14,7 +14,8 @@ from edmcruleengine.config import Config, DEFAULTS
 from edmcruleengine.event_handler import EventHandler
 from test.test_vkb_server_integration import running_mock_server
 
-RULES_FILE = Path(__file__).parent / "fixtures" / "rules_comprehensive.json"
+RULES_FILE = Path(__file__).parent / "fixtures" / "rules_catalog.json"
+PLUGIN_ROOT = Path(__file__).parent.parent
 
 
 class _TestConfig:
@@ -85,7 +86,7 @@ def test_plugin_with_journal_events():
         
         # Initialize plugin with rules loaded
         config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=51001)
-        handler = EventHandler(config, plugin_dir=str(RULES_FILE.parent))
+        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
         handler.vkb_client.port = 51001
         
         # Connect
@@ -150,7 +151,7 @@ def test_specific_journal_scenarios():
         server.verbose = False
         
         config = Config()
-        handler = EventHandler(config)
+        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
         handler.vkb_client.port = 51002
         handler.connect()
         
@@ -235,7 +236,7 @@ def test_journal_event_filtering():
         server.verbose = False
         
         config = Config()
-        handler = EventHandler(config)
+        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
         handler.vkb_client.port = 51003
         handler.connect()
         

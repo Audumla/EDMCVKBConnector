@@ -34,7 +34,7 @@ class SignalsCatalog:
     and UI metadata. This ensures signals are never hardcoded in rules.
     """
     
-    REQUIRED_VERSION = 3
+    REQUIRED_VERSION = 1
     REQUIRED_KEYS = ["version", "ui_tiers", "operators", "bitfields", "signals"]
     
     def __init__(self, catalog_data: Dict[str, Any]) -> None:
@@ -141,6 +141,9 @@ class SignalsCatalog:
             raise CatalogError("Catalog must define at least one signal")
         
         for signal_name, signal_def in signals.items():
+            # Skip comment fields (starting with underscore)
+            if signal_name.startswith("_"):
+                continue
             self._validate_signal(signal_name, signal_def)
     
     def _validate_signal(self, name: str, signal_def: Dict[str, Any]) -> None:
@@ -160,7 +163,8 @@ class SignalsCatalog:
             raise CatalogError(f"Signal '{name}' missing required keys: {missing}")
         
         signal_type = signal_def.get("type")
-        if signal_type not in ["bool", "enum"]:
+        valid_types = ["bool", "enum", "string", "number", "array", "object", "event"]
+        if signal_type not in valid_types:
             raise CatalogError(f"Signal '{name}' has invalid type: {signal_type}")
         
         # Validate enum signals have values
@@ -171,8 +175,8 @@ class SignalsCatalog:
         
         # Validate UI metadata
         ui = signal_def.get("ui", {})
-        if "tier" not in ui or ui["tier"] not in ["core", "detail"]:
-            raise CatalogError(f"Signal '{name}' must have UI tier 'core' or 'detail'")
+        if "tier" not in ui or ui["tier"] not in ["core", "detail", "advanced"]:
+            raise CatalogError(f"Signal '{name}' must have UI tier 'core', 'detail', or 'advanced'")
     
     @property
     def version(self) -> int:
@@ -245,14 +249,14 @@ class SignalsCatalog:
         """Get list of core-tier signal names."""
         return [
             name for name, sig in self.signals.items()
-            if sig.get("ui", {}).get("tier") == "core"
+            if not name.startswith("_") and isinstance(sig, dict) and sig.get("ui", {}).get("tier") == "core"
         ]
     
     def get_detail_signals(self) -> List[str]:
         """Get list of detail-tier signal names."""
         return [
             name for name, sig in self.signals.items()
-            if sig.get("ui", {}).get("tier") == "detail"
+            if not name.startswith("_") and isinstance(sig, dict) and sig.get("ui", {}).get("tier") == "detail"
         ]
     
     def get_signals_by_category(self, category: str) -> List[str]:
@@ -272,7 +276,7 @@ def generate_id_from_title(title: str, used_ids: Optional[set] = None) -> str:
     Generate a deterministic, human-readable ID from a rule title.
     
     Uses slugification with numeric suffixes for collision handling.
-    Based on reference implementation from feature/v3-catalog-migration.
+    Based on reference implementation from catalog migration work.
     
     Args:
         title: Rule title string

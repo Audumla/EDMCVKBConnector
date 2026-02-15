@@ -5,13 +5,14 @@ Event handler for forwarding Elite Dangerous events to VKB hardware.
 import json
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from . import plugin_logger
 from .config import Config
 from .rule_loader import load_rules_file, RuleLoadError
-from .rules_engine_v3 import V3RuleEngine, V3MatchResult
+from .rules_engine import RuleEngine, MatchResult
 from .signals_catalog import SignalsCatalog, CatalogError
 from .vkb_client import VKBClient
 
@@ -64,7 +65,7 @@ class EventHandler:
         self.debug = config.get("debug", False)
         self.event_types = config.get("event_types", [])
         self.catalog: Optional[SignalsCatalog] = None
-        self.rule_engine: Optional[V3RuleEngine] = None
+        self.rule_engine: Optional[RuleEngine] = None
         self._rules_path: Path = self._resolve_rules_path()
         self._rules_mtime_ns: Optional[int] = None
         self._load_catalog()
@@ -73,6 +74,8 @@ class EventHandler:
         self._subshift_bitmap = 0
         self._last_sent_shift = None
         self._last_sent_subshift = None
+        self._recent_events: Dict[str, float] = {}  # event_name -> timestamp
+        self._event_window_seconds = 5  # How long to track events
 
     def _resolve_rules_path(self) -> Path:
         override = self.config.get("rules_path", "") or ""
@@ -96,7 +99,7 @@ class EventHandler:
         rules_path = self._resolve_rules_path()
         self._rules_path = rules_path
 
-        # Catalog is required for v3 rules
+        # Catalog is required for rules
         if self.catalog is None:
             logger.error("Cannot load rules: signals catalog not loaded")
             self.rule_engine = None
@@ -130,9 +133,9 @@ class EventHandler:
             self.rule_engine = None
             return
 
-        self.rule_engine = V3RuleEngine(rules, self.catalog, action_handler=self._handle_rule_action)
+        self.rule_engine = RuleEngine(rules, self.catalog, action_handler=self._handle_rule_action)
         self._rules_mtime_ns = mtime_ns
-        logger.info(f"Loaded {len(rules)} v3 rules from {rules_path}")
+        logger.info(f"Loaded {len(rules)} rules from {rules_path}")
 
     def _reload_rules_if_changed(self) -> None:
         current_path = self._resolve_rules_path()
@@ -219,6 +222,11 @@ class EventHandler:
         if self.debug:
             logger.debug(f"Event received: {event_type}")
 
+        # Track journal events with timestamps for recent operator
+        if source == "journal":
+            self._track_event(event_type)
+            self._prune_old_events()
+
         # Run rule engine for all EDMC notifications.
         # Only rule actions (vkb_set_shift / vkb_clear_shift) trigger VKB sends.
         # Raw events are NOT forwarded to VKB-Link because the device only
@@ -226,12 +234,20 @@ class EventHandler:
         # violate the protocol.
         if self.rule_engine:
             try:
+                # Pass context including recent events
+                context = {
+                    "recent_events": self._recent_events.copy(),
+                    "trigger_source": source,
+                    "event_name": event_type,
+                }
+                
                 self.rule_engine.on_notification(
                     cmdr=cmdr,
                     is_beta=is_beta,
                     source=source,
                     event_type=event_type,
                     entry=event_data,
+                    context=context,
                 )
             except RuntimeError as e:
                 logger.error(f"Rule engine error: {e}")
@@ -246,11 +262,37 @@ class EventHandler:
         """
         self._send_shift_state_if_changed(force=True)
 
-    def _handle_rule_action(self, result: V3MatchResult) -> None:
+    def _track_event(self, event_name: str) -> None:
         """
-        Handle v3 rule match result.
+        Track an event with current timestamp for recent operator.
         
-        V3 rules use edge-triggering, so this is only called when actions
+        Args:
+            event_name: Name of the event to track
+        """
+        self._recent_events[event_name] = time.time()
+    
+    def _prune_old_events(self) -> None:
+        """
+        Remove events older than the tracking window.
+        """
+        current_time = time.time()
+        cutoff_time = current_time - self._event_window_seconds
+        
+        # Remove old events
+        events_to_remove = [
+            event_name
+            for event_name, timestamp in self._recent_events.items()
+            if timestamp < cutoff_time
+        ]
+        
+        for event_name in events_to_remove:
+            del self._recent_events[event_name]
+
+    def _handle_rule_action(self, result: MatchResult) -> None:
+        """
+        Handle rule match result.
+        
+        Rules use edge-triggering, so this is only called when actions
         should be executed (on state transitions).
         """
         actions_list = result.actions_to_execute

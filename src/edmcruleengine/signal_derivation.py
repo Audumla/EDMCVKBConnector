@@ -7,6 +7,7 @@ according to the catalog's derivation specifications.
 
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, Optional
 
 from . import plugin_logger
@@ -34,21 +35,33 @@ class SignalDerivation:
         """
         self.signals = catalog_data.get("signals", {})
         self.bitfields = catalog_data.get("bitfields", {})
+        self.catalog_data = catalog_data
     
-    def derive_all_signals(self, entry: Dict[str, Any]) -> Dict[str, Any]:
+    def derive_all_signals(
+        self,
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Derive all signal values from entry data.
         
         Args:
             entry: Raw dashboard/status entry
+            context: Additional context (recent_events, trigger_source, etc.)
             
         Returns:
             Dict mapping signal names to derived values
         """
+        if context is None:
+            context = {}
         result = {}
         for signal_name, signal_def in self.signals.items():
+            # Skip comment fields (starting with underscore) and non-dict values
+            if signal_name.startswith("_") or not isinstance(signal_def, dict):
+                continue
+            
             try:
-                value = self.derive_signal(signal_name, signal_def, entry)
+                value = self.derive_signal(signal_name, signal_def, entry, context)
                 result[signal_name] = value
             except Exception as e:
                 logger.warning(f"Failed to derive signal '{signal_name}': {type(e).__name__}: {e}")
@@ -72,7 +85,8 @@ class SignalDerivation:
         self,
         signal_name: str,
         signal_def: Dict[str, Any],
-        entry: Dict[str, Any]
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
     ) -> Any:
         """
         Derive a single signal value.
@@ -81,14 +95,17 @@ class SignalDerivation:
             signal_name: Signal name
             signal_def: Signal definition from catalog
             entry: Raw dashboard/status entry
+            context: Additional context (recent_events, trigger_source, etc.)
             
         Returns:
             Derived signal value
         """
+        if context is None:
+            context = {}
         derive_spec = signal_def.get("derive", {})
         signal_type = signal_def.get("type")
         
-        value = self._execute_derive_op(derive_spec, entry)
+        value = self._execute_derive_op(derive_spec, entry, context)
         
         # Ensure value matches signal type
         if signal_type == "bool":
@@ -107,17 +124,26 @@ class SignalDerivation:
         
         return value
     
-    def _execute_derive_op(self, derive_spec: Dict[str, Any], entry: Dict[str, Any]) -> Any:
+    def _execute_derive_op(
+        self,
+        derive_spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """
         Execute a derivation operation.
         
         Args:
             derive_spec: Derivation specification
             entry: Raw data entry
+            context: Additional context (recent_events, trigger_source, etc.)
             
         Returns:
             Derived value
         """
+        if context is None:
+            context = {}
+        
         op = derive_spec.get("op")
         
         if op == "flag":
@@ -125,9 +151,17 @@ class SignalDerivation:
         elif op == "path":
             return self._derive_path(derive_spec, entry)
         elif op == "map":
-            return self._derive_map(derive_spec, entry)
+            return self._derive_map(derive_spec, entry, context)
         elif op == "first_match":
-            return self._derive_first_match(derive_spec, entry)
+            return self._derive_first_match(derive_spec, entry, context)
+        elif op == "event":
+            return self._derive_event(derive_spec, entry)
+        elif op == "recent":
+            return self._derive_recent(derive_spec, context)
+        elif op == "and":
+            return self._derive_and(derive_spec, entry, context)
+        elif op == "or":
+            return self._derive_or(derive_spec, entry, context)
         else:
             raise ValueError(f"Unknown derivation op: {op}")
     
@@ -186,20 +220,29 @@ class SignalDerivation:
             return default
         return value
     
-    def _derive_map(self, spec: Dict[str, Any], entry: Dict[str, Any]) -> Any:
+    def _derive_map(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """
         Derive value by mapping input to output.
         
         Args:
             spec: { "op": "map", "from": {...}, "map": {...}, "default": ... }
             entry: Raw data entry
+            context: Additional context
             
         Returns:
             Mapped value
         """
+        if context is None:
+            context = {}
+        
         # First derive the input value
         from_spec = spec.get("from", {})
-        input_value = self._execute_derive_op(from_spec, entry)
+        input_value = self._execute_derive_op(from_spec, entry, context)
         
         # Convert to string for map lookup
         map_dict = spec.get("map", {})
@@ -217,46 +260,167 @@ class SignalDerivation:
         # Return default
         return default
     
-    def _derive_first_match(self, spec: Dict[str, Any], entry: Dict[str, Any]) -> Any:
+    def _derive_first_match(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """
         Derive value from first matching case.
         
         Args:
             spec: { "op": "first_match", "cases": [...], "default": ... }
             entry: Raw data entry
+            context: Additional context
             
         Returns:
             First matching case value or default
         """
+        if context is None:
+            context = {}
+        
         cases = spec.get("cases", [])
         default = spec.get("default")
         
         for case in cases:
             when_spec = case.get("when", {})
             # Check if condition matches
-            if self._check_condition(when_spec, entry):
+            if self._check_condition(when_spec, entry, context):
                 return case.get("value")
         
         return default
     
-    def _check_condition(self, condition_spec: Dict[str, Any], entry: Dict[str, Any]) -> bool:
+    def _check_condition(
+        self,
+        condition_spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
         Check if a condition matches.
         
         Args:
             condition_spec: Condition specification
             entry: Raw data entry
+            context: Additional context
             
         Returns:
             True if condition matches
         """
-        # For now, support simple flag conditions
+        if context is None:
+            context = {}
+        
         op = condition_spec.get("op")
         
         if op == "flag":
             return self._derive_flag(condition_spec, entry)
+        elif op == "recent":
+            return self._derive_recent(condition_spec, context)
+        elif op == "and":
+            return self._derive_and(condition_spec, entry, context)
+        elif op == "or":
+            return self._derive_or(condition_spec, entry, context)
         
         # Could add more condition types here
+        return False
+    
+    def _derive_event(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any]
+    ) -> bool:
+        """
+        Check if the current entry matches a specific event.
+        
+        Args:
+            spec: { "op": "event", "event_name": "Docked" }
+            entry: Raw data entry
+            
+        Returns:
+            True if entry event matches event_name
+        """
+        event_name = spec.get("event_name")
+        current_event = entry.get("event")
+        
+        return current_event == event_name
+    
+    def _derive_recent(
+        self,
+        spec: Dict[str, Any],
+        context: Dict[str, Any]
+    ) -> bool:
+        """
+        Check if an event occurred recently.
+        
+        Args:
+            spec: { "op": "recent", "event_name": "Docked", "within_seconds": 3 }
+            context: Context dict containing recent_events
+            
+        Returns:
+            True if event occurred within time window
+        """
+        event_name = spec.get("event_name")
+        within_seconds = spec.get("within_seconds", 5)
+        
+        recent_events = context.get("recent_events", {})
+        
+        if event_name in recent_events:
+            event_time = recent_events[event_name]
+            current_time = time.time()
+            if current_time - event_time <= within_seconds:
+                return True
+        
+        return False
+    
+    def _derive_and(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Dict[str, Any]
+    ) -> bool:
+        """
+        Check if all conditions are true (logical AND).
+        
+        Args:
+            spec: { "op": "and", "conditions": [...] }
+            entry: Raw data entry
+            context: Additional context
+            
+        Returns:
+            True if all conditions match
+        """
+        conditions = spec.get("conditions", [])
+        
+        for condition in conditions:
+            if not self._check_condition(condition, entry, context):
+                return False
+        
+        return True
+    
+    def _derive_or(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Dict[str, Any]
+    ) -> bool:
+        """
+        Check if any condition is true (logical OR).
+        
+        Args:
+            spec: { "op": "or", "conditions": [...] }
+            entry: Raw data entry
+            context: Additional context
+            
+        Returns:
+            True if any condition matches
+        """
+        conditions = spec.get("conditions", [])
+        
+        for condition in conditions:
+            if self._check_condition(condition, entry, context):
+                return True
+        
         return False
     
     def _extract_path(self, data: Any, path: str) -> Any:

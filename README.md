@@ -77,20 +77,19 @@ Rules are read from `rules.json` and can set/clear shift tokens:
 - `vkb_set_shift`: `["Shift1", "Subshift3"]`
 - `vkb_clear_shift`: `["Shift1", "Subshift3"]`
 
-### Visual Rule Editor
+### Rule Editor
 
-The plugin includes a visual rule editor accessible from EDMC preferences:
+The plugin includes a catalog-driven rule editor accessible from EDMC preferences:
 1. Open **File > Settings > Plugins**
 2. Find the **VKB Connector** section
-3. Select a rule and click **Visual Editor**
+3. Click **Open Rules Editor**
 
-The visual editor provides a structured interface for:
-- Configuring when conditions (source, event, condition blocks)
+The editor provides a structured interface for:
+- Configuring when conditions with catalog signals
 - Setting then/else actions (shift flags, log statements)
-- Browsing available EDMC events and flags
-- Real-time JSON preview
+- Real-time validation and JSON preview
 
-See [Visual Rule Editor Guide](docs/VISUAL_RULE_EDITOR.md) for details.
+See [Rule Editor Guide](docs/RULE_EDITOR_GUIDE.md) for details.
 
 ### Manual Rule Editing
 
@@ -99,7 +98,7 @@ Full schema and examples for manual JSON editing:
 
 ## Documentation
 
-- [Visual Rule Editor Guide](docs/VISUAL_RULE_EDITOR.md) - **NEW**: User-friendly rule editor
+- [Rule Editor Guide](docs/RULE_EDITOR_GUIDE.md) - User-friendly rule editor
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [VKB-Link Setup](docs/REAL_SERVER_SETUP.md)
 - [Architecture](docs/ARCHITECTURE.md)

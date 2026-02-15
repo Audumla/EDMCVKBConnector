@@ -1,0 +1,5683 @@
+{
+  "version": 1,
+  "ui_tiers": {
+    "core": {
+      "label": "Common",
+      "icon": "star"
+    },
+    "detail": {
+      "label": "More",
+      "icon": "dots"
+    }
+  },
+  "operators": {
+    "eq": {
+      "symbol": "=",
+      "label": "Equals"
+    },
+    "ne": {
+      "symbol": "≠",
+      "label": "Not equal"
+    },
+    "in": {
+      "symbol": "∈",
+      "label": "In list"
+    },
+    "nin": {
+      "symbol": "∉",
+      "label": "Not in list"
+    },
+    "lt": {
+      "symbol": "<",
+      "label": "Less than"
+    },
+    "lte": {
+      "symbol": "≤",
+      "label": "Less than or equal"
+    },
+    "gt": {
+      "symbol": ">",
+      "label": "Greater than"
+    },
+    "gte": {
+      "symbol": "≥",
+      "label": "Greater than or equal"
+    },
+    "contains": {
+      "symbol": "⊇",
+      "label": "Contains"
+    },
+    "exists": {
+      "symbol": "∃",
+      "label": "Exists"
+    }
+  },
+  "bitfields": {
+    "ship_flags": "dashboard.Flags",
+    "foot_flags": "dashboard.Flags2"
+  },
+  "signals": {
+    "gui_focus": {
+      "type": "enum",
+      "title": "Focus",
+      "ui": {
+        "label": "Focused screen",
+        "icon": "screen",
+        "category": "HUD",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "NoFocus",
+          "label": "None",
+          "icon": "circle"
+        },
+        {
+          "value": "InternalPanel",
+          "label": "Left panel",
+          "icon": "panel-left"
+        },
+        {
+          "value": "ExternalPanel",
+          "label": "Right panel",
+          "icon": "panel-right"
+        },
+        {
+          "value": "CommsPanel",
+          "label": "Comms",
+          "icon": "message"
+        },
+        {
+          "value": "RolePanel",
+          "label": "Role",
+          "icon": "user"
+        },
+        {
+          "value": "StationServices",
+          "label": "Station",
+          "icon": "station"
+        },
+        {
+          "value": "GalaxyMap",
+          "label": "Galaxy map",
+          "icon": "map"
+        },
+        {
+          "value": "SystemMap",
+          "label": "System map",
+          "icon": "map-pin"
+        },
+        {
+          "value": "Orrery",
+          "label": "Orrery",
+          "icon": "orbit"
+        },
+        {
+          "value": "FSS",
+          "label": "FSS",
+          "icon": "scan"
+        },
+        {
+          "value": "SAA",
+          "label": "SAA",
+          "icon": "waves"
+        },
+        {
+          "value": "Codex",
+          "label": "Codex",
+          "icon": "book"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "path",
+          "path": "dashboard.GuiFocus",
+          "default": 0
+        },
+        "map": {
+          "0": "NoFocus",
+          "1": "InternalPanel",
+          "2": "ExternalPanel",
+          "3": "CommsPanel",
+          "4": "RolePanel",
+          "5": "StationServices",
+          "6": "GalaxyMap",
+          "7": "SystemMap",
+          "8": "Orrery",
+          "9": "FSS",
+          "10": "SAA",
+          "11": "Codex"
+        },
+        "default": "NoFocus"
+      }
+    },
+    "landing_gear": {
+      "type": "enum",
+      "title": "Landing gear",
+      "ui": {
+        "label": "Landing gear",
+        "icon": "landing-gear",
+        "category": "Docking",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "up",
+          "label": "Up",
+          "icon": "arrow-up"
+        },
+        {
+          "value": "down",
+          "label": "Down",
+          "icon": "arrow-down"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "ship_flags",
+          "bit": 2
+        },
+        "map": {
+          "false": "up",
+          "true": "down"
+        },
+        "default": "up"
+      }
+    },
+    "hardpoints": {
+      "type": "enum",
+      "title": "Hardpoints",
+      "ui": {
+        "label": "Hardpoints",
+        "icon": "crosshair",
+        "category": "Combat",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "retracted",
+          "label": "Retracted",
+          "icon": "minus"
+        },
+        {
+          "value": "deployed",
+          "label": "Deployed",
+          "icon": "plus"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "ship_flags",
+          "bit": 6
+        },
+        "map": {
+          "false": "retracted",
+          "true": "deployed"
+        },
+        "default": "retracted"
+      }
+    },
+    "cargo_scoop": {
+      "type": "enum",
+      "title": "Cargo scoop",
+      "ui": {
+        "label": "Cargo scoop",
+        "icon": "box",
+        "category": "Ship",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "retracted",
+          "label": "Retracted",
+          "icon": "minus"
+        },
+        {
+          "value": "deployed",
+          "label": "Deployed",
+          "icon": "plus"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "ship_flags",
+          "bit": 9
+        },
+        "map": {
+          "false": "retracted",
+          "true": "deployed"
+        },
+        "default": "retracted"
+      }
+    },
+    "hud_mode": {
+      "type": "enum",
+      "title": "HUD mode",
+      "ui": {
+        "label": "HUD mode",
+        "icon": "radar",
+        "category": "HUD",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "combat",
+          "label": "Combat",
+          "icon": "swords"
+        },
+        {
+          "value": "analysis",
+          "label": "Analysis",
+          "icon": "microscope"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "ship_flags",
+          "bit": 27
+        },
+        "map": {
+          "false": "combat",
+          "true": "analysis"
+        },
+        "default": "combat"
+      }
+    },
+    "docking_state": {
+      "type": "enum",
+      "title": "Docking",
+      "ui": {
+        "label": "Docking state",
+        "icon": "anchor",
+        "category": "Docking",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "in_space",
+          "label": "In space",
+          "icon": "sparkle"
+        },
+        {
+          "value": "landed",
+          "label": "Landed",
+          "icon": "planet"
+        },
+        {
+          "value": "docked",
+          "label": "Docked",
+          "icon": "dock"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 0
+            },
+            "value": "docked"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 1
+            },
+            "value": "landed"
+          }
+        ],
+        "default": "in_space"
+      }
+    },
+    "supercruise": {
+      "type": "enum",
+      "title": "Supercruise",
+      "ui": {
+        "label": "Supercruise",
+        "icon": "speed",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "off",
+          "label": "Off",
+          "icon": "circle"
+        },
+        {
+          "value": "on",
+          "label": "On",
+          "icon": "circle-dot"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "ship_flags",
+          "bit": 4
+        },
+        "map": {
+          "false": "off",
+          "true": "on"
+        },
+        "default": "off"
+      }
+    },
+    "fsd_state": {
+      "type": "enum",
+      "title": "FSD",
+      "ui": {
+        "label": "FSD state",
+        "icon": "rocket",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "idle",
+          "label": "Idle",
+          "icon": "pause"
+        },
+        {
+          "value": "charging",
+          "label": "Charging",
+          "icon": "bolt"
+        },
+        {
+          "value": "cooldown",
+          "label": "Cooldown",
+          "icon": "clock"
+        },
+        {
+          "value": "jumping",
+          "label": "Jumping",
+          "icon": "zap"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 30
+            },
+            "value": "jumping"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 18
+            },
+            "value": "cooldown"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 17
+            },
+            "value": "charging"
+          }
+        ],
+        "default": "idle"
+      }
+    },
+    "vehicle": {
+      "type": "enum",
+      "title": "Vehicle",
+      "ui": {
+        "label": "Current vehicle",
+        "icon": "ship",
+        "category": "Context",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "ship",
+          "label": "Ship",
+          "icon": "ship"
+        },
+        {
+          "value": "srv",
+          "label": "SRV",
+          "icon": "car"
+        },
+        {
+          "value": "fighter",
+          "label": "Fighter",
+          "icon": "jet"
+        },
+        {
+          "value": "unknown",
+          "label": "Unknown",
+          "icon": "help"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 26
+            },
+            "value": "srv"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 25
+            },
+            "value": "fighter"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 24
+            },
+            "value": "ship"
+          }
+        ],
+        "default": "unknown"
+      }
+    },
+    "presence": {
+      "type": "enum",
+      "title": "Presence",
+      "ui": {
+        "label": "On foot / in vehicle",
+        "icon": "walk",
+        "category": "Context",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "vehicle",
+          "label": "In vehicle",
+          "icon": "ship"
+        },
+        {
+          "value": "foot",
+          "label": "On foot",
+          "icon": "walk"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "foot_flags",
+          "bit": 0
+        },
+        "map": {
+          "false": "vehicle",
+          "true": "foot"
+        },
+        "default": "vehicle"
+      }
+    },
+    "docked": {
+      "type": "bool",
+      "title": "Docked",
+      "ui": {
+        "label": "Docked",
+        "icon": "dock",
+        "category": "Docking",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 0
+      }
+    },
+    "landed": {
+      "type": "bool",
+      "title": "Landed",
+      "ui": {
+        "label": "Landed",
+        "icon": "planet",
+        "category": "Docking",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 1
+      }
+    },
+    "gear_down": {
+      "type": "bool",
+      "title": "Gear down",
+      "ui": {
+        "label": "Landing gear down",
+        "icon": "landing-gear",
+        "category": "Docking",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 2
+      }
+    },
+    "shields_up": {
+      "type": "bool",
+      "title": "Shields up",
+      "ui": {
+        "label": "Shields up",
+        "icon": "shield",
+        "category": "Combat",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 3
+      }
+    },
+    "in_supercruise": {
+      "type": "bool",
+      "title": "Supercruise",
+      "ui": {
+        "label": "In supercruise",
+        "icon": "speed",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 4
+      }
+    },
+    "fa_off": {
+      "type": "bool",
+      "title": "FA off",
+      "ui": {
+        "label": "Flight assist off",
+        "icon": "plane",
+        "category": "Ship",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 5
+      }
+    },
+    "weapons_out": {
+      "type": "bool",
+      "title": "Hardpoints deployed",
+      "ui": {
+        "label": "Hardpoints deployed",
+        "icon": "crosshair",
+        "category": "Combat",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 6
+      }
+    },
+    "in_wing": {
+      "type": "bool",
+      "title": "Wing",
+      "ui": {
+        "label": "In wing",
+        "icon": "users",
+        "category": "Crew",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 7
+      }
+    },
+    "lights_on": {
+      "type": "bool",
+      "title": "Lights",
+      "ui": {
+        "label": "Lights on",
+        "icon": "lightbulb",
+        "category": "Ship",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 8
+      }
+    },
+    "scoop_out": {
+      "type": "bool",
+      "title": "Scoop deployed",
+      "ui": {
+        "label": "Cargo scoop deployed",
+        "icon": "box",
+        "category": "Ship",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 9
+      }
+    },
+    "silent_running": {
+      "type": "bool",
+      "title": "Silent running",
+      "ui": {
+        "label": "Silent running",
+        "icon": "mute",
+        "category": "Ship",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 10
+      }
+    },
+    "fuel_scooping": {
+      "type": "bool",
+      "title": "Scooping",
+      "ui": {
+        "label": "Fuel scooping",
+        "icon": "fuel",
+        "category": "Fuel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 11
+      }
+    },
+    "srv_handbrake": {
+      "type": "bool",
+      "title": "Handbrake",
+      "ui": {
+        "label": "SRV handbrake",
+        "icon": "brake",
+        "category": "SRV",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 12
+      }
+    },
+    "srv_turret": {
+      "type": "bool",
+      "title": "Turret",
+      "ui": {
+        "label": "SRV turret mode",
+        "icon": "turret",
+        "category": "SRV",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 13
+      }
+    },
+    "srv_under_ship": {
+      "type": "bool",
+      "title": "Under ship",
+      "ui": {
+        "label": "SRV under ship",
+        "icon": "arrow-down",
+        "category": "SRV",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 14
+      }
+    },
+    "srv_assist": {
+      "type": "bool",
+      "title": "Assist",
+      "ui": {
+        "label": "SRV drive assist",
+        "icon": "car",
+        "category": "SRV",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 15
+      }
+    },
+    "mass_locked": {
+      "type": "bool",
+      "title": "Mass locked",
+      "ui": {
+        "label": "Mass locked",
+        "icon": "lock",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 16
+      }
+    },
+    "fsd_charging": {
+      "type": "bool",
+      "title": "Charging",
+      "ui": {
+        "label": "FSD charging",
+        "icon": "bolt",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 17
+      }
+    },
+    "fsd_cooldown": {
+      "type": "bool",
+      "title": "Cooldown",
+      "ui": {
+        "label": "FSD cooldown",
+        "icon": "clock",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 18
+      }
+    },
+    "low_fuel": {
+      "type": "bool",
+      "title": "Low fuel",
+      "ui": {
+        "label": "Low fuel",
+        "icon": "warning",
+        "category": "Fuel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 19
+      }
+    },
+    "overheating": {
+      "type": "bool",
+      "title": "Overheating",
+      "ui": {
+        "label": "Overheating",
+        "icon": "thermometer",
+        "category": "Heat",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 20
+      }
+    },
+    "has_position": {
+      "type": "bool",
+      "title": "Coordinates",
+      "ui": {
+        "label": "Has coordinates",
+        "icon": "pin",
+        "category": "Sensors",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 21
+      }
+    },
+    "in_danger": {
+      "type": "bool",
+      "title": "Danger",
+      "ui": {
+        "label": "In danger",
+        "icon": "alert",
+        "category": "Combat",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 22
+      }
+    },
+    "interdicted": {
+      "type": "bool",
+      "title": "Interdicted",
+      "ui": {
+        "label": "Being interdicted",
+        "icon": "target",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 23
+      }
+    },
+    "in_ship": {
+      "type": "bool",
+      "title": "In ship",
+      "ui": {
+        "label": "In main ship",
+        "icon": "ship",
+        "category": "Context",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 24
+      }
+    },
+    "in_fighter": {
+      "type": "bool",
+      "title": "In fighter",
+      "ui": {
+        "label": "In fighter",
+        "icon": "jet",
+        "category": "Context",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 25
+      }
+    },
+    "in_srv": {
+      "type": "bool",
+      "title": "In SRV",
+      "ui": {
+        "label": "In SRV",
+        "icon": "car",
+        "category": "Context",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 26
+      }
+    },
+    "analysis_mode": {
+      "type": "bool",
+      "title": "Analysis",
+      "ui": {
+        "label": "Analysis mode",
+        "icon": "microscope",
+        "category": "HUD",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 27
+      }
+    },
+    "night_vision": {
+      "type": "bool",
+      "title": "Night vision",
+      "ui": {
+        "label": "Night vision",
+        "icon": "moon",
+        "category": "HUD",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 28
+      }
+    },
+    "avg_altitude": {
+      "type": "bool",
+      "title": "Altitude",
+      "ui": {
+        "label": "Average altitude",
+        "icon": "mountain",
+        "category": "Sensors",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 29
+      }
+    },
+    "fsd_jump": {
+      "type": "bool",
+      "title": "Jump",
+      "ui": {
+        "label": "FSD jump",
+        "icon": "zap",
+        "category": "Travel",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 30
+      }
+    },
+    "srv_high_beam": {
+      "type": "bool",
+      "title": "High beam",
+      "ui": {
+        "label": "SRV high beam",
+        "icon": "flashlight",
+        "category": "SRV",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "ship_flags",
+        "bit": 31
+      }
+    },
+    "on_foot": {
+      "type": "bool",
+      "title": "On foot",
+      "ui": {
+        "label": "On foot",
+        "icon": "walk",
+        "category": "Foot",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 0
+      }
+    },
+    "in_taxi": {
+      "type": "bool",
+      "title": "Taxi",
+      "ui": {
+        "label": "In taxi",
+        "icon": "taxi",
+        "category": "Travel",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 1
+      }
+    },
+    "in_multicrew": {
+      "type": "bool",
+      "title": "Multicrew",
+      "ui": {
+        "label": "In multicrew",
+        "icon": "users",
+        "category": "Crew",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 2
+      }
+    },
+    "foot_station": {
+      "type": "bool",
+      "title": "Station",
+      "ui": {
+        "label": "On foot in station",
+        "icon": "station",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 3
+      }
+    },
+    "foot_planet": {
+      "type": "bool",
+      "title": "Planet",
+      "ui": {
+        "label": "On foot on planet",
+        "icon": "planet",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 4
+      }
+    },
+    "ads": {
+      "type": "bool",
+      "title": "Aim",
+      "ui": {
+        "label": "Aiming down sight",
+        "icon": "crosshair",
+        "category": "Foot",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 5
+      }
+    },
+    "low_oxygen": {
+      "type": "bool",
+      "title": "Low oxygen",
+      "ui": {
+        "label": "Low oxygen",
+        "icon": "air",
+        "category": "Foot",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 6
+      }
+    },
+    "low_health": {
+      "type": "bool",
+      "title": "Low health",
+      "ui": {
+        "label": "Low health",
+        "icon": "heart",
+        "category": "Foot",
+        "tier": "core"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 7
+      }
+    },
+    "cold": {
+      "type": "bool",
+      "title": "Cold",
+      "ui": {
+        "label": "Cold",
+        "icon": "snow",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 8
+      }
+    },
+    "hot": {
+      "type": "bool",
+      "title": "Hot",
+      "ui": {
+        "label": "Hot",
+        "icon": "sun",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 9
+      }
+    },
+    "very_cold": {
+      "type": "bool",
+      "title": "Very cold",
+      "ui": {
+        "label": "Very cold",
+        "icon": "snowflake",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 10
+      }
+    },
+    "very_hot": {
+      "type": "bool",
+      "title": "Very hot",
+      "ui": {
+        "label": "Very hot",
+        "icon": "flame",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 11
+      }
+    },
+    "glide": {
+      "type": "bool",
+      "title": "Glide",
+      "ui": {
+        "label": "Glide mode",
+        "icon": "glide",
+        "category": "Docking",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 12
+      }
+    },
+    "foot_hangar": {
+      "type": "bool",
+      "title": "Hangar",
+      "ui": {
+        "label": "On foot in hangar",
+        "icon": "warehouse",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 13
+      }
+    },
+    "foot_social": {
+      "type": "bool",
+      "title": "Social",
+      "ui": {
+        "label": "In social space",
+        "icon": "coffee",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 14
+      }
+    },
+    "foot_exterior": {
+      "type": "bool",
+      "title": "Exterior",
+      "ui": {
+        "label": "On foot outside",
+        "icon": "door-open",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 15
+      }
+    },
+    "breathable_air": {
+      "type": "bool",
+      "title": "Air",
+      "ui": {
+        "label": "Breathable atmosphere",
+        "icon": "leaf",
+        "category": "Foot",
+        "tier": "detail"
+      },
+      "derive": {
+        "op": "flag",
+        "field_ref": "foot_flags",
+        "bit": 16
+      }
+    },
+    "journal_event": {
+      "type": "enum",
+      "title": "Journal Event",
+      "ui": {
+        "label": "Journal event",
+        "icon": "book",
+        "category": "Events",
+        "tier": "detail"
+      },
+      "values": [
+        {
+          "value": "FileHeader",
+          "label": "FileHeader",
+          "icon": "event"
+        },
+        {
+          "value": "ClearSavedGame",
+          "label": "ClearSavedGame",
+          "icon": "event"
+        },
+        {
+          "value": "NewCommander",
+          "label": "NewCommander",
+          "icon": "event"
+        },
+        {
+          "value": "LoadGame",
+          "label": "LoadGame",
+          "icon": "event"
+        },
+        {
+          "value": "Commander",
+          "label": "Commander",
+          "icon": "event"
+        },
+        {
+          "value": "Materials",
+          "label": "Materials",
+          "icon": "event"
+        },
+        {
+          "value": "Cargo",
+          "label": "Cargo",
+          "icon": "event"
+        },
+        {
+          "value": "Loadout",
+          "label": "Loadout",
+          "icon": "event"
+        },
+        {
+          "value": "Missions",
+          "label": "Missions",
+          "icon": "event"
+        },
+        {
+          "value": "Passengers",
+          "label": "Passengers",
+          "icon": "event"
+        },
+        {
+          "value": "Powerplay",
+          "label": "Powerplay",
+          "icon": "event"
+        },
+        {
+          "value": "Progress",
+          "label": "Progress",
+          "icon": "event"
+        },
+        {
+          "value": "Rank",
+          "label": "Rank",
+          "icon": "event"
+        },
+        {
+          "value": "Reputation",
+          "label": "Reputation",
+          "icon": "event"
+        },
+        {
+          "value": "Statistics",
+          "label": "Statistics",
+          "icon": "event"
+        },
+        {
+          "value": "Continued",
+          "label": "Continued",
+          "icon": "event"
+        },
+        {
+          "value": "FSDJump",
+          "label": "FSDJump",
+          "icon": "event"
+        },
+        {
+          "value": "Location",
+          "label": "Location",
+          "icon": "event"
+        },
+        {
+          "value": "Docked",
+          "label": "Docked",
+          "icon": "event"
+        },
+        {
+          "value": "Undocked",
+          "label": "Undocked",
+          "icon": "event"
+        },
+        {
+          "value": "DockingRequested",
+          "label": "DockingRequested",
+          "icon": "event"
+        },
+        {
+          "value": "DockingGranted",
+          "label": "DockingGranted",
+          "icon": "event"
+        },
+        {
+          "value": "DockingDenied",
+          "label": "DockingDenied",
+          "icon": "event"
+        },
+        {
+          "value": "DockingCancelled",
+          "label": "DockingCancelled",
+          "icon": "event"
+        },
+        {
+          "value": "DockingTimeout",
+          "label": "DockingTimeout",
+          "icon": "event"
+        },
+        {
+          "value": "Liftoff",
+          "label": "Liftoff",
+          "icon": "event"
+        },
+        {
+          "value": "Touchdown",
+          "label": "Touchdown",
+          "icon": "event"
+        },
+        {
+          "value": "SupercruiseEntry",
+          "label": "SupercruiseEntry",
+          "icon": "event"
+        },
+        {
+          "value": "SupercruiseExit",
+          "label": "SupercruiseExit",
+          "icon": "event"
+        },
+        {
+          "value": "SupercruiseDestinationDrop",
+          "label": "SupercruiseDestinationDrop",
+          "icon": "event"
+        },
+        {
+          "value": "StartJump",
+          "label": "StartJump",
+          "icon": "event"
+        },
+        {
+          "value": "FSDTarget",
+          "label": "FSDTarget",
+          "icon": "event"
+        },
+        {
+          "value": "ApproachBody",
+          "label": "ApproachBody",
+          "icon": "event"
+        },
+        {
+          "value": "LeaveBody",
+          "label": "LeaveBody",
+          "icon": "event"
+        },
+        {
+          "value": "NavRoute",
+          "label": "NavRoute",
+          "icon": "event"
+        },
+        {
+          "value": "Bounty",
+          "label": "Bounty",
+          "icon": "event"
+        },
+        {
+          "value": "CapShipBond",
+          "label": "CapShipBond",
+          "icon": "event"
+        },
+        {
+          "value": "FactionKillBond",
+          "label": "FactionKillBond",
+          "icon": "event"
+        },
+        {
+          "value": "Died",
+          "label": "Died",
+          "icon": "event"
+        },
+        {
+          "value": "PVPKill",
+          "label": "PVPKill",
+          "icon": "event"
+        },
+        {
+          "value": "Interdicted",
+          "label": "Interdicted",
+          "icon": "event"
+        },
+        {
+          "value": "Interdiction",
+          "label": "Interdiction",
+          "icon": "event"
+        },
+        {
+          "value": "EscapeInterdiction",
+          "label": "EscapeInterdiction",
+          "icon": "event"
+        },
+        {
+          "value": "HeatWarning",
+          "label": "HeatWarning",
+          "icon": "event"
+        },
+        {
+          "value": "HeatDamage",
+          "label": "HeatDamage",
+          "icon": "event"
+        },
+        {
+          "value": "HullDamage",
+          "label": "HullDamage",
+          "icon": "event"
+        },
+        {
+          "value": "ShieldState",
+          "label": "ShieldState",
+          "icon": "event"
+        },
+        {
+          "value": "ShipTargetted",
+          "label": "ShipTargetted",
+          "icon": "event"
+        },
+        {
+          "value": "UnderAttack",
+          "label": "UnderAttack",
+          "icon": "event"
+        },
+        {
+          "value": "FighterDestroyed",
+          "label": "FighterDestroyed",
+          "icon": "event"
+        },
+        {
+          "value": "SRVDestroyed",
+          "label": "SRVDestroyed",
+          "icon": "event"
+        },
+        {
+          "value": "Scan",
+          "label": "Scan",
+          "icon": "event"
+        },
+        {
+          "value": "FSSDiscoveryScan",
+          "label": "FSSDiscoveryScan",
+          "icon": "event"
+        },
+        {
+          "value": "FSSSignalDiscovered",
+          "label": "FSSSignalDiscovered",
+          "icon": "event"
+        },
+        {
+          "value": "FSSAllBodiesFound",
+          "label": "FSSAllBodiesFound",
+          "icon": "event"
+        },
+        {
+          "value": "SAAScanComplete",
+          "label": "SAAScanComplete",
+          "icon": "event"
+        },
+        {
+          "value": "SAASignalsFound",
+          "label": "SAASignalsFound",
+          "icon": "event"
+        },
+        {
+          "value": "DiscoveryScan",
+          "label": "DiscoveryScan",
+          "icon": "event"
+        },
+        {
+          "value": "ScanBaryCentre",
+          "label": "ScanBaryCentre",
+          "icon": "event"
+        },
+        {
+          "value": "ScanOrganic",
+          "label": "ScanOrganic",
+          "icon": "event"
+        },
+        {
+          "value": "CodexEntry",
+          "label": "CodexEntry",
+          "icon": "event"
+        },
+        {
+          "value": "Screenshot",
+          "label": "Screenshot",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialCollected",
+          "label": "MaterialCollected",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialDiscarded",
+          "label": "MaterialDiscarded",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialDiscovered",
+          "label": "MaterialDiscovered",
+          "icon": "event"
+        },
+        {
+          "value": "BuyExplorationData",
+          "label": "BuyExplorationData",
+          "icon": "event"
+        },
+        {
+          "value": "SellExplorationData",
+          "label": "SellExplorationData",
+          "icon": "event"
+        },
+        {
+          "value": "MultiSellExplorationData",
+          "label": "MultiSellExplorationData",
+          "icon": "event"
+        },
+        {
+          "value": "SellOrganicData",
+          "label": "SellOrganicData",
+          "icon": "event"
+        },
+        {
+          "value": "NavBeaconScan",
+          "label": "NavBeaconScan",
+          "icon": "event"
+        },
+        {
+          "value": "MarketBuy",
+          "label": "MarketBuy",
+          "icon": "event"
+        },
+        {
+          "value": "MarketSell",
+          "label": "MarketSell",
+          "icon": "event"
+        },
+        {
+          "value": "Market",
+          "label": "Market",
+          "icon": "event"
+        },
+        {
+          "value": "CollectCargo",
+          "label": "CollectCargo",
+          "icon": "event"
+        },
+        {
+          "value": "EjectCargo",
+          "label": "EjectCargo",
+          "icon": "event"
+        },
+        {
+          "value": "BuyTradeData",
+          "label": "BuyTradeData",
+          "icon": "event"
+        },
+        {
+          "value": "MiningRefined",
+          "label": "MiningRefined",
+          "icon": "event"
+        },
+        {
+          "value": "AsteroidCracked",
+          "label": "AsteroidCracked",
+          "icon": "event"
+        },
+        {
+          "value": "BuyAmmo",
+          "label": "BuyAmmo",
+          "icon": "event"
+        },
+        {
+          "value": "BuyDrones",
+          "label": "BuyDrones",
+          "icon": "event"
+        },
+        {
+          "value": "SellDrones",
+          "label": "SellDrones",
+          "icon": "event"
+        },
+        {
+          "value": "RefuelAll",
+          "label": "RefuelAll",
+          "icon": "event"
+        },
+        {
+          "value": "RefuelPartial",
+          "label": "RefuelPartial",
+          "icon": "event"
+        },
+        {
+          "value": "Repair",
+          "label": "Repair",
+          "icon": "event"
+        },
+        {
+          "value": "RepairAll",
+          "label": "RepairAll",
+          "icon": "event"
+        },
+        {
+          "value": "RestockVehicle",
+          "label": "RestockVehicle",
+          "icon": "event"
+        },
+        {
+          "value": "CargoDepot",
+          "label": "CargoDepot",
+          "icon": "event"
+        },
+        {
+          "value": "SearchAndRescue",
+          "label": "SearchAndRescue",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleBuy",
+          "label": "ModuleBuy",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleSell",
+          "label": "ModuleSell",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleStore",
+          "label": "ModuleStore",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleRetrieve",
+          "label": "ModuleRetrieve",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleSwap",
+          "label": "ModuleSwap",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleSellRemote",
+          "label": "ModuleSellRemote",
+          "icon": "event"
+        },
+        {
+          "value": "FetchRemoteModule",
+          "label": "FetchRemoteModule",
+          "icon": "event"
+        },
+        {
+          "value": "MassModuleStore",
+          "label": "MassModuleStore",
+          "icon": "event"
+        },
+        {
+          "value": "Outfitting",
+          "label": "Outfitting",
+          "icon": "event"
+        },
+        {
+          "value": "Shipyard",
+          "label": "Shipyard",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardBuy",
+          "label": "ShipyardBuy",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardSell",
+          "label": "ShipyardSell",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardSwap",
+          "label": "ShipyardSwap",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardTransfer",
+          "label": "ShipyardTransfer",
+          "icon": "event"
+        },
+        {
+          "value": "SetUserShipName",
+          "label": "SetUserShipName",
+          "icon": "event"
+        },
+        {
+          "value": "SellShipOnRebuy",
+          "label": "SellShipOnRebuy",
+          "icon": "event"
+        },
+        {
+          "value": "LaunchSRV",
+          "label": "LaunchSRV",
+          "icon": "event"
+        },
+        {
+          "value": "DockSRV",
+          "label": "DockSRV",
+          "icon": "event"
+        },
+        {
+          "value": "LaunchFighter",
+          "label": "LaunchFighter",
+          "icon": "event"
+        },
+        {
+          "value": "DockFighter",
+          "label": "DockFighter",
+          "icon": "event"
+        },
+        {
+          "value": "VehicleSwitch",
+          "label": "VehicleSwitch",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerProgress",
+          "label": "EngineerProgress",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerContribution",
+          "label": "EngineerContribution",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerCraft",
+          "label": "EngineerCraft",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerLegacyConvert",
+          "label": "EngineerLegacyConvert",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialTrade",
+          "label": "MaterialTrade",
+          "icon": "event"
+        },
+        {
+          "value": "TechnologyBroker",
+          "label": "TechnologyBroker",
+          "icon": "event"
+        },
+        {
+          "value": "ScientificResearch",
+          "label": "ScientificResearch",
+          "icon": "event"
+        },
+        {
+          "value": "MissionAccepted",
+          "label": "MissionAccepted",
+          "icon": "event"
+        },
+        {
+          "value": "MissionCompleted",
+          "label": "MissionCompleted",
+          "icon": "event"
+        },
+        {
+          "value": "MissionAbandoned",
+          "label": "MissionAbandoned",
+          "icon": "event"
+        },
+        {
+          "value": "MissionFailed",
+          "label": "MissionFailed",
+          "icon": "event"
+        },
+        {
+          "value": "MissionRedirected",
+          "label": "MissionRedirected",
+          "icon": "event"
+        },
+        {
+          "value": "CrewHire",
+          "label": "CrewHire",
+          "icon": "event"
+        },
+        {
+          "value": "CrewFire",
+          "label": "CrewFire",
+          "icon": "event"
+        },
+        {
+          "value": "CrewAssign",
+          "label": "CrewAssign",
+          "icon": "event"
+        },
+        {
+          "value": "JoinACrew",
+          "label": "JoinACrew",
+          "icon": "event"
+        },
+        {
+          "value": "QuitACrew",
+          "label": "QuitACrew",
+          "icon": "event"
+        },
+        {
+          "value": "KickCrewMember",
+          "label": "KickCrewMember",
+          "icon": "event"
+        },
+        {
+          "value": "EndCrewSession",
+          "label": "EndCrewSession",
+          "icon": "event"
+        },
+        {
+          "value": "CrewMemberJoins",
+          "label": "CrewMemberJoins",
+          "icon": "event"
+        },
+        {
+          "value": "CrewMemberQuits",
+          "label": "CrewMemberQuits",
+          "icon": "event"
+        },
+        {
+          "value": "CrewMemberRoleChange",
+          "label": "CrewMemberRoleChange",
+          "icon": "event"
+        },
+        {
+          "value": "CrewLaunchFighter",
+          "label": "CrewLaunchFighter",
+          "icon": "event"
+        },
+        {
+          "value": "ChangeCrewRole",
+          "label": "ChangeCrewRole",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierJump",
+          "label": "CarrierJump",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierJumpRequest",
+          "label": "CarrierJumpRequest",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierJumpCancelled",
+          "label": "CarrierJumpCancelled",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierBuy",
+          "label": "CarrierBuy",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierStats",
+          "label": "CarrierStats",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierFinance",
+          "label": "CarrierFinance",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierBankTransfer",
+          "label": "CarrierBankTransfer",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierDepositFuel",
+          "label": "CarrierDepositFuel",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierCrewServices",
+          "label": "CarrierCrewServices",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierTradeOrder",
+          "label": "CarrierTradeOrder",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierDockingPermission",
+          "label": "CarrierDockingPermission",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierNameChange",
+          "label": "CarrierNameChange",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierModulePack",
+          "label": "CarrierModulePack",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierDecommission",
+          "label": "CarrierDecommission",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierCancelDecommission",
+          "label": "CarrierCancelDecommission",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierTransfer",
+          "label": "CarrierTransfer",
+          "icon": "event"
+        },
+        {
+          "value": "PayFines",
+          "label": "PayFines",
+          "icon": "event"
+        },
+        {
+          "value": "PayBounties",
+          "label": "PayBounties",
+          "icon": "event"
+        },
+        {
+          "value": "PayLegacyFines",
+          "label": "PayLegacyFines",
+          "icon": "event"
+        },
+        {
+          "value": "RedeemVoucher",
+          "label": "RedeemVoucher",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoal",
+          "label": "CommunityGoal",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoalJoin",
+          "label": "CommunityGoalJoin",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoalDiscard",
+          "label": "CommunityGoalDiscard",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoalReward",
+          "label": "CommunityGoalReward",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayCollect",
+          "label": "PowerplayCollect",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayDeliver",
+          "label": "PowerplayDeliver",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayDefect",
+          "label": "PowerplayDefect",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayJoin",
+          "label": "PowerplayJoin",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayLeave",
+          "label": "PowerplayLeave",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplaySalary",
+          "label": "PowerplaySalary",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayVote",
+          "label": "PowerplayVote",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayVoucher",
+          "label": "PowerplayVoucher",
+          "icon": "event"
+        },
+        {
+          "value": "Promotion",
+          "label": "Promotion",
+          "icon": "event"
+        },
+        {
+          "value": "Disembark",
+          "label": "Disembark",
+          "icon": "event"
+        },
+        {
+          "value": "Embark",
+          "label": "Embark",
+          "icon": "event"
+        },
+        {
+          "value": "CommanderInTaxi",
+          "label": "CommanderInTaxi",
+          "icon": "event"
+        },
+        {
+          "value": "Backpack",
+          "label": "Backpack",
+          "icon": "event"
+        },
+        {
+          "value": "BackpackChange",
+          "label": "BackpackChange",
+          "icon": "event"
+        },
+        {
+          "value": "BookTaxi",
+          "label": "BookTaxi",
+          "icon": "event"
+        },
+        {
+          "value": "CancelTaxi",
+          "label": "CancelTaxi",
+          "icon": "event"
+        },
+        {
+          "value": "BookDropship",
+          "label": "BookDropship",
+          "icon": "event"
+        },
+        {
+          "value": "CancelDropship",
+          "label": "CancelDropship",
+          "icon": "event"
+        },
+        {
+          "value": "DropshipDeploy",
+          "label": "DropshipDeploy",
+          "icon": "event"
+        },
+        {
+          "value": "BuySuit",
+          "label": "BuySuit",
+          "icon": "event"
+        },
+        {
+          "value": "SellSuit",
+          "label": "SellSuit",
+          "icon": "event"
+        },
+        {
+          "value": "UpgradeSuit",
+          "label": "UpgradeSuit",
+          "icon": "event"
+        },
+        {
+          "value": "SuitLoadout",
+          "label": "SuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "CreateSuitLoadout",
+          "label": "CreateSuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "DeleteSuitLoadout",
+          "label": "DeleteSuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "LoadoutEquipModule",
+          "label": "LoadoutEquipModule",
+          "icon": "event"
+        },
+        {
+          "value": "SwitchSuitLoadout",
+          "label": "SwitchSuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "BuyWeapon",
+          "label": "BuyWeapon",
+          "icon": "event"
+        },
+        {
+          "value": "SellWeapon",
+          "label": "SellWeapon",
+          "icon": "event"
+        },
+        {
+          "value": "UpgradeWeapon",
+          "label": "UpgradeWeapon",
+          "icon": "event"
+        },
+        {
+          "value": "ApproachSettlement",
+          "label": "ApproachSettlement",
+          "icon": "event"
+        },
+        {
+          "value": "TradeMicroResources",
+          "label": "TradeMicroResources",
+          "icon": "event"
+        },
+        {
+          "value": "FCMaterials",
+          "label": "FCMaterials",
+          "icon": "event"
+        },
+        {
+          "value": "UseConsumable",
+          "label": "UseConsumable",
+          "icon": "event"
+        },
+        {
+          "value": "CollectItems",
+          "label": "CollectItems",
+          "icon": "event"
+        },
+        {
+          "value": "DropItems",
+          "label": "DropItems",
+          "icon": "event"
+        },
+        {
+          "value": "TransferMicroResources",
+          "label": "TransferMicroResources",
+          "icon": "event"
+        },
+        {
+          "value": "ShipLocker",
+          "label": "ShipLocker",
+          "icon": "event"
+        },
+        {
+          "value": "DataScanned",
+          "label": "DataScanned",
+          "icon": "event"
+        },
+        {
+          "value": "DatalinkScan",
+          "label": "DatalinkScan",
+          "icon": "event"
+        },
+        {
+          "value": "DatalinkVoucher",
+          "label": "DatalinkVoucher",
+          "icon": "event"
+        },
+        {
+          "value": "ColonisationConstructionDepot",
+          "label": "ColonisationConstructionDepot",
+          "icon": "event"
+        },
+        {
+          "value": "ColonisationContribution",
+          "label": "ColonisationContribution",
+          "icon": "event"
+        },
+        {
+          "value": "Music",
+          "label": "Music",
+          "icon": "event"
+        },
+        {
+          "value": "ReceiveText",
+          "label": "ReceiveText",
+          "icon": "event"
+        },
+        {
+          "value": "SendText",
+          "label": "SendText",
+          "icon": "event"
+        },
+        {
+          "value": "Friends",
+          "label": "Friends",
+          "icon": "event"
+        },
+        {
+          "value": "SystemsShutdown",
+          "label": "SystemsShutdown",
+          "icon": "event"
+        },
+        {
+          "value": "NpcCrewPaidWage",
+          "label": "NpcCrewPaidWage",
+          "icon": "event"
+        },
+        {
+          "value": "NpcCrewRank",
+          "label": "NpcCrewRank",
+          "icon": "event"
+        },
+        {
+          "value": "CrimeVictim",
+          "label": "CrimeVictim",
+          "icon": "event"
+        },
+        {
+          "value": "Resurrect",
+          "label": "Resurrect",
+          "icon": "event"
+        },
+        {
+          "value": "SelfDestruct",
+          "label": "SelfDestruct",
+          "icon": "event"
+        },
+        {
+          "value": "Synthesis",
+          "label": "Synthesis",
+          "icon": "event"
+        },
+        {
+          "value": "USSDrop",
+          "label": "USSDrop",
+          "icon": "event"
+        },
+        {
+          "value": "AfmuRepairs",
+          "label": "AfmuRepairs",
+          "icon": "event"
+        },
+        {
+          "value": "FuelScoop",
+          "label": "FuelScoop",
+          "icon": "event"
+        },
+        {
+          "value": "JetConeBoost",
+          "label": "JetConeBoost",
+          "icon": "event"
+        },
+        {
+          "value": "JetConeDamage",
+          "label": "JetConeDamage",
+          "icon": "event"
+        },
+        {
+          "value": "ReservoirReplenished",
+          "label": "ReservoirReplenished",
+          "icon": "event"
+        },
+        {
+          "value": "Shutdown",
+          "label": "Shutdown",
+          "icon": "event"
+        },
+        {
+          "value": "RebootRepair",
+          "label": "RebootRepair",
+          "icon": "event"
+        },
+        {
+          "value": "LaunchDrone",
+          "label": "LaunchDrone",
+          "icon": "event"
+        },
+        {
+          "value": "CockpitBreached",
+          "label": "CockpitBreached",
+          "icon": "event"
+        },
+        {
+          "value": "AppliedToSquadron",
+          "label": "AppliedToSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "DisbandedSquadron",
+          "label": "DisbandedSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "InvitedToSquadron",
+          "label": "InvitedToSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "JoinedSquadron",
+          "label": "JoinedSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "KickedFromSquadron",
+          "label": "KickedFromSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "LeftSquadron",
+          "label": "LeftSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "SharedBookmarkToSquadron",
+          "label": "SharedBookmarkToSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronCreated",
+          "label": "SquadronCreated",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronDemotion",
+          "label": "SquadronDemotion",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronPromotion",
+          "label": "SquadronPromotion",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronStartup",
+          "label": "SquadronStartup",
+          "icon": "event"
+        },
+        {
+          "value": "WonATrophyForSquadron",
+          "label": "WonATrophyForSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "ClearImpound",
+          "label": "ClearImpound",
+          "icon": "event"
+        }
+      ],
+      "derive": {
+        "op": "path",
+        "path": "event",
+        "default": "FileHeader"
+      },
+      "source_mapping": {
+        "category_id": "all-journal",
+        "readable_name": "Journal Event",
+        "receives_from": [
+          {
+            "hook": "journal_entry",
+            "event_type": "*"
+          }
+        ],
+        "maps_to": [
+          {
+            "type": "value",
+            "path": "entry.event",
+            "edmc_name": "event"
+          }
+        ]
+      }
+    },
+    "edmc_source": {
+      "type": "enum",
+      "title": "EDMC Source",
+      "ui": {
+        "label": "Notification source",
+        "icon": "layers",
+        "category": "Events",
+        "tier": "detail"
+      },
+      "values": [
+        {
+          "value": "journal",
+          "label": "Journal",
+          "icon": "book"
+        },
+        {
+          "value": "dashboard",
+          "label": "Dashboard",
+          "icon": "screen"
+        },
+        {
+          "value": "capi",
+          "label": "CAPI Live",
+          "icon": "server"
+        },
+        {
+          "value": "capi_legacy",
+          "label": "CAPI Legacy",
+          "icon": "server"
+        },
+        {
+          "value": "capi_fleetcarrier",
+          "label": "CAPI Fleet Carrier",
+          "icon": "station"
+        }
+      ],
+      "derive": {
+        "op": "path",
+        "path": "__edmc_source",
+        "default": "journal"
+      },
+      "source_mapping": {
+        "category_id": "all-sources",
+        "readable_name": "EDMC Source",
+        "receives_from": [
+          {
+            "hook": "*",
+            "event_type": "*"
+          }
+        ],
+        "maps_to": [
+          {
+            "type": "value",
+            "path": "__edmc_source",
+            "edmc_name": "source"
+          }
+        ]
+      }
+    },
+    "edmc_event": {
+      "type": "enum",
+      "title": "EDMC Event",
+      "ui": {
+        "label": "EDMC event",
+        "icon": "event",
+        "category": "Events",
+        "tier": "detail"
+      },
+      "values": [
+        {
+          "value": "FileHeader",
+          "label": "FileHeader",
+          "icon": "event"
+        },
+        {
+          "value": "ClearSavedGame",
+          "label": "ClearSavedGame",
+          "icon": "event"
+        },
+        {
+          "value": "NewCommander",
+          "label": "NewCommander",
+          "icon": "event"
+        },
+        {
+          "value": "LoadGame",
+          "label": "LoadGame",
+          "icon": "event"
+        },
+        {
+          "value": "Commander",
+          "label": "Commander",
+          "icon": "event"
+        },
+        {
+          "value": "Materials",
+          "label": "Materials",
+          "icon": "event"
+        },
+        {
+          "value": "Cargo",
+          "label": "Cargo",
+          "icon": "event"
+        },
+        {
+          "value": "Loadout",
+          "label": "Loadout",
+          "icon": "event"
+        },
+        {
+          "value": "Missions",
+          "label": "Missions",
+          "icon": "event"
+        },
+        {
+          "value": "Passengers",
+          "label": "Passengers",
+          "icon": "event"
+        },
+        {
+          "value": "Powerplay",
+          "label": "Powerplay",
+          "icon": "event"
+        },
+        {
+          "value": "Progress",
+          "label": "Progress",
+          "icon": "event"
+        },
+        {
+          "value": "Rank",
+          "label": "Rank",
+          "icon": "event"
+        },
+        {
+          "value": "Reputation",
+          "label": "Reputation",
+          "icon": "event"
+        },
+        {
+          "value": "Statistics",
+          "label": "Statistics",
+          "icon": "event"
+        },
+        {
+          "value": "Continued",
+          "label": "Continued",
+          "icon": "event"
+        },
+        {
+          "value": "FSDJump",
+          "label": "FSDJump",
+          "icon": "event"
+        },
+        {
+          "value": "Location",
+          "label": "Location",
+          "icon": "event"
+        },
+        {
+          "value": "Docked",
+          "label": "Docked",
+          "icon": "event"
+        },
+        {
+          "value": "Undocked",
+          "label": "Undocked",
+          "icon": "event"
+        },
+        {
+          "value": "DockingRequested",
+          "label": "DockingRequested",
+          "icon": "event"
+        },
+        {
+          "value": "DockingGranted",
+          "label": "DockingGranted",
+          "icon": "event"
+        },
+        {
+          "value": "DockingDenied",
+          "label": "DockingDenied",
+          "icon": "event"
+        },
+        {
+          "value": "DockingCancelled",
+          "label": "DockingCancelled",
+          "icon": "event"
+        },
+        {
+          "value": "DockingTimeout",
+          "label": "DockingTimeout",
+          "icon": "event"
+        },
+        {
+          "value": "Liftoff",
+          "label": "Liftoff",
+          "icon": "event"
+        },
+        {
+          "value": "Touchdown",
+          "label": "Touchdown",
+          "icon": "event"
+        },
+        {
+          "value": "SupercruiseEntry",
+          "label": "SupercruiseEntry",
+          "icon": "event"
+        },
+        {
+          "value": "SupercruiseExit",
+          "label": "SupercruiseExit",
+          "icon": "event"
+        },
+        {
+          "value": "SupercruiseDestinationDrop",
+          "label": "SupercruiseDestinationDrop",
+          "icon": "event"
+        },
+        {
+          "value": "StartJump",
+          "label": "StartJump",
+          "icon": "event"
+        },
+        {
+          "value": "FSDTarget",
+          "label": "FSDTarget",
+          "icon": "event"
+        },
+        {
+          "value": "ApproachBody",
+          "label": "ApproachBody",
+          "icon": "event"
+        },
+        {
+          "value": "LeaveBody",
+          "label": "LeaveBody",
+          "icon": "event"
+        },
+        {
+          "value": "NavRoute",
+          "label": "NavRoute",
+          "icon": "event"
+        },
+        {
+          "value": "Bounty",
+          "label": "Bounty",
+          "icon": "event"
+        },
+        {
+          "value": "CapShipBond",
+          "label": "CapShipBond",
+          "icon": "event"
+        },
+        {
+          "value": "FactionKillBond",
+          "label": "FactionKillBond",
+          "icon": "event"
+        },
+        {
+          "value": "Died",
+          "label": "Died",
+          "icon": "event"
+        },
+        {
+          "value": "PVPKill",
+          "label": "PVPKill",
+          "icon": "event"
+        },
+        {
+          "value": "Interdicted",
+          "label": "Interdicted",
+          "icon": "event"
+        },
+        {
+          "value": "Interdiction",
+          "label": "Interdiction",
+          "icon": "event"
+        },
+        {
+          "value": "EscapeInterdiction",
+          "label": "EscapeInterdiction",
+          "icon": "event"
+        },
+        {
+          "value": "HeatWarning",
+          "label": "HeatWarning",
+          "icon": "event"
+        },
+        {
+          "value": "HeatDamage",
+          "label": "HeatDamage",
+          "icon": "event"
+        },
+        {
+          "value": "HullDamage",
+          "label": "HullDamage",
+          "icon": "event"
+        },
+        {
+          "value": "ShieldState",
+          "label": "ShieldState",
+          "icon": "event"
+        },
+        {
+          "value": "ShipTargetted",
+          "label": "ShipTargetted",
+          "icon": "event"
+        },
+        {
+          "value": "UnderAttack",
+          "label": "UnderAttack",
+          "icon": "event"
+        },
+        {
+          "value": "FighterDestroyed",
+          "label": "FighterDestroyed",
+          "icon": "event"
+        },
+        {
+          "value": "SRVDestroyed",
+          "label": "SRVDestroyed",
+          "icon": "event"
+        },
+        {
+          "value": "Scan",
+          "label": "Scan",
+          "icon": "event"
+        },
+        {
+          "value": "FSSDiscoveryScan",
+          "label": "FSSDiscoveryScan",
+          "icon": "event"
+        },
+        {
+          "value": "FSSSignalDiscovered",
+          "label": "FSSSignalDiscovered",
+          "icon": "event"
+        },
+        {
+          "value": "FSSAllBodiesFound",
+          "label": "FSSAllBodiesFound",
+          "icon": "event"
+        },
+        {
+          "value": "SAAScanComplete",
+          "label": "SAAScanComplete",
+          "icon": "event"
+        },
+        {
+          "value": "SAASignalsFound",
+          "label": "SAASignalsFound",
+          "icon": "event"
+        },
+        {
+          "value": "DiscoveryScan",
+          "label": "DiscoveryScan",
+          "icon": "event"
+        },
+        {
+          "value": "ScanBaryCentre",
+          "label": "ScanBaryCentre",
+          "icon": "event"
+        },
+        {
+          "value": "ScanOrganic",
+          "label": "ScanOrganic",
+          "icon": "event"
+        },
+        {
+          "value": "CodexEntry",
+          "label": "CodexEntry",
+          "icon": "event"
+        },
+        {
+          "value": "Screenshot",
+          "label": "Screenshot",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialCollected",
+          "label": "MaterialCollected",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialDiscarded",
+          "label": "MaterialDiscarded",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialDiscovered",
+          "label": "MaterialDiscovered",
+          "icon": "event"
+        },
+        {
+          "value": "BuyExplorationData",
+          "label": "BuyExplorationData",
+          "icon": "event"
+        },
+        {
+          "value": "SellExplorationData",
+          "label": "SellExplorationData",
+          "icon": "event"
+        },
+        {
+          "value": "MultiSellExplorationData",
+          "label": "MultiSellExplorationData",
+          "icon": "event"
+        },
+        {
+          "value": "SellOrganicData",
+          "label": "SellOrganicData",
+          "icon": "event"
+        },
+        {
+          "value": "NavBeaconScan",
+          "label": "NavBeaconScan",
+          "icon": "event"
+        },
+        {
+          "value": "MarketBuy",
+          "label": "MarketBuy",
+          "icon": "event"
+        },
+        {
+          "value": "MarketSell",
+          "label": "MarketSell",
+          "icon": "event"
+        },
+        {
+          "value": "Market",
+          "label": "Market",
+          "icon": "event"
+        },
+        {
+          "value": "CollectCargo",
+          "label": "CollectCargo",
+          "icon": "event"
+        },
+        {
+          "value": "EjectCargo",
+          "label": "EjectCargo",
+          "icon": "event"
+        },
+        {
+          "value": "BuyTradeData",
+          "label": "BuyTradeData",
+          "icon": "event"
+        },
+        {
+          "value": "MiningRefined",
+          "label": "MiningRefined",
+          "icon": "event"
+        },
+        {
+          "value": "AsteroidCracked",
+          "label": "AsteroidCracked",
+          "icon": "event"
+        },
+        {
+          "value": "BuyAmmo",
+          "label": "BuyAmmo",
+          "icon": "event"
+        },
+        {
+          "value": "BuyDrones",
+          "label": "BuyDrones",
+          "icon": "event"
+        },
+        {
+          "value": "SellDrones",
+          "label": "SellDrones",
+          "icon": "event"
+        },
+        {
+          "value": "RefuelAll",
+          "label": "RefuelAll",
+          "icon": "event"
+        },
+        {
+          "value": "RefuelPartial",
+          "label": "RefuelPartial",
+          "icon": "event"
+        },
+        {
+          "value": "Repair",
+          "label": "Repair",
+          "icon": "event"
+        },
+        {
+          "value": "RepairAll",
+          "label": "RepairAll",
+          "icon": "event"
+        },
+        {
+          "value": "RestockVehicle",
+          "label": "RestockVehicle",
+          "icon": "event"
+        },
+        {
+          "value": "CargoDepot",
+          "label": "CargoDepot",
+          "icon": "event"
+        },
+        {
+          "value": "SearchAndRescue",
+          "label": "SearchAndRescue",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleBuy",
+          "label": "ModuleBuy",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleSell",
+          "label": "ModuleSell",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleStore",
+          "label": "ModuleStore",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleRetrieve",
+          "label": "ModuleRetrieve",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleSwap",
+          "label": "ModuleSwap",
+          "icon": "event"
+        },
+        {
+          "value": "ModuleSellRemote",
+          "label": "ModuleSellRemote",
+          "icon": "event"
+        },
+        {
+          "value": "FetchRemoteModule",
+          "label": "FetchRemoteModule",
+          "icon": "event"
+        },
+        {
+          "value": "MassModuleStore",
+          "label": "MassModuleStore",
+          "icon": "event"
+        },
+        {
+          "value": "Outfitting",
+          "label": "Outfitting",
+          "icon": "event"
+        },
+        {
+          "value": "Shipyard",
+          "label": "Shipyard",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardBuy",
+          "label": "ShipyardBuy",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardSell",
+          "label": "ShipyardSell",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardSwap",
+          "label": "ShipyardSwap",
+          "icon": "event"
+        },
+        {
+          "value": "ShipyardTransfer",
+          "label": "ShipyardTransfer",
+          "icon": "event"
+        },
+        {
+          "value": "SetUserShipName",
+          "label": "SetUserShipName",
+          "icon": "event"
+        },
+        {
+          "value": "SellShipOnRebuy",
+          "label": "SellShipOnRebuy",
+          "icon": "event"
+        },
+        {
+          "value": "LaunchSRV",
+          "label": "LaunchSRV",
+          "icon": "event"
+        },
+        {
+          "value": "DockSRV",
+          "label": "DockSRV",
+          "icon": "event"
+        },
+        {
+          "value": "LaunchFighter",
+          "label": "LaunchFighter",
+          "icon": "event"
+        },
+        {
+          "value": "DockFighter",
+          "label": "DockFighter",
+          "icon": "event"
+        },
+        {
+          "value": "VehicleSwitch",
+          "label": "VehicleSwitch",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerProgress",
+          "label": "EngineerProgress",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerContribution",
+          "label": "EngineerContribution",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerCraft",
+          "label": "EngineerCraft",
+          "icon": "event"
+        },
+        {
+          "value": "EngineerLegacyConvert",
+          "label": "EngineerLegacyConvert",
+          "icon": "event"
+        },
+        {
+          "value": "MaterialTrade",
+          "label": "MaterialTrade",
+          "icon": "event"
+        },
+        {
+          "value": "TechnologyBroker",
+          "label": "TechnologyBroker",
+          "icon": "event"
+        },
+        {
+          "value": "ScientificResearch",
+          "label": "ScientificResearch",
+          "icon": "event"
+        },
+        {
+          "value": "MissionAccepted",
+          "label": "MissionAccepted",
+          "icon": "event"
+        },
+        {
+          "value": "MissionCompleted",
+          "label": "MissionCompleted",
+          "icon": "event"
+        },
+        {
+          "value": "MissionAbandoned",
+          "label": "MissionAbandoned",
+          "icon": "event"
+        },
+        {
+          "value": "MissionFailed",
+          "label": "MissionFailed",
+          "icon": "event"
+        },
+        {
+          "value": "MissionRedirected",
+          "label": "MissionRedirected",
+          "icon": "event"
+        },
+        {
+          "value": "CrewHire",
+          "label": "CrewHire",
+          "icon": "event"
+        },
+        {
+          "value": "CrewFire",
+          "label": "CrewFire",
+          "icon": "event"
+        },
+        {
+          "value": "CrewAssign",
+          "label": "CrewAssign",
+          "icon": "event"
+        },
+        {
+          "value": "JoinACrew",
+          "label": "JoinACrew",
+          "icon": "event"
+        },
+        {
+          "value": "QuitACrew",
+          "label": "QuitACrew",
+          "icon": "event"
+        },
+        {
+          "value": "KickCrewMember",
+          "label": "KickCrewMember",
+          "icon": "event"
+        },
+        {
+          "value": "EndCrewSession",
+          "label": "EndCrewSession",
+          "icon": "event"
+        },
+        {
+          "value": "CrewMemberJoins",
+          "label": "CrewMemberJoins",
+          "icon": "event"
+        },
+        {
+          "value": "CrewMemberQuits",
+          "label": "CrewMemberQuits",
+          "icon": "event"
+        },
+        {
+          "value": "CrewMemberRoleChange",
+          "label": "CrewMemberRoleChange",
+          "icon": "event"
+        },
+        {
+          "value": "CrewLaunchFighter",
+          "label": "CrewLaunchFighter",
+          "icon": "event"
+        },
+        {
+          "value": "ChangeCrewRole",
+          "label": "ChangeCrewRole",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierJump",
+          "label": "CarrierJump",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierJumpRequest",
+          "label": "CarrierJumpRequest",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierJumpCancelled",
+          "label": "CarrierJumpCancelled",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierBuy",
+          "label": "CarrierBuy",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierStats",
+          "label": "CarrierStats",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierFinance",
+          "label": "CarrierFinance",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierBankTransfer",
+          "label": "CarrierBankTransfer",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierDepositFuel",
+          "label": "CarrierDepositFuel",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierCrewServices",
+          "label": "CarrierCrewServices",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierTradeOrder",
+          "label": "CarrierTradeOrder",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierDockingPermission",
+          "label": "CarrierDockingPermission",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierNameChange",
+          "label": "CarrierNameChange",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierModulePack",
+          "label": "CarrierModulePack",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierDecommission",
+          "label": "CarrierDecommission",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierCancelDecommission",
+          "label": "CarrierCancelDecommission",
+          "icon": "event"
+        },
+        {
+          "value": "CarrierTransfer",
+          "label": "CarrierTransfer",
+          "icon": "event"
+        },
+        {
+          "value": "PayFines",
+          "label": "PayFines",
+          "icon": "event"
+        },
+        {
+          "value": "PayBounties",
+          "label": "PayBounties",
+          "icon": "event"
+        },
+        {
+          "value": "PayLegacyFines",
+          "label": "PayLegacyFines",
+          "icon": "event"
+        },
+        {
+          "value": "RedeemVoucher",
+          "label": "RedeemVoucher",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoal",
+          "label": "CommunityGoal",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoalJoin",
+          "label": "CommunityGoalJoin",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoalDiscard",
+          "label": "CommunityGoalDiscard",
+          "icon": "event"
+        },
+        {
+          "value": "CommunityGoalReward",
+          "label": "CommunityGoalReward",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayCollect",
+          "label": "PowerplayCollect",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayDeliver",
+          "label": "PowerplayDeliver",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayDefect",
+          "label": "PowerplayDefect",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayJoin",
+          "label": "PowerplayJoin",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayLeave",
+          "label": "PowerplayLeave",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplaySalary",
+          "label": "PowerplaySalary",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayVote",
+          "label": "PowerplayVote",
+          "icon": "event"
+        },
+        {
+          "value": "PowerplayVoucher",
+          "label": "PowerplayVoucher",
+          "icon": "event"
+        },
+        {
+          "value": "Promotion",
+          "label": "Promotion",
+          "icon": "event"
+        },
+        {
+          "value": "Disembark",
+          "label": "Disembark",
+          "icon": "event"
+        },
+        {
+          "value": "Embark",
+          "label": "Embark",
+          "icon": "event"
+        },
+        {
+          "value": "CommanderInTaxi",
+          "label": "CommanderInTaxi",
+          "icon": "event"
+        },
+        {
+          "value": "Backpack",
+          "label": "Backpack",
+          "icon": "event"
+        },
+        {
+          "value": "BackpackChange",
+          "label": "BackpackChange",
+          "icon": "event"
+        },
+        {
+          "value": "BookTaxi",
+          "label": "BookTaxi",
+          "icon": "event"
+        },
+        {
+          "value": "CancelTaxi",
+          "label": "CancelTaxi",
+          "icon": "event"
+        },
+        {
+          "value": "BookDropship",
+          "label": "BookDropship",
+          "icon": "event"
+        },
+        {
+          "value": "CancelDropship",
+          "label": "CancelDropship",
+          "icon": "event"
+        },
+        {
+          "value": "DropshipDeploy",
+          "label": "DropshipDeploy",
+          "icon": "event"
+        },
+        {
+          "value": "BuySuit",
+          "label": "BuySuit",
+          "icon": "event"
+        },
+        {
+          "value": "SellSuit",
+          "label": "SellSuit",
+          "icon": "event"
+        },
+        {
+          "value": "UpgradeSuit",
+          "label": "UpgradeSuit",
+          "icon": "event"
+        },
+        {
+          "value": "SuitLoadout",
+          "label": "SuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "CreateSuitLoadout",
+          "label": "CreateSuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "DeleteSuitLoadout",
+          "label": "DeleteSuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "LoadoutEquipModule",
+          "label": "LoadoutEquipModule",
+          "icon": "event"
+        },
+        {
+          "value": "SwitchSuitLoadout",
+          "label": "SwitchSuitLoadout",
+          "icon": "event"
+        },
+        {
+          "value": "BuyWeapon",
+          "label": "BuyWeapon",
+          "icon": "event"
+        },
+        {
+          "value": "SellWeapon",
+          "label": "SellWeapon",
+          "icon": "event"
+        },
+        {
+          "value": "UpgradeWeapon",
+          "label": "UpgradeWeapon",
+          "icon": "event"
+        },
+        {
+          "value": "ApproachSettlement",
+          "label": "ApproachSettlement",
+          "icon": "event"
+        },
+        {
+          "value": "TradeMicroResources",
+          "label": "TradeMicroResources",
+          "icon": "event"
+        },
+        {
+          "value": "FCMaterials",
+          "label": "FCMaterials",
+          "icon": "event"
+        },
+        {
+          "value": "UseConsumable",
+          "label": "UseConsumable",
+          "icon": "event"
+        },
+        {
+          "value": "CollectItems",
+          "label": "CollectItems",
+          "icon": "event"
+        },
+        {
+          "value": "DropItems",
+          "label": "DropItems",
+          "icon": "event"
+        },
+        {
+          "value": "TransferMicroResources",
+          "label": "TransferMicroResources",
+          "icon": "event"
+        },
+        {
+          "value": "ShipLocker",
+          "label": "ShipLocker",
+          "icon": "event"
+        },
+        {
+          "value": "DataScanned",
+          "label": "DataScanned",
+          "icon": "event"
+        },
+        {
+          "value": "DatalinkScan",
+          "label": "DatalinkScan",
+          "icon": "event"
+        },
+        {
+          "value": "DatalinkVoucher",
+          "label": "DatalinkVoucher",
+          "icon": "event"
+        },
+        {
+          "value": "ColonisationConstructionDepot",
+          "label": "ColonisationConstructionDepot",
+          "icon": "event"
+        },
+        {
+          "value": "ColonisationContribution",
+          "label": "ColonisationContribution",
+          "icon": "event"
+        },
+        {
+          "value": "Music",
+          "label": "Music",
+          "icon": "event"
+        },
+        {
+          "value": "ReceiveText",
+          "label": "ReceiveText",
+          "icon": "event"
+        },
+        {
+          "value": "SendText",
+          "label": "SendText",
+          "icon": "event"
+        },
+        {
+          "value": "Friends",
+          "label": "Friends",
+          "icon": "event"
+        },
+        {
+          "value": "SystemsShutdown",
+          "label": "SystemsShutdown",
+          "icon": "event"
+        },
+        {
+          "value": "NpcCrewPaidWage",
+          "label": "NpcCrewPaidWage",
+          "icon": "event"
+        },
+        {
+          "value": "NpcCrewRank",
+          "label": "NpcCrewRank",
+          "icon": "event"
+        },
+        {
+          "value": "CrimeVictim",
+          "label": "CrimeVictim",
+          "icon": "event"
+        },
+        {
+          "value": "Resurrect",
+          "label": "Resurrect",
+          "icon": "event"
+        },
+        {
+          "value": "SelfDestruct",
+          "label": "SelfDestruct",
+          "icon": "event"
+        },
+        {
+          "value": "Synthesis",
+          "label": "Synthesis",
+          "icon": "event"
+        },
+        {
+          "value": "USSDrop",
+          "label": "USSDrop",
+          "icon": "event"
+        },
+        {
+          "value": "AfmuRepairs",
+          "label": "AfmuRepairs",
+          "icon": "event"
+        },
+        {
+          "value": "FuelScoop",
+          "label": "FuelScoop",
+          "icon": "event"
+        },
+        {
+          "value": "JetConeBoost",
+          "label": "JetConeBoost",
+          "icon": "event"
+        },
+        {
+          "value": "JetConeDamage",
+          "label": "JetConeDamage",
+          "icon": "event"
+        },
+        {
+          "value": "ReservoirReplenished",
+          "label": "ReservoirReplenished",
+          "icon": "event"
+        },
+        {
+          "value": "Shutdown",
+          "label": "Shutdown",
+          "icon": "event"
+        },
+        {
+          "value": "RebootRepair",
+          "label": "RebootRepair",
+          "icon": "event"
+        },
+        {
+          "value": "LaunchDrone",
+          "label": "LaunchDrone",
+          "icon": "event"
+        },
+        {
+          "value": "CockpitBreached",
+          "label": "CockpitBreached",
+          "icon": "event"
+        },
+        {
+          "value": "AppliedToSquadron",
+          "label": "AppliedToSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "DisbandedSquadron",
+          "label": "DisbandedSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "InvitedToSquadron",
+          "label": "InvitedToSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "JoinedSquadron",
+          "label": "JoinedSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "KickedFromSquadron",
+          "label": "KickedFromSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "LeftSquadron",
+          "label": "LeftSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "SharedBookmarkToSquadron",
+          "label": "SharedBookmarkToSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronCreated",
+          "label": "SquadronCreated",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronDemotion",
+          "label": "SquadronDemotion",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronPromotion",
+          "label": "SquadronPromotion",
+          "icon": "event"
+        },
+        {
+          "value": "SquadronStartup",
+          "label": "SquadronStartup",
+          "icon": "event"
+        },
+        {
+          "value": "WonATrophyForSquadron",
+          "label": "WonATrophyForSquadron",
+          "icon": "event"
+        },
+        {
+          "value": "ClearImpound",
+          "label": "ClearImpound",
+          "icon": "event"
+        },
+        {
+          "value": "Dashboard",
+          "label": "Dashboard",
+          "icon": "screen"
+        },
+        {
+          "value": "CmdrData",
+          "label": "CmdrData",
+          "icon": "server"
+        },
+        {
+          "value": "CmdrDataLegacy",
+          "label": "CmdrDataLegacy",
+          "icon": "server"
+        },
+        {
+          "value": "CapiFleetCarrier",
+          "label": "CapiFleetCarrier",
+          "icon": "server"
+        }
+      ],
+      "derive": {
+        "op": "path",
+        "path": "event",
+        "default": "Dashboard"
+      },
+      "source_mapping": {
+        "category_id": "all-events",
+        "readable_name": "EDMC Event",
+        "receives_from": [
+          {
+            "hook": "*",
+            "event_type": "*"
+          }
+        ],
+        "maps_to": [
+          {
+            "type": "value",
+            "path": "event",
+            "edmc_name": "event_type"
+          }
+        ]
+      }
+    }
+  },
+  "source_taxonomy": {
+    "version": 2,
+    "description": "Full EDMC event/flag inventory with user-facing categorization and raw source mapping.",
+    "hooks": [
+      {
+        "id": "plugin_start",
+        "source": "Plugin lifecycle",
+        "callback": "plugin_start(plugin_dir)"
+      },
+      {
+        "id": "plugin_stop",
+        "source": "Plugin lifecycle",
+        "callback": "plugin_stop()"
+      },
+      {
+        "id": "plugin_app",
+        "source": "UI rendering",
+        "callback": "plugin_app(parent)"
+      },
+      {
+        "id": "plugin_prefs",
+        "source": "Settings management",
+        "callback": "plugin_prefs(parent, cmdr, is_beta)"
+      },
+      {
+        "id": "prefs_changed",
+        "source": "Settings management",
+        "callback": "prefs_changed(cmdr, is_beta)"
+      },
+      {
+        "id": "journal_entry",
+        "source": "Game Journal",
+        "callback": "journal_entry(cmdr, is_beta, system, station, entry, state)"
+      },
+      {
+        "id": "dashboard_entry",
+        "source": "Status.json",
+        "callback": "dashboard_entry(cmdr, is_beta, entry)"
+      },
+      {
+        "id": "cmdr_data",
+        "source": "Frontier CAPI (Live galaxy)",
+        "callback": "cmdr_data(data, is_beta)"
+      },
+      {
+        "id": "cmdr_data_legacy",
+        "source": "Frontier CAPI (Legacy galaxy)",
+        "callback": "cmdr_data_legacy(data, is_beta)"
+      },
+      {
+        "id": "capi_fleetcarrier",
+        "source": "Frontier CAPI Fleet Carrier endpoint",
+        "callback": "capi_fleetcarrier(data)"
+      }
+    ],
+    "top_categories": [
+      {
+        "id": "1",
+        "name": "PLAYER STATUS"
+      },
+      {
+        "id": "2",
+        "name": "LOCATION & NAVIGATION"
+      },
+      {
+        "id": "3",
+        "name": "SHIP & VEHICLE STATUS"
+      },
+      {
+        "id": "4",
+        "name": "CARGO & INVENTORY"
+      },
+      {
+        "id": "5",
+        "name": "COMBAT & CONFLICT"
+      },
+      {
+        "id": "6",
+        "name": "EXPLORATION & SCANNING"
+      },
+      {
+        "id": "7",
+        "name": "TRADING & MARKETS"
+      },
+      {
+        "id": "8",
+        "name": "MISSIONS & OBJECTIVES"
+      },
+      {
+        "id": "9",
+        "name": "SHIP CUSTOMIZATION"
+      },
+      {
+        "id": "10",
+        "name": "ENGINEERING & MODIFICATIONS"
+      },
+      {
+        "id": "11",
+        "name": "STATION SERVICES"
+      },
+      {
+        "id": "12",
+        "name": "CREW & MULTICREW"
+      },
+      {
+        "id": "13",
+        "name": "FLEET CARRIERS"
+      },
+      {
+        "id": "14",
+        "name": "SQUADRONS"
+      },
+      {
+        "id": "15",
+        "name": "ODYSSEY ON-FOOT"
+      },
+      {
+        "id": "16",
+        "name": "COLONISATION (Trailblazers)"
+      },
+      {
+        "id": "17",
+        "name": "COMMUNICATION"
+      },
+      {
+        "id": "18",
+        "name": "USER INTERFACE"
+      },
+      {
+        "id": "19",
+        "name": "SPECIAL STATES"
+      },
+      {
+        "id": "20",
+        "name": "SRV OPERATIONS"
+      }
+    ],
+    "inventory": {
+      "journal": {
+        "total": 234,
+        "by_section": [
+          {
+            "section": "Colonisation Events (Trailblazers)",
+            "events": [
+              {
+                "name": "ColonisationConstructionDepot",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ColonisationContribution",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Combat Events",
+            "events": [
+              {
+                "name": "Bounty",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CapShipBond",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FactionKillBond",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Died",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PVPKill",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Interdicted",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Interdiction",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "EscapeInterdiction",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "HeatWarning",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "HeatDamage",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "HullDamage",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShieldState",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShipTargetted",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "UnderAttack",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FighterDestroyed",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SRVDestroyed",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Combat Rank/Progress Events",
+            "events": [
+              {
+                "name": "Promotion",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Statistics",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Progress",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Reputation",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Crew Events",
+            "events": [
+              {
+                "name": "CrewHire",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrewFire",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrewAssign",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "JoinACrew",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "QuitACrew",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "KickCrewMember",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "EndCrewSession",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrewMemberJoins",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrewMemberQuits",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrewMemberRoleChange",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrewLaunchFighter",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ChangeCrewRole",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Engineering Events",
+            "events": [
+              {
+                "name": "EngineerProgress",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "EngineerContribution",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "EngineerCraft",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "EngineerLegacyConvert",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MaterialTrade",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "TechnologyBroker",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ScientificResearch",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Exploration Events",
+            "events": [
+              {
+                "name": "Scan",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FSSDiscoveryScan",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FSSSignalDiscovered",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FSSAllBodiesFound",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SAAScanComplete",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SAASignalsFound",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DiscoveryScan",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ScanBaryCentre",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ScanOrganic",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CodexEntry",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Screenshot",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MaterialCollected",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MaterialDiscarded",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MaterialDiscovered",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BuyExplorationData",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SellExplorationData",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MultiSellExplorationData",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SellOrganicData",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "NavBeaconScan",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Financial Events",
+            "events": [
+              {
+                "name": "PayFines",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PayBounties",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PayLegacyFines",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "RedeemVoucher",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CommunityGoal",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CommunityGoalJoin",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CommunityGoalDiscard",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CommunityGoalReward",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Fleet Carrier Events",
+            "events": [
+              {
+                "name": "CarrierJump",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierJumpRequest",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierJumpCancelled",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierBuy",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierStats",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierFinance",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierBankTransfer",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierDepositFuel",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierCrewServices",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierTradeOrder",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierDockingPermission",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierNameChange",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierModulePack",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierDecommission",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierCancelDecommission",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CarrierTransfer",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Mission Events",
+            "events": [
+              {
+                "name": "MissionAccepted",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MissionCompleted",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MissionAbandoned",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MissionFailed",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MissionRedirected",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Odyssey Mission/Combat Events",
+            "events": [
+              {
+                "name": "ScanOrganic",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DataScanned",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DatalinkScan",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DatalinkVoucher",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FCMaterials",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Odyssey On-Foot Events",
+            "events": [
+              {
+                "name": "Disembark",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Embark",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CommanderInTaxi",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Backpack",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BackpackChange",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BookTaxi",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CancelTaxi",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BookDropship",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CancelDropship",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DropshipDeploy",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Odyssey Settlement Events",
+            "events": [
+              {
+                "name": "ApproachSettlement",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "TradeMicroResources",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FCMaterials",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "UseConsumable",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CollectItems",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DropItems",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "TransferMicroResources",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShipLocker",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Odyssey Suit/Weapon Events",
+            "events": [
+              {
+                "name": "BuySuit",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SellSuit",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "UpgradeSuit",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SuitLoadout",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CreateSuitLoadout",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DeleteSuitLoadout",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LoadoutEquipModule",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SwitchSuitLoadout",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BuyWeapon",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SellWeapon",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "UpgradeWeapon",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Other Events",
+            "events": [
+              {
+                "name": "Music",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ReceiveText",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SendText",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Friends",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SystemsShutdown",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "NpcCrewPaidWage",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "NpcCrewRank",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DatalinkVoucher",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CrimeVictim",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Resurrect",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SelfDestruct",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Synthesis",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "USSDrop",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "AfmuRepairs",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FuelScoop",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "JetConeBoost",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "JetConeDamage",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ReservoirReplenished",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Shutdown",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Repair",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "RebootRepair",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LaunchDrone",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CockpitBreached",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FileHeader",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "AppliedToSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DisbandedSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "InvitedToSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "JoinedSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "KickedFromSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LeftSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SharedBookmarkToSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SquadronCreated",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SquadronDemotion",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SquadronPromotion",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SquadronStartup",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "WonATrophyForSquadron",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ClearImpound",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Outfitting Events",
+            "events": [
+              {
+                "name": "ModuleBuy",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ModuleSell",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ModuleStore",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ModuleRetrieve",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ModuleSwap",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ModuleSellRemote",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FetchRemoteModule",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MassModuleStore",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Outfitting",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Powerplay Events",
+            "events": [
+              {
+                "name": "PowerplayCollect",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplayDeliver",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplayDefect",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplayJoin",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplayLeave",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplaySalary",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplayVote",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "PowerplayVoucher",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Shipyard Events",
+            "events": [
+              {
+                "name": "Shipyard",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShipyardBuy",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShipyardSell",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShipyardSwap",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ShipyardTransfer",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SetUserShipName",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SellShipOnRebuy",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LaunchSRV",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockSRV",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LaunchFighter",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockFighter",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "VehicleSwitch",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Startup Events",
+            "events": [
+              {
+                "name": "FileHeader",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ClearSavedGame",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "NewCommander",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LoadGame",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Commander",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Materials",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Cargo",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Loadout",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Missions",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Passengers",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Powerplay",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Progress",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Rank",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Reputation",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Statistics",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Continued",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Station Services Events",
+            "events": [
+              {
+                "name": "BuyAmmo",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BuyDrones",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SellDrones",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "RefuelAll",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "RefuelPartial",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Repair",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "RepairAll",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "RestockVehicle",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CargoDepot",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SearchAndRescue",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Trading Events",
+            "events": [
+              {
+                "name": "MarketBuy",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MarketSell",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Market",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "CollectCargo",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "EjectCargo",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "BuyTradeData",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "MiningRefined",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "AsteroidCracked",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          },
+          {
+            "section": "Travel Events",
+            "events": [
+              {
+                "name": "FSDJump",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Location",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Docked",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Undocked",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockingRequested",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockingGranted",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockingDenied",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockingCancelled",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "DockingTimeout",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Liftoff",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "Touchdown",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SupercruiseEntry",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SupercruiseExit",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "SupercruiseDestinationDrop",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "StartJump",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "FSDTarget",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "ApproachBody",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "LeaveBody",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              },
+              {
+                "name": "NavRoute",
+                "hook": "journal_entry",
+                "event_field": "entry.event"
+              }
+            ]
+          }
+        ]
+      },
+      "dashboard": {
+        "flags_total": 50,
+        "values_total": 18,
+        "by_section": [
+          {
+            "section": "GUI Focus Flags",
+            "items": [
+              {
+                "name": "GuiFocus",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              }
+            ]
+          },
+          {
+            "section": "Odyssey On-Foot Flags",
+            "items": [
+              {
+                "name": "OnFoot",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "InTaxi",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "InMulticrew",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "OnFootInStation",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "OnFootOnPlanet",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "AimDownSight",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "LowOxygen",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "LowHealth",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "Cold",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "Hot",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "VeryCold",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "VeryHot",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "GlideMode",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "OnFootInHangar",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "OnFootSocialSpace",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "OnFootExterior",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "BreathableAtmosphere",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              }
+            ]
+          },
+          {
+            "section": "Other Status Values",
+            "items": [
+              {
+                "name": "Pips",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Pips"
+              },
+              {
+                "name": "FireGroup",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.FireGroup"
+              },
+              {
+                "name": "Fuel",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Fuel"
+              },
+              {
+                "name": "Cargo",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Cargo"
+              },
+              {
+                "name": "LegalState",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.LegalState"
+              },
+              {
+                "name": "Latitude",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Latitude"
+              },
+              {
+                "name": "Longitude",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Longitude"
+              },
+              {
+                "name": "Altitude",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Altitude"
+              },
+              {
+                "name": "Heading",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Heading"
+              },
+              {
+                "name": "BodyName",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.BodyName"
+              },
+              {
+                "name": "PlanetRadius",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.PlanetRadius"
+              },
+              {
+                "name": "Temperature",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Temperature"
+              },
+              {
+                "name": "Oxygen",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Oxygen"
+              },
+              {
+                "name": "Health",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Health"
+              },
+              {
+                "name": "Gravity",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Gravity"
+              },
+              {
+                "name": "SelectedWeapon",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.SelectedWeapon"
+              },
+              {
+                "name": "Balance",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Balance"
+              },
+              {
+                "name": "Destination",
+                "hook": "dashboard_entry",
+                "kind": "value",
+                "field": "entry.Destination"
+              }
+            ]
+          },
+          {
+            "section": "Ship Status Flags",
+            "items": [
+              {
+                "name": "Docked",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "Landed",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "LandingGearDown",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "ShieldsUp",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "Supercruise",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "FlightAssistOff",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "HardpointsDeployed",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "InWing",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "LightsOn",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "CargoScoopDeployed",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "SilentRunning",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "ScoopingFuel",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "SrvHandbrake",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "SrvTurret",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "SrvUnderShip",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "SrvDriveAssist",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "FsdMassLocked",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "FsdCharging",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "FsdCooldown",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "LowFuel",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "OverHeating",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "HasLatLong",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "IsInDanger",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "BeingInterdicted",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "InMainShip",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "InFighter",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "InSRV",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "HudInAnalysisMode",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "NightVision",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "AltitudeFromAverageRadius",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "FsdJump",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              },
+              {
+                "name": "SrvHighBeam",
+                "hook": "dashboard_entry",
+                "kind": "flag",
+                "field": "entry.Flags / entry.Flags2 bitfield"
+              }
+            ]
+          }
+        ]
+      },
+      "capi": {
+        "events": [
+          {
+            "name": "CmdrData",
+            "hook": "cmdr_data",
+            "source": "capi"
+          },
+          {
+            "name": "CmdrDataLegacy",
+            "hook": "cmdr_data_legacy",
+            "source": "capi_legacy"
+          },
+          {
+            "name": "CapiFleetCarrier",
+            "hook": "capi_fleetcarrier",
+            "source": "capi_fleetcarrier"
+          }
+        ]
+      },
+      "notifications": {
+        "events": [
+          {
+            "name": "Dashboard",
+            "hook": "dashboard_entry",
+            "source": "dashboard"
+          }
+        ]
+      }
+    }
+  }
+}

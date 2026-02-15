@@ -507,6 +507,28 @@ def cmdr_data(data: dict, is_beta: bool) -> Optional[str]:
     return None
 
 
+def cmdr_data_legacy(data: dict, is_beta: bool) -> Optional[str]:
+    """
+    Called when EDMC receives Legacy CAPI commander profile data.
+    """
+    try:
+        cmdr_name = ""
+        commander = data.get("commander")
+        if isinstance(commander, dict):
+            cmdr_name = str(commander.get("name") or "")
+
+        _dispatch_notification(
+            source="capi_legacy",
+            event_type="CmdrDataLegacy",
+            payload=data,
+            cmdr=cmdr_name,
+            is_beta=is_beta,
+        )
+    except Exception as e:
+        logger.error(f"Error handling cmdr_data_legacy: {e}", exc_info=True)
+    return None
+
+
 # Note: capi_shipyard() and capi_outfitting() are NOT standard EDMC plugin hooks.
 # EDMC only calls: journal_entry, dashboard_entry, cmdr_data, cmdr_data_legacy,
 # capi_fleetcarrier, plugin_prefs, prefs_changed, plugin_app, plugin_stop.
@@ -559,6 +581,18 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
 
     frame = nb.Frame(parent)
 
+    notebook = ttk.Notebook(frame)
+    notebook.grid(row=0, column=0, sticky="nsew")
+    frame.columnconfigure(0, weight=1)
+    frame.rowconfigure(0, weight=1)
+
+    settings_tab = ttk.Frame(notebook)
+    rules_tab = ttk.Frame(notebook)
+    notebook.add(settings_tab, text="Settings")
+    notebook.add(rules_tab, text="Rules")
+
+    settings_tab.columnconfigure(1, weight=1)
+
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
     vkb_port = _config.get("vkb_port", 50995) if _config else 50995
     host_var = tk.StringVar(value=str(vkb_host))
@@ -580,15 +614,15 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         "test_subshift_vars": subshift_vars,
     }
 
-    ttk.Label(frame, text="VKB Host:").grid(row=0, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(frame, textvariable=host_var, width=24).grid(row=0, column=1, sticky="w", padx=4, pady=2)
+    ttk.Label(settings_tab, text="VKB Host:").grid(row=0, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(settings_tab, textvariable=host_var, width=24).grid(row=0, column=1, sticky="w", padx=4, pady=2)
 
-    ttk.Label(frame, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(frame, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=2)
+    ttk.Label(settings_tab, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(settings_tab, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=2)
 
-    ttk.Separator(frame, orient="horizontal").grid(row=2, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 6))
+    ttk.Separator(settings_tab, orient="horizontal").grid(row=2, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 6))
 
-    test_frame = ttk.Frame(frame)
+    test_frame = ttk.Frame(settings_tab)
     test_frame.grid(row=3, column=0, columnspan=2, sticky="w", padx=4, pady=2)
 
     ttk.Label(test_frame, text="Shift:").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
@@ -609,307 +643,61 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             command=_apply_test_shift_from_ui,
         ).grid(row=1, column=1 + i, sticky="w", padx=2, pady=2)
 
-    # Rules editor UI
-    ttk.Separator(frame, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 6))
-    ttk.Label(frame, text="Rules Editor:").grid(row=5, column=0, sticky="w", padx=4, pady=(0, 4))
-
-    rules_frame = ttk.Frame(frame)
-    rules_frame.grid(row=6, column=0, columnspan=2, sticky="nsew", padx=4, pady=(0, 4))
-    frame.columnconfigure(1, weight=1)
-    frame.rowconfigure(6, weight=1)
-    rules_frame.columnconfigure(1, weight=1)
-
-    rules_list_canvas = tk.Canvas(rules_frame, height=180, width=280, highlightthickness=0)
-    rules_list_canvas.grid(row=0, column=0, sticky="nsw")
-    rules_scroll = ttk.Scrollbar(rules_frame, orient="vertical", command=rules_list_canvas.yview)
-    rules_scroll.grid(row=0, column=0, sticky="nse")
-    rules_list_canvas.configure(yscrollcommand=rules_scroll.set)
-    rules_list_inner = ttk.Frame(rules_list_canvas)
-    rules_list_window = rules_list_canvas.create_window((0, 0), window=rules_list_inner, anchor="nw")
-
-    editor_frame = ttk.Frame(rules_frame)
-    editor_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-    editor_frame.columnconfigure(0, weight=1)
-    editor_frame.rowconfigure(1, weight=1)
-
-    rules_text = tk.Text(editor_frame, height=12, width=64, wrap="none")
-    rules_text.grid(row=0, column=0, sticky="nsew")
-    rules_text_scroll = ttk.Scrollbar(editor_frame, orient="vertical", command=rules_text.yview)
-    rules_text_scroll.grid(row=0, column=1, sticky="ns")
-    rules_text.configure(yscrollcommand=rules_text_scroll.set)
-
+    # Rules tab
     rules_status_var = tk.StringVar(value="")
-    ttk.Label(editor_frame, textvariable=rules_status_var).grid(row=1, column=0, sticky="w", pady=(4, 0))
+    rules_path_var = tk.StringVar(value="")
 
-    rules_buttons = ttk.Frame(editor_frame)
-    rules_buttons.grid(row=2, column=0, sticky="w", pady=(6, 0))
+    def _refresh_rules_path() -> None:
+        rules_path_var.set(_resolve_rules_file_path())
 
-    rules_data, rules_wrapped, rules_path = _load_rules_file_for_ui()
-    rules_state = {
-        "rules": rules_data,
-        "wrapped": rules_wrapped,
-        "path": rules_path,
-        "selected": None,
-        "selected_var": tk.IntVar(value=-1),
-        "enabled_vars": [],
-    }
-
-    def _rule_label(rule: dict, idx: int) -> str:
-        return str(rule.get("id", f"<rule-{idx}>"))
-
-    def _build_rule_summary(rule: dict) -> str:
-        """Build human-readable summary of rule."""
-        summary_lines = []
-        
-        # WHEN section
-        when = rule.get("when", {})
-        when_parts = []
-        
-        if isinstance(when, dict):
-            source = when.get("source", "")
-            event = when.get("event", "")
-            
-            if source:
-                when_parts.append(f"source={source}")
-            if event:
-                when_parts.append(f"event={event}")
-            
-            all_blocks = when.get("all", [])
-            if all_blocks:
-                when_parts.append(f"{len(all_blocks)} ALL condition(s)")
-            
-            any_blocks = when.get("any", [])
-            if any_blocks:
-                when_parts.append(f"{len(any_blocks)} ANY condition(s)")
-        
-        if when_parts:
-            summary_lines.append(f"WHEN: {', '.join(when_parts)}")
-        else:
-            summary_lines.append("WHEN: (no conditions)")
-        
-        # THEN section
-        then = rule.get("then", {})
-        then_parts = []
-        
-        if isinstance(then, dict):
-            if "log" in then:
-                then_parts.append(f"log: {then['log']}")
-            if "vkb_set_shift" in then:
-                flags = then["vkb_set_shift"]
-                if isinstance(flags, list):
-                    then_parts.append(f"set: {', '.join(flags)}")
-            if "vkb_clear_shift" in then:
-                flags = then["vkb_clear_shift"]
-                if isinstance(flags, list):
-                    then_parts.append(f"clear: {', '.join(flags)}")
-        
-        if then_parts:
-            summary_lines.append(f"THEN: {'; '.join(then_parts)}")
-        else:
-            summary_lines.append("THEN: (no actions)")
-        
-        # ELSE section
-        else_block = rule.get("else", {})
-        else_parts = []
-        
-        if isinstance(else_block, dict):
-            if "log" in else_block:
-                else_parts.append(f"log: {else_block['log']}")
-            if "vkb_set_shift" in else_block:
-                flags = else_block["vkb_set_shift"]
-                if isinstance(flags, list):
-                    else_parts.append(f"set: {', '.join(flags)}")
-            if "vkb_clear_shift" in else_block:
-                flags = else_block["vkb_clear_shift"]
-                if isinstance(flags, list):
-                    else_parts.append(f"clear: {', '.join(flags)}")
-        
-        if else_parts:
-            summary_lines.append(f"ELSE: {'; '.join(else_parts)}")
-        
-        return "\n".join(summary_lines)
-
-    def _on_rules_inner_configure(event=None) -> None:
-        rules_list_canvas.configure(scrollregion=rules_list_canvas.bbox("all"))
-
-    def _on_rules_canvas_configure(event) -> None:
-        rules_list_canvas.itemconfigure(rules_list_window, width=event.width)
-
-    def _set_rule_enabled(idx: int, var) -> None:
-        if idx < 0 or idx >= len(rules_state["rules"]):
-            return
-        rule = dict(rules_state["rules"][idx])
-        rule["enabled"] = bool(var.get())
-        rules_state["rules"][idx] = rule
-        _persist_rules_with_reload("Saved enabled state")
-
-    def _refresh_rules_list(select_idx: Optional[int] = None) -> None:
-        for child in rules_list_inner.winfo_children():
-            child.destroy()
-        rules_state["enabled_vars"] = []
-
-        for i, rule in enumerate(rules_state["rules"]):
-            enabled_var = tk.BooleanVar(value=bool(rule.get("enabled", True)))
-            rules_state["enabled_vars"].append(enabled_var)
-            ttk.Checkbutton(
-                rules_list_inner,
-                variable=enabled_var,
-                command=lambda idx=i, v=enabled_var: _set_rule_enabled(idx, v),
-            ).grid(row=i, column=0, sticky="w", padx=(0, 4), pady=1)
-            ttk.Radiobutton(
-                rules_list_inner,
-                text=_rule_label(rule, i),
-                value=i,
-                variable=rules_state["selected_var"],
-                command=lambda idx=i: _load_selected_rule(idx),
-            ).grid(row=i, column=1, sticky="w", pady=1)
-
-        if not rules_state["rules"]:
-            rules_state["selected"] = None
-            rules_state["selected_var"].set(-1)
-            _clear_rules_text()
-            _on_rules_inner_configure()
-            return
-
-        if select_idx is None:
-            select_idx = rules_state["selected"] if isinstance(rules_state["selected"], int) else 0
-        select_idx = max(0, min(int(select_idx), len(rules_state["rules"]) - 1))
-        rules_state["selected_var"].set(select_idx)
-        _load_selected_rule(select_idx)
-        _on_rules_inner_configure()
-
-    def _clear_rules_text() -> None:
-        """Clear the rules text widget (handles read-only state)."""
-        rules_text.configure(state="normal")
-        rules_text.delete("1.0", tk.END)
-        rules_text.configure(state="disabled")
-
-    def _load_selected_rule(idx: int) -> None:
-        if idx < 0 or idx >= len(rules_state["rules"]):
-            return
-        rules_state["selected"] = idx
-        rule = rules_state["rules"][idx]
-        
-        # Enable editing temporarily to update content
-        rules_text.configure(state="normal")
-        rules_text.delete("1.0", tk.END)
-        
-        # Show human-readable summary instead of raw JSON
-        summary = _build_rule_summary(rule)
-        rules_text.insert("1.0", summary)
-        
-        # Make text read-only
-        rules_text.configure(state="disabled")
-
-    def _persist_rules_with_reload(success_msg: str) -> None:
-        ok = _save_rules_file_from_ui(
-            rules_state["rules"], bool(rules_state["wrapped"]), str(rules_state["path"])
-        )
-        if not ok:
-            rules_status_var.set(f"Failed to save: {rules_state['path']}")
-            return
-        rules_status_var.set(success_msg)
-        if _event_handler:
-            _event_handler.reload_rules()
-
-    def _reload_rules_file() -> None:
-        data, wrapped, path = _load_rules_file_for_ui()
-        rules_state["rules"] = data
-        rules_state["wrapped"] = wrapped
-        rules_state["path"] = path
-        rules_state["selected"] = None
-        _refresh_rules_list()
-        rules_status_var.set("Reloaded rules from file")
-        if _event_handler:
-            _event_handler.reload_rules()
-
-    def _next_rule_id() -> str:
-        used_ids = {
-            str(rule.get("id", "")).strip()
-            for rule in rules_state["rules"]
-            if isinstance(rule, dict)
-        }
-        n = 1
-        while True:
-            candidate = f"rule-{n}"
-            if candidate not in used_ids:
-                return candidate
-            n += 1
-
-    def _new_rule() -> None:
-        new_rule = {
-            "id": _next_rule_id(),
-            "enabled": True,
-            "when": {},
-            "then": {},
-        }
-        rules_state["rules"].append(new_rule)
-        new_idx = len(rules_state["rules"]) - 1
-        _refresh_rules_list(select_idx=new_idx)
-        _persist_rules_with_reload("Created new rule")
-
-    def _delete_selected_rule() -> None:
-        idx = rules_state["selected"]
-        if idx is None or idx < 0 or idx >= len(rules_state["rules"]):
-            rules_status_var.set("No rule selected")
-            return
-        del rules_state["rules"][idx]
-        if not rules_state["rules"]:
-            rules_state["selected"] = None
-            _refresh_rules_list()
-        else:
-            _refresh_rules_list(select_idx=min(idx, len(rules_state["rules"]) - 1))
-        _persist_rules_with_reload("Deleted selected rule")
-
-    def _edit_selected_rule_visual() -> None:
-        """Open visual editor for selected rule."""
-        idx = rules_state["selected"]
-        if idx is None or idx < 0 or idx >= len(rules_state["rules"]):
-            rules_status_var.set("No rule selected")
-            return
-        
+    def _open_rules_editor() -> None:
         try:
-            from edmcruleengine.rule_editor_ui import RuleEditorDialog, load_events_config
-            from edmcruleengine.rules_engine import FLAGS, FLAGS2, GUI_FOCUS_NAME_TO_VALUE
-            
-            # Determine plugin directory for events config
-            if _plugin_dir:
-                plugin_dir = Path(_plugin_dir)
-            else:
-                # Fallback: try to determine from this file's location
-                plugin_dir = Path(__file__).parent
-                logger.warning(f"Plugin dir not set, using file parent: {plugin_dir}")
-            
-            events_config = load_events_config(plugin_dir)
-            
-            rule = rules_state["rules"][idx]
-            dialog = RuleEditorDialog(frame, rule, events_config, FLAGS, FLAGS2, GUI_FOCUS_NAME_TO_VALUE)
-            result = dialog.show()
-            
-            if result is not None:
-                rules_state["rules"][idx] = result
-                _refresh_rules_list(select_idx=idx)
-                _persist_rules_with_reload("Saved rule via visual editor")
-        except Exception as e:
-            logger.error(f"Failed to open visual editor: {e}", exc_info=True)
-            rules_status_var.set(f"Visual editor error: {e}")
+            from edmcruleengine.rule_editor import show_rule_editor
 
-    rules_list_inner.bind("<Configure>", _on_rules_inner_configure)
-    rules_list_canvas.bind("<Configure>", _on_rules_canvas_configure)
-    ttk.Button(rules_buttons, text="Visual Editor", command=_edit_selected_rule_visual).grid(
+            _refresh_rules_path()
+            rules_file = Path(rules_path_var.get())
+            plugin_dir = Path(_plugin_dir) if _plugin_dir else Path(__file__).parent
+            show_rule_editor(frame, rules_file, plugin_dir)
+            rules_status_var.set("Opened rules editor")
+        except Exception as e:
+            logger.error(f"Failed to open rule editor: {e}", exc_info=True)
+            rules_status_var.set(f"Failed to open editor: {e}")
+
+    def _reload_rules() -> None:
+        if _event_handler:
+            _event_handler.reload_rules()
+            rules_status_var.set("Reloaded rules")
+        else:
+            rules_status_var.set("Rules not loaded yet")
+
+    rules_tab.columnconfigure(1, weight=1)
+
+    ttk.Label(rules_tab, text="Rules Editor", font=("TkDefaultFont", 12, "bold")).grid(
+        row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 4)
+    )
+    ttk.Label(rules_tab, text="Edit rules using the catalog-driven editor.").grid(
+        row=1, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8)
+    )
+
+    ttk.Label(rules_tab, text="Rules file:").grid(row=2, column=0, sticky="w", padx=8, pady=2)
+    _refresh_rules_path()
+    ttk.Label(rules_tab, textvariable=rules_path_var, foreground="gray").grid(
+        row=2, column=1, sticky="w", padx=8, pady=2
+    )
+
+    rules_buttons = ttk.Frame(rules_tab)
+    rules_buttons.grid(row=3, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 0))
+
+    ttk.Button(rules_buttons, text="Open Rules Editor", command=_open_rules_editor).grid(
         row=0, column=0, sticky="w"
     )
-    ttk.Button(rules_buttons, text="New Rule", command=_new_rule).grid(
+    ttk.Button(rules_buttons, text="Reload Rules", command=_reload_rules).grid(
         row=0, column=1, sticky="w", padx=(6, 0)
     )
-    ttk.Button(rules_buttons, text="Delete Rule", command=_delete_selected_rule).grid(
-        row=0, column=2, sticky="w", padx=(6, 0)
-    )
-    ttk.Button(rules_buttons, text="Reload File", command=_reload_rules_file).grid(
-        row=0, column=3, sticky="w", padx=(6, 0)
-    )
 
-    _refresh_rules_list()
+    ttk.Label(rules_tab, textvariable=rules_status_var).grid(
+        row=4, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 0)
+    )
 
     return frame
 

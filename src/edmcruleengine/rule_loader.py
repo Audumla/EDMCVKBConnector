@@ -1,5 +1,5 @@
 """
-V3 Rule file loading for EDMC VKB Connector.
+Rule file loading for EDMC VKB Connector.
 
 Handles:
 - Loading from file
@@ -25,7 +25,7 @@ class RuleLoadError(Exception):
 
 def load_rules_file(path: Path) -> List[Dict[str, Any]]:
     """
-    Load v3 rules from a JSON file.
+    Load rules from a JSON file.
     
     Supports:
     - Array format: [ rule, rule, ... ]
@@ -54,7 +54,7 @@ def load_rules_file(path: Path) -> List[Dict[str, Any]]:
     # Parse rules data
     rules = _parse_rules_data(data)
     
-    logger.info(f"Loaded {len(rules)} v3 rules from {path}")
+    logger.info(f"Loaded {len(rules)} rules from {path}")
     
     return rules
 

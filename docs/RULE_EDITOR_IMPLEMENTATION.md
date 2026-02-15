@@ -1,18 +1,18 @@
-# V3 Rule Editor Implementation Summary
+# Rule Editor Implementation Summary
 
 ## Overview
 
-The v3 Rule Editor is a complete rewrite of the rule editing UI to support the new catalog-driven v3 schema. It replaces the old v2-based editor with a modern, type-safe interface.
+The Rule Editor is a complete rewrite of the rule editing UI to support the catalog-driven schema. It provides a modern, type-safe interface.
 
 ## What Was Built
 
-### New Module: `rule_editor_v3.py`
+### New Module: `rule_editor.py`
 
 **Size:** 1,025 lines  
 **Components:**
-1. `V3RuleEditorUI` - Main window with rules list
-2. `V3RuleEditor` - Rule editor component  
-3. `show_v3_rule_editor()` - Entry point function
+1. `RuleEditorUI` - Main window with rules list
+2. `RuleEditor` - Rule editor component  
+3. `show_rule_editor()` - Entry point function
 
 ### Features Implemented
 
@@ -69,7 +69,7 @@ The v3 Rule Editor is a complete rewrite of the rule editing UI to support the n
 - Blocks save if invalid
 
 #### ✅ Persistence
-- Saves in v3 schema format only
+- Saves in schema format only
 - Supports both array and wrapped formats on load
 - Deterministic ID generation from title
 - Collision handling with numeric suffixes
@@ -87,7 +87,7 @@ The v3 Rule Editor is a complete rewrite of the rule editing UI to support the n
 ### Class Structure
 
 ```
-V3RuleEditorUI
+RuleEditorUI
 ├── __init__(parent, rules_file, plugin_dir)
 ├── _load_rules() / _save_rules()
 ├── _show_rules_list()
@@ -97,7 +97,7 @@ V3RuleEditorUI
 ├── _show_rule_editor()
 └── Callbacks: _on_save_rule(), _on_cancel_edit()
 
-V3RuleEditor
+RuleEditor
 ├── __init__(parent, rule, catalog, on_save, on_cancel)
 ├── _build_lookup_tables()
 ├── _build_ui()
@@ -130,7 +130,7 @@ signals_catalog.json → SignalsCatalog
 rules.json → List[Dict[str, Any]]
 
 Edit Phase:
-Rule Dict → V3RuleEditor
+Rule Dict → RuleEditor
 User Input → UI State (StringVars, BooleanVars)
 UI State → Validation
 Validation → Build Rule Dict
@@ -215,7 +215,7 @@ All requirements from the problem statement have been implemented:
 - Action validation
 
 ### 8. Persistence ✅
-- Saves in v3 schema only
+- Saves in schema only
 - Correct condition format: `{"signal": ..., "op": ..., "value": ...}`
 - Correct action format: `{"vkb_set_shift": [...]}`
 
@@ -231,7 +231,7 @@ All requirements from the problem statement have been implemented:
 ## Testing
 
 ### Automated Tests
-- `test_rule_editor_v3.py` - Basic structure tests
+- `test_rule_editor.py` - Basic structure tests
 - Import verification
 - Token constant verification
 
@@ -285,7 +285,7 @@ Since tkinter requires a display, manual testing needed for:
 
 **In EDMC Plugin:**
 ```python
-from edmcruleengine.rule_editor_v3 import show_v3_rule_editor
+from edmcruleengine.rule_editor import show_rule_editor
 
 def plugin_prefs(parent, cmdr, is_beta):
     """Plugin preferences callback."""
@@ -293,42 +293,16 @@ def plugin_prefs(parent, cmdr, is_beta):
     plugin_dir = Path(__file__).parent
     rules_file = plugin_dir / "rules.json"
     
-    # Show v3 editor
-    window = show_v3_rule_editor(parent, rules_file, plugin_dir)
+      # Show editor
+    window = show_rule_editor(parent, rules_file, plugin_dir)
     
     return window  # Or None if error
 ```
 
-### Migration from Old Editor
-
-**Old Code:**
-```python
-from edmcruleengine.rule_editor_ui import RuleEditorDialog
-
-dialog = RuleEditorDialog(parent, rule, events_config, flags, flags2, gui_focus)
-result = dialog.show()
-```
-
-**New Code:**
-```python
-from edmcruleengine.rule_editor_v3 import show_v3_rule_editor
-
-# Shows entire editor UI, not single rule dialog
-window = show_v3_rule_editor(parent, rules_file, plugin_dir)
-```
-
-**Key Differences:**
-- Old: Single-rule dialog
-- New: Full list + editor UI
-- Old: Requires events_config, flags dicts
-- New: Requires catalog only
-- Old: Returns modified rule
-- New: Saves directly to file
-
 ## Documentation
 
 ### User Documentation
-- **V3_RULE_EDITOR_GUIDE.md** - Complete user guide
+- **RULE_EDITOR_GUIDE.md** - Complete user guide
   - Overview and features
   - UI structure walkthrough
   - Common workflows
@@ -338,26 +312,25 @@ window = show_v3_rule_editor(parent, rules_file, plugin_dir)
   - Troubleshooting
 
 ### Technical Documentation
-- **V3_SCHEMA_REFERENCE.md** - Schema specification
-- **IMPLEMENTATION_COMPLETE_V3.md** - Implementation details
+- **RULES_SCHEMA.md** - Schema specification
+- **RULE_EDITOR_IMPLEMENTATION.md** - Implementation details
 - This file - Implementation summary
 
 ## File Structure
 
 ```
 src/edmcruleengine/
-├── rule_editor_v3.py (NEW - 1025 lines)
-├── rule_editor_ui.py (OLD - can be deprecated)
+├── rule_editor.py (NEW - 1025 lines)
 ├── signals_catalog.py (used by new editor)
 ├── rule_loader.py (used by new editor)
 └── ... (other modules)
 
 test/
-├── test_rule_editor_v3.py (NEW)
-└── test_rule_editor_ui.py (OLD)
+├── test_rule_editor.py (NEW)
+
 
 docs/
-└── V3_RULE_EDITOR_GUIDE.md (NEW)
+└── RULE_EDITOR_GUIDE.md (NEW)
 
 signals_catalog.json (required by editor)
 rules.json (edited by editor)
@@ -422,27 +395,6 @@ rules.json (edited by editor)
    - Virtual scrolling for large rule lists
    - Lazy loading of rule editor components
 
-## Migration Path
-
-### For Users
-
-**From v2 to v3:**
-1. Backup existing `rules.json`
-2. Update to new catalog-based system
-3. Open v3 editor
-4. Editor may show validation errors for old rules
-5. Update rules to use catalog signals
-6. Save in v3 format
-
-### For Developers
-
-**Deprecating Old Editor:**
-1. Update plugin to use `show_v3_rule_editor()`
-2. Remove imports of old `RuleEditorDialog`
-3. Remove `events_config.json` dependency
-4. Mark `rule_editor_ui.py` as deprecated
-5. After transition period, delete old editor
-
 ## Success Criteria Met
 
 All requirements from problem statement are met:
@@ -456,7 +408,7 @@ All requirements from problem statement are met:
 
 ## Conclusion
 
-The v3 Rule Editor is a complete, production-ready implementation of the catalog-driven rule editing system. It provides a modern, type-safe interface that eliminates hardcoded values and supports the new v3 schema fully.
+The Rule Editor is a complete, production-ready implementation of the catalog-driven rule editing system. It provides a modern, type-safe interface that eliminates hardcoded values and supports the new schema fully.
 
 **Status:** ✅ COMPLETE AND READY FOR USE
 
@@ -466,3 +418,4 @@ The v3 Rule Editor is a complete, production-ready implementation of the catalog
 3. Plugin integration
 4. User feedback collection
 5. Iterative improvements based on usage
+

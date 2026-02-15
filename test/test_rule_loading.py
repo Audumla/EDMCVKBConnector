@@ -42,7 +42,7 @@ def test_loads_default_rules_json_from_plugin_dir():
         # Copy catalog
         _copy_catalog_to_plugin_dir(plugin_dir)
         
-        # Write v3 rules
+        # Write rules
         _write_json(
             plugin_dir / "rules.json",
             [
@@ -64,7 +64,7 @@ def test_loads_default_rules_json_from_plugin_dir():
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
-        # V3 rules auto-generate ID from title
+        # Rules auto-generate ID from title
         print("[OK] Default rules.json loading passed")
 
 
@@ -77,7 +77,7 @@ def test_loads_override_rules_json_path():
         # Copy catalog
         _copy_catalog_to_plugin_dir(plugin_dir)
 
-        # Write v3 rules to both paths
+        # Write rules to both paths
         _write_json(
             default_path,
             [
@@ -114,7 +114,7 @@ def test_loads_override_rules_json_path():
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
-        # V3 rules auto-generate ID from title (human-readable slug)
+        # Rules auto-generate ID from title (human-readable slug)
         assert handler.rule_engine.rules[0]["id"] == "override-rule"
         print("[OK] Override rules_path loading passed")
 
