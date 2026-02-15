@@ -6,13 +6,24 @@ This document records key architectural decisions made in the EDMCVKBConnector p
 
 ## ADR-001: Direct Flag Access vs. Catalog-Backed Signals
 
-**Status**: ✅ Accepted (Current Implementation)  
+**Status**: ⚠️ **UNDER REVIEW** (Requires explicit decision)  
 **Date**: 2026-02-15  
+**Updated**: 2026-02-15 (Corrected after discovering existing v3 branches)  
 **Context**: Rule engine design for matching Elite Dangerous status data
 
-### Decision
+### Critical Update
+
+**FACTUAL CORRECTION**: Initial ADR stated catalog-backed approach was "rejected" as Alternative 1. However, **two working branches with catalog implementations exist**:
+- `feature/v3-catalog-migration` - Complete catalog-backed implementation
+- `copilot/upgrade-catalog-and-migration` - Extended v3 implementation with migration support
+
+**Current Status**: This ADR is **under review**. The choice between flags-first (main) vs semantic-signals (feature/v3) is a strategic UX decision, not a technical limitation.
+
+### Decision (Main Branch - Current)
 
 Use **direct flag access** where rules reference `FLAGS`, `FLAGS2`, and `GUI_FOCUS` constants directly, without an intermediate catalog or signal mapping layer.
+
+**NOTE**: This decision applies to the current main branch. Alternative implementations exist in feature branches and can be adopted if desired.
 
 ### Rationale
 
@@ -53,49 +64,83 @@ Use **direct flag access** where rules reference `FLAGS`, `FLAGS2`, and `GUI_FOC
 
 ### Alternatives Considered
 
-#### Alternative 1: Catalog-Backed Signals
+#### Alternative 1: Catalog-Backed Signals (feature/v3-catalog-migration)
 
-**Description**: Introduce `signals_catalog.py` with:
+**Description**: Full catalog-backed implementation in `feature/v3-catalog-migration` branch with:
+- `signals_catalog.py` (330 lines) - Complete catalog implementation
 - Centralized signal definitions
-- Derivation pipeline (path, flag, map, first_match)
+- Derivation pipeline with validation
+- Dashboard path fallback (`_get_path_with_dashboard_fallback`)
 - Semantic naming layer
 
-**Rejected Because**:
-- Adds complexity without clear immediate benefit
-- No user requests for derived signals
-- Current approach works well with visual editor
-- Would require migration of all existing rules
+**Status**: ✅ **EXISTS - Working implementation available**
 
-**Future Reconsideration**: Consider if users report:
-- Difficulty maintaining complex condition logic
-- Desire for reusable signal definitions
-- Need for semantic signal names
+**Pros**:
+- ✅ Semantic signal names ("landed" vs "FlagsLanded")
+- ✅ Signal derivation (combine multiple flags)
+- ✅ Abstraction from EDMC internals
+- ✅ Dashboard path fallback for compatibility
+- ✅ Centralized signal definitions
 
-#### Alternative 2: Hybrid Approach
+**Cons**:
+- ❌ More architectural complexity
+- ❌ Requires migration of existing rules
+- ❌ Visual editor needs updates
+- ❌ Additional catalog maintenance
 
-**Description**: Support both direct flags and catalog signals:
-```json
-// Direct (legacy):
-{"flags": {"all_of": ["FlagsLanded"]}}
+**Evaluation Needed**: 
+- If UX goal is semantic signals → Consider merging feature/v3 branch
+- If UX goal is flags-first → Keep current main branch
+- Decision depends on intended user experience, not technical capability
 
-// Catalog (new):
-{"signals": {"all_of": ["landed"]}}
-```
+#### Alternative 2: Hybrid Approach (copilot/upgrade-catalog-and-migration)
 
-**Rejected Because**:
-- Two ways to do the same thing (confusing)
-- More code to maintain
-- Visual editor complexity
-- No clear user benefit yet
+**Description**: Gradual migration approach in `copilot/upgrade-catalog-and-migration` branch with:
+- Both `rules_engine.py` (v2) and `rules_engine_v3.py` 
+- `signals_catalog.py` with `SignalsCatalog` class
+- `signal_derivation.py` and `rule_editor_v3.py`
+- Support for both v2 (flags) and v3 (catalog) rules
 
-**Future Reconsideration**: If catalog layer is added, implement as backward-compatible addition.
+**Status**: ✅ **EXISTS - Working implementation available**
+
+**Pros**:
+- ✅ Backward compatible during migration
+- ✅ Gradual transition path
+- ✅ Users can migrate rules incrementally
+- ✅ Both approaches work simultaneously
+
+**Cons**:
+- ❌ Two rule engines to maintain
+- ❌ More complex codebase
+- ❌ Longer transition period
+- ❌ Potential confusion about which approach to use
+
+**Evaluation Needed**:
+- If gradual migration desired → Consider copilot branch
+- If clean implementation preferred → Consider feature/v3 branch
+- If staying flags-first → Stick with main branch
 
 ### Consequences
 
-**Immediate**:
+**If Staying with Main Branch (Flags-First)**:
 - Rules remain simple and transparent
 - Performance is optimal
 - Development is straightforward
+- Feature/v3 and copilot branches should be archived with explanation
+
+**If Adopting feature/v3 (Catalog-Backed)**:
+- Semantic signal names for better UX
+- Signal derivation enables reusable definitions
+- Requires rule migration and visual editor updates
+- More complex but better abstraction
+
+**If Adopting copilot (Hybrid Migration)**:
+- Gradual transition path
+- Backward compatible during migration
+- Maintain two engines temporarily
+- Eventually converge to v3-only
+
+**Decision Required**: Make explicit choice based on UX strategy, not technical limitations. Both approaches are viable.
 
 **Long-term**:
 - May need catalog layer if:
@@ -508,6 +553,108 @@ Potential improvements:
 
 ---
 
+## ADR-005: Architectural Direction Decision (REQUIRED)
+
+**Status**: 🔴 **DECISION PENDING**  
+**Date**: 2026-02-15  
+**Context**: Choose between flags-first (main) vs semantic-signals (feature/v3) UX strategy
+
+### The Question
+
+**Do rules reference raw flags or semantic signals?**
+
+This is the fundamental architectural decision that determines the entire user experience.
+
+### Option A: Flags-First (Current Main Branch)
+
+**Description**: Rules directly reference EDMC flags
+```json
+{"flags": {"all_of": ["FlagsLanded", "FlagsLandingGearDown"]}}
+```
+
+**Pros**:
+- ✅ Simple and transparent
+- ✅ Direct mapping to EDMC Status.json
+- ✅ High performance (direct bitmask ops)
+- ✅ Easy to debug
+- ✅ Current implementation is production-ready
+
+**Cons**:
+- ❌ Exposes EDMC internals to users
+- ❌ No semantic abstraction
+- ❌ Couples rules to EDMC structure
+- ❌ No signal derivation
+
+**If Chosen**:
+1. Document flags-first as intended UX
+2. Archive feature/v3 and copilot branches
+3. Enhance visual editor for flags-based rules
+4. Update all documentation accordingly
+
+### Option B: Semantic-Signals (feature/v3-catalog-migration Branch)
+
+**Description**: Rules reference catalog-backed semantic signals
+```json
+{"signals": {"all_of": ["landed", "gear_down"]}}
+```
+
+**Pros**:
+- ✅ Semantic naming (user-friendly)
+- ✅ Abstraction from EDMC internals
+- ✅ Signal derivation (reusable definitions)
+- ✅ Dashboard path fallback (future-proof)
+- ✅ Working implementation exists in feature/v3
+
+**Cons**:
+- ❌ More architectural complexity
+- ❌ Requires rule migration
+- ❌ Visual editor needs updates
+- ❌ Catalog maintenance overhead
+
+**If Chosen**:
+1. Evaluate feature/v3-catalog-migration branch
+2. Plan rule migration strategy
+3. Update visual editor for catalog signals
+4. Test thoroughly before merge
+5. Provide migration tools/docs
+
+### Option C: Hybrid Migration (copilot/upgrade-catalog-and-migration Branch)
+
+**Description**: Support both v2 (flags) and v3 (catalog) during transition
+
+**Pros**:
+- ✅ Gradual migration path
+- ✅ Backward compatible
+- ✅ Users migrate at own pace
+
+**Cons**:
+- ❌ Maintain two rule engines
+- ❌ More complex codebase
+- ❌ Longer transition period
+
+**If Chosen**:
+1. Evaluate copilot branch
+2. Set timeline for v2 deprecation
+3. Provide migration guides
+4. Eventually converge to v3-only
+
+### Recommendation
+
+**Make explicit decision based on UX goals**:
+
+**If goal is**: "Users work with EDMC flags directly"
+→ **Choose Option A** (Flags-First)
+
+**If goal is**: "Hide EDMC internals behind semantic signals"
+→ **Choose Option B** (Semantic-Signals)
+
+**If goal is**: "Gradual transition to semantic signals"
+→ **Choose Option C** (Hybrid Migration)
+
+**Action Required**: Document chosen direction in this ADR and align all implementation/documentation accordingly.
+
+---
+
 ### Dashboard Path Fallback (Monitoring)
 
 **Current Status**: Not needed (EDMC format stable)
@@ -546,6 +693,7 @@ flags = get_field_with_fallback(data, [
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-15 | System | Initial architecture decisions documented |
+| 1.1 | 2026-02-15 | System | **Corrected**: Updated ADR-001 to reflect existence of v3 branches, added ADR-005 for architectural direction decision |
 
 ---
 
