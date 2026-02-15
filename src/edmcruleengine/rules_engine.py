@@ -12,7 +12,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
-# ---- Minimal constants (expand as needed) ----
+# ---- Elite Dangerous Status Flags and GUI Focus States ----
+# Complete flag definitions from Elite Dangerous Status.json
+# Supports all dashboard flags, extended flags, and GUI focus states
+# Reference: https://elite-journal.readthedocs.io/en/latest/Status%20File/
 
 FLAGS: Dict[str, int] = {
     "FlagsDocked": (1 << 0),
