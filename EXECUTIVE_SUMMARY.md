@@ -26,7 +26,7 @@ This document has been updated to reflect the actual existence of these branches
 | Claim | Factual? | Assessment |
 |-------|----------|------------|
 | "feature/v3-catalog-migration is catalog-backed end-to-end" | ✅ **YES - Branch exists with catalog implementation** | Can be evaluated by reviewing branch |
-| "Rule engine for catalog-backed signals" | ✅ **YES - Both branches have this** | feature/v3 appears more complete |
+| "Rule engine for catalog-backed signals" | ✅ **YES - Both branches have this** | The feature/v3 branch appears more complete |
 | "Real catalog derivation + validation pipeline" | ✅ **YES - Implemented in feature/v3** | Includes path, flag, map derivation |
 | "Dashboard path fallback" | ✅ **YES - feature/v3 has `_get_path_with_dashboard_fallback`** | Handles flat vs nested Status |
 | "Hides flags behind mapping" | ✅ **YES - Catalog provides semantic layer** | Signals abstracted from raw flags |

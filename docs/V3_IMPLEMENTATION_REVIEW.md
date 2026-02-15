@@ -123,13 +123,6 @@ The current implementation (`rules_engine.py`, ~523 lines) uses:
 **Assessment**: Claim is **factually correct**. The rule engine in feature/v3 is designed around catalog signals.
 
 **Value**: ✅ **Better abstraction** - Separates "what signals mean" from "how EDMC reports them".
-  - Potential for better abstraction
-- **Cons**:
-  - Current lazy-loading approach is already performant
-  - "Normalized signals dict" would likely be less memory-efficient than lazy dicts
-  - Would require complete rule engine rewrite
-
-**Recommendation**: ⚠️ **Not recommended** - Current lazy-loading approach is superior for performance.
 
 ---
 
