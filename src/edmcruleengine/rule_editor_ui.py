@@ -215,18 +215,51 @@ class RuleEditorDialog:
         set_shifts = actions.get("vkb_set_shift", [])
         clear_shifts = actions.get("vkb_clear_shift", [])
         
+        # Get shift flags from config (supports both old and new format)
+        shift_flags_config = self.events_config.get("shift_flags", [])
+        shift_flags = []
+        
+        for flag in shift_flags_config:
+            if isinstance(flag, dict):
+                # New format with id/name/description
+                shift_flags.append({
+                    "id": flag.get("id", ""),
+                    "name": flag.get("name", flag.get("id", "")),
+                    "description": flag.get("description", "")
+                })
+            else:
+                # Old format (just string)
+                shift_flags.append({
+                    "id": flag,
+                    "name": flag,
+                    "description": ""
+                })
+        
+        # Fallback if no config
+        if not shift_flags:
+            for flag_id in ["Shift1", "Shift2", "Subshift1", "Subshift2", "Subshift3", 
+                           "Subshift4", "Subshift5", "Subshift6", "Subshift7"]:
+                shift_flags.append({
+                    "id": flag_id,
+                    "name": flag_id,
+                    "description": ""
+                })
+        
         shift_vars = {}
-        for flag in self.events_config.get("shift_flags", []):
+        for flag_info in shift_flags:
+            flag_id = flag_info["id"]
+            flag_name = flag_info["name"]
+            
             flag_frame = ttk.Frame(shift_frame)
             flag_frame.pack(fill=tk.X, pady=2)
             
-            ttk.Label(flag_frame, text=f"{flag}:", width=12).pack(side=tk.LEFT)
+            ttk.Label(flag_frame, text=f"{flag_name}:", width=15).pack(side=tk.LEFT)
             
             # State: Set, Clear, or Unchanged
             state_var = tk.StringVar(value="unchanged")
-            if flag in set_shifts:
+            if flag_id in set_shifts:
                 state_var.set("set")
-            elif flag in clear_shifts:
+            elif flag_id in clear_shifts:
                 state_var.set("clear")
                 
             ttk.Radiobutton(flag_frame, text="Set", variable=state_var, 
@@ -236,7 +269,8 @@ class RuleEditorDialog:
             ttk.Radiobutton(flag_frame, text="Unchanged", variable=state_var, 
                            value="unchanged").pack(side=tk.LEFT, padx=5)
             
-            shift_vars[flag] = state_var
+            # Store by flag_id (not name) for proper serialization
+            shift_vars[flag_id] = state_var
             
         if action_type == "then":
             self.then_shift_vars = shift_vars

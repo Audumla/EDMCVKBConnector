@@ -428,14 +428,50 @@
     }
   ],
   "shift_flags": [
-    "Shift1",
-    "Shift2",
-    "Subshift1",
-    "Subshift2",
-    "Subshift3",
-    "Subshift4",
-    "Subshift5",
-    "Subshift6",
-    "Subshift7"
+    {
+      "id": "Shift1",
+      "name": "Shift 1",
+      "description": "Primary shift flag"
+    },
+    {
+      "id": "Shift2",
+      "name": "Shift 2",
+      "description": "Secondary shift flag"
+    },
+    {
+      "id": "Subshift1",
+      "name": "Subshift 1",
+      "description": "Subshift flag 1"
+    },
+    {
+      "id": "Subshift2",
+      "name": "Subshift 2",
+      "description": "Subshift flag 2"
+    },
+    {
+      "id": "Subshift3",
+      "name": "Subshift 3",
+      "description": "Subshift flag 3"
+    },
+    {
+      "id": "Subshift4",
+      "name": "Subshift 4",
+      "description": "Subshift flag 4"
+    },
+    {
+      "id": "Subshift5",
+      "name": "Subshift 5",
+      "description": "Subshift flag 5"
+    },
+    {
+      "id": "Subshift6",
+      "name": "Subshift 6",
+      "description": "Subshift flag 6"
+    },
+    {
+      "id": "Subshift7",
+      "name": "Subshift 7",
+      "description": "Subshift flag 7"
+    }
   ]
 }

@@ -612,6 +612,78 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     def _rule_label(rule: dict, idx: int) -> str:
         return str(rule.get("id", f"<rule-{idx}>"))
 
+    def _build_rule_summary(rule: dict) -> str:
+        """Build human-readable summary of rule."""
+        summary_lines = []
+        
+        # WHEN section
+        when = rule.get("when", {})
+        when_parts = []
+        
+        if isinstance(when, dict):
+            source = when.get("source", "")
+            event = when.get("event", "")
+            
+            if source:
+                when_parts.append(f"source={source}")
+            if event:
+                when_parts.append(f"event={event}")
+            
+            all_blocks = when.get("all", [])
+            if all_blocks:
+                when_parts.append(f"{len(all_blocks)} ALL condition(s)")
+            
+            any_blocks = when.get("any", [])
+            if any_blocks:
+                when_parts.append(f"{len(any_blocks)} ANY condition(s)")
+        
+        if when_parts:
+            summary_lines.append(f"WHEN: {', '.join(when_parts)}")
+        else:
+            summary_lines.append("WHEN: (no conditions)")
+        
+        # THEN section
+        then = rule.get("then", {})
+        then_parts = []
+        
+        if isinstance(then, dict):
+            if "log" in then:
+                then_parts.append(f"log: {then['log']}")
+            if "vkb_set_shift" in then:
+                flags = then["vkb_set_shift"]
+                if isinstance(flags, list):
+                    then_parts.append(f"set: {', '.join(flags)}")
+            if "vkb_clear_shift" in then:
+                flags = then["vkb_clear_shift"]
+                if isinstance(flags, list):
+                    then_parts.append(f"clear: {', '.join(flags)}")
+        
+        if then_parts:
+            summary_lines.append(f"THEN: {'; '.join(then_parts)}")
+        else:
+            summary_lines.append("THEN: (no actions)")
+        
+        # ELSE section
+        else_block = rule.get("else", {})
+        else_parts = []
+        
+        if isinstance(else_block, dict):
+            if "log" in else_block:
+                else_parts.append(f"log: {else_block['log']}")
+            if "vkb_set_shift" in else_block:
+                flags = else_block["vkb_set_shift"]
+                if isinstance(flags, list):
+                    else_parts.append(f"set: {', '.join(flags)}")
+            if "vkb_clear_shift" in else_block:
+                flags = else_block["vkb_clear_shift"]
+                if isinstance(flags, list):
+                    else_parts.append(f"clear: {', '.join(flags)}")
+        
+        if else_parts:
+            summary_lines.append(f"ELSE: {'; '.join(else_parts)}")
+        
+        return "\n".join(summary_lines)
+
     def _on_rules_inner_configure(event=None) -> None:
         rules_list_canvas.configure(scrollregion=rules_list_canvas.bbox("all"))
 
@@ -650,7 +722,9 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         if not rules_state["rules"]:
             rules_state["selected"] = None
             rules_state["selected_var"].set(-1)
+            rules_text.configure(state="normal")
             rules_text.delete("1.0", tk.END)
+            rules_text.configure(state="disabled")
             _on_rules_inner_configure()
             return
 
@@ -666,8 +740,17 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             return
         rules_state["selected"] = idx
         rule = rules_state["rules"][idx]
+        
+        # Enable editing temporarily to update content
+        rules_text.configure(state="normal")
         rules_text.delete("1.0", tk.END)
-        rules_text.insert("1.0", json.dumps(rule, indent=2))
+        
+        # Show human-readable summary instead of raw JSON
+        summary = _build_rule_summary(rule)
+        rules_text.insert("1.0", summary)
+        
+        # Make text read-only
+        rules_text.configure(state="disabled")
 
     def _persist_rules_with_reload(success_msg: str) -> None:
         ok = _save_rules_file_from_ui(
@@ -679,27 +762,6 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         rules_status_var.set(success_msg)
         if _event_handler:
             _event_handler.reload_rules()
-
-    def _save_selected_rule() -> None:
-        idx = rules_state["selected"]
-        if idx is None or idx < 0 or idx >= len(rules_state["rules"]):
-            return
-        raw_text = rules_text.get("1.0", tk.END).strip()
-        if not raw_text:
-            rules_status_var.set("Rule JSON is empty")
-            return
-        try:
-            parsed = json.loads(raw_text)
-        except json.JSONDecodeError as e:
-            rules_status_var.set(f"JSON error: {e.msg} (line {e.lineno})")
-            return
-        if not isinstance(parsed, dict):
-            rules_status_var.set("Rule must be a JSON object")
-            return
-        parsed["enabled"] = bool(parsed.get("enabled", rules_state["rules"][idx].get("enabled", True)))
-        rules_state["rules"][idx] = parsed
-        _refresh_rules_list(select_idx=idx)
-        _persist_rules_with_reload("Saved selected rule")
 
     def _reload_rules_file() -> None:
         data, wrapped, path = _load_rules_file_for_ui()
@@ -729,8 +791,8 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         new_rule = {
             "id": _next_rule_id(),
             "enabled": True,
-            "when": [],
-            "then": [],
+            "when": {},
+            "then": {},
         }
         rules_state["rules"].append(new_rule)
         new_idx = len(rules_state["rules"]) - 1
@@ -788,17 +850,14 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     ttk.Button(rules_buttons, text="Visual Editor", command=_edit_selected_rule_visual).grid(
         row=0, column=0, sticky="w"
     )
-    ttk.Button(rules_buttons, text="Save JSON", command=_save_selected_rule).grid(
+    ttk.Button(rules_buttons, text="New Rule", command=_new_rule).grid(
         row=0, column=1, sticky="w", padx=(6, 0)
     )
-    ttk.Button(rules_buttons, text="Reload File", command=_reload_rules_file).grid(
+    ttk.Button(rules_buttons, text="Delete Rule", command=_delete_selected_rule).grid(
         row=0, column=2, sticky="w", padx=(6, 0)
     )
-    ttk.Button(rules_buttons, text="New Rule", command=_new_rule).grid(
+    ttk.Button(rules_buttons, text="Reload File", command=_reload_rules_file).grid(
         row=0, column=3, sticky="w", padx=(6, 0)
-    )
-    ttk.Button(rules_buttons, text="Delete Rule", command=_delete_selected_rule).grid(
-        row=0, column=4, sticky="w", padx=(6, 0)
     )
 
     _refresh_rules_list()
