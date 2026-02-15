@@ -10,11 +10,11 @@ Loads and validates the signals catalog which defines:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
+import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from . import plugin_logger
 
@@ -267,29 +267,34 @@ class SignalsCatalog:
 MAX_READABLE_ID_LENGTH = 40
 
 
-def generate_id_from_title(title: str) -> str:
+def generate_id_from_title(title: str, used_ids: Optional[set] = None) -> str:
     """
-    Generate a deterministic, stable ID from a rule title.
+    Generate a deterministic, human-readable ID from a rule title.
     
-    Uses a hash to avoid collisions while keeping IDs readable.
+    Uses slugification with numeric suffixes for collision handling.
+    Based on reference implementation from feature/v3-catalog-migration.
     
     Args:
         title: Rule title string
+        used_ids: Set of already-used IDs for collision detection
         
     Returns:
-        Generated ID string
+        Generated ID string (e.g., "my-rule" or "my-rule-2" if collision)
     """
-    # Normalize title: lowercase, trim whitespace
-    normalized = title.strip().lower()
+    if used_ids is None:
+        used_ids = set()
     
-    # Create a short hash for collision resistance
-    hash_obj = hashlib.sha256(normalized.encode("utf-8"))
-    hash_short = hash_obj.hexdigest()[:8]
+    # Slugify: lowercase, replace non-alphanumeric with hyphens
+    base_id = re.sub(r'[^a-z0-9]+', '-', title.strip().lower())
+    base_id = base_id.strip('-') or 'rule'
+    base_id = base_id[:MAX_READABLE_ID_LENGTH].strip('-')
     
-    # Create readable part: replace non-alphanumeric with underscores
-    readable = "".join(c if c.isalnum() else "_" for c in normalized)
-    readable = readable[:MAX_READABLE_ID_LENGTH]  # Limit length
-    readable = readable.strip("_")
+    # Handle collisions with numeric suffix
+    candidate = base_id
+    suffix = 2
+    while candidate in used_ids:
+        candidate = f"{base_id}-{suffix}"
+        suffix += 1
     
-    # Combine: readable_part_hash
-    return f"{readable}_{hash_short}"
+    used_ids.add(candidate)
+    return candidate

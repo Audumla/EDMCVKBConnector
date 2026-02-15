@@ -104,8 +104,8 @@ class TestGenerateIdFromTitle:
         id2 = generate_id_from_title("Galaxy Map Opened")
         
         assert id1 != id2
-        assert "hardpoints_deployed" in id1.lower()
-        assert len(id1) > 0
+        assert id1 == "hardpoints-deployed"
+        assert id2 == "galaxy-map-opened"
     
     def test_generate_id_deterministic(self):
         """Test ID generation is deterministic."""
@@ -113,15 +113,19 @@ class TestGenerateIdFromTitle:
         id2 = generate_id_from_title("Test Rule")
         
         assert id1 == id2
+        assert id1 == "test-rule"
     
-    def test_generate_id_collision_resistance(self):
-        """Test different titles generate different IDs."""
-        id1 = generate_id_from_title("Test")
-        id2 = generate_id_from_title("Test ")
-        id3 = generate_id_from_title("Test!")
+    def test_generate_id_collision_handling(self):
+        """Test collision handling with numeric suffixes."""
+        used_ids = set()
+        id1 = generate_id_from_title("Test", used_ids)
+        id2 = generate_id_from_title("Test", used_ids)
+        id3 = generate_id_from_title("Test", used_ids)
         
-        # After normalization, these might be similar but hash makes them unique
-        assert len({id1, id2, id3}) > 1  # At least some are different
+        assert id1 == "test"
+        assert id2 == "test-2"
+        assert id3 == "test-3"
+        assert len(used_ids) == 3
 
 
 class TestSignalDerivation:

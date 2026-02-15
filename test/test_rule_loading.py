@@ -114,7 +114,8 @@ def test_loads_override_rules_json_path():
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
-        assert "override_rule" in handler.rule_engine.rules[0]["id"].lower()
+        # V3 rules auto-generate ID from title (human-readable slug)
+        assert handler.rule_engine.rules[0]["id"] == "override-rule"
         print("[OK] Override rules_path loading passed")
 
 

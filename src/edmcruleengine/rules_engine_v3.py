@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from . import plugin_logger
 from .signal_derivation import SignalDerivation
@@ -264,11 +264,12 @@ class V3RuleEngine:
         validator = V3RuleValidator(catalog)
         self.rules = []
         self.skipped_rules = []  # Track rules that failed validation
+        used_ids: Set[str] = set()
         
         for i, rule in enumerate(rules):
             try:
                 validator.validate_rule(rule, i)
-                normalized = self._normalize_rule(rule)
+                normalized = self._normalize_rule(rule, used_ids)
                 self.rules.append(normalized)
             except RuleValidationError as e:
                 logger.error(f"Rule validation failed: {e}")
@@ -281,11 +282,11 @@ class V3RuleEngine:
         # Key: (commander, is_beta, rule_id)
         self._prev_match_state: Dict[Tuple[str, bool, str], bool] = {}
     
-    def _normalize_rule(self, rule: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_rule(self, rule: Dict[str, Any], used_ids: Set[str]) -> Dict[str, Any]:
         """
         Normalize a rule to standard format.
         
-        - Generate ID if missing
+        - Generate ID if missing (using human-readable slugs)
         - Set default values for optional fields
         - Ensure consistent structure
         """
@@ -294,7 +295,10 @@ class V3RuleEngine:
         # Generate ID from title if missing
         if "id" not in normalized or not normalized["id"]:
             title = normalized["title"]
-            normalized["id"] = generate_id_from_title(title)
+            normalized["id"] = generate_id_from_title(title, used_ids)
+        else:
+            # User provided ID - add to used set
+            used_ids.add(normalized["id"])
         
         # Set defaults
         if "enabled" not in normalized:
