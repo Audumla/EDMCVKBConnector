@@ -99,12 +99,17 @@ Full schema and examples for manual JSON editing:
 
 ## Documentation
 
+### User Guides
 - [Visual Rule Editor Guide](docs/VISUAL_RULE_EDITOR.md) - **NEW**: User-friendly rule editor
 - [Deployment Guide](docs/DEPLOYMENT.md)
 - [VKB-Link Setup](docs/REAL_SERVER_SETUP.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Protocol Implementation](docs/PROTOCOL_IMPLEMENTATION.md)
 - [Rules Schema](docs/RULES_SCHEMA.md)
+
+### Technical Documentation
+- [Architecture](docs/ARCHITECTURE.md)
+- [Architecture Decisions](docs/ARCHITECTURE_DECISIONS.md) - Design rationale and tradeoffs
+- [V3 Implementation Review](docs/V3_IMPLEMENTATION_REVIEW.md) - Analysis of implementation approaches
+- [Protocol Implementation](docs/PROTOCOL_IMPLEMENTATION.md)
 - [Standards Compliance](docs/STANDARDS_COMPLIANCE.md)
 
 ## Development
