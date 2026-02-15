@@ -6,26 +6,72 @@ This document provides a quick executive summary of the v3 implementation review
 
 ---
 
-## Key Finding
+## Key Finding - CORRECTED
 
-**The branches mentioned in the problem statement (`feature/v3-catalog-migration` and `copilot/upgrade-catalog-and-migration`) do not currently exist in the repository.**
+**FACTUAL CORRECTION**: The branches mentioned in the problem statement (`feature/v3-catalog-migration` and `copilot/upgrade-catalog-and-migration`) **DO exist in the repository**. The initial assessment incorrectly stated they did not exist.
 
-The analysis compares the described "better" and "worse" approaches against the **current implementation** to determine if the proposed improvements would add value.
+Both branches contain:
+- `signals_catalog.py` - Catalog-backed signal definitions
+- Modified rule engines that work with catalog signals
+- Derivation and validation pipelines
+
+This document has been updated to reflect the actual existence of these branches and provide an accurate comparison.
 
 ---
 
 ## Are the Comments Factual?
 
-| Claim | Factual? | Action Needed |
-|-------|----------|---------------|
-| "feature/v3-catalog-migration is catalog-backed end-to-end" | N/A - Feature doesn't exist | ⚠️ Could add if users request |
-| "Rule engine for catalog-backed signals" | N/A - Not current design | ❌ Not recommended (lazy-loading better) |
-| "Real catalog derivation + validation pipeline" | N/A - Feature doesn't exist | ✅ Potentially valuable if needed |
-| "Dashboard path fallback" | N/A - Not needed yet | ⚠️ Monitor for EDMC changes |
-| "Hides flags behind mapping" | Not current design | ⚠️ Only if semantic naming desired |
-| "copilot branch has malformed import" | Cannot verify | N/A - Branch doesn't exist |
+**NOTE**: Initial review incorrectly stated branches didn't exist. This table is updated to reflect that both branches DO exist and can be evaluated.
+
+| Claim | Factual? | Assessment |
+|-------|----------|------------|
+| "feature/v3-catalog-migration is catalog-backed end-to-end" | ✅ **YES - Branch exists with catalog implementation** | Can be evaluated by reviewing branch |
+| "Rule engine for catalog-backed signals" | ✅ **YES - Both branches have this** | feature/v3 appears more complete |
+| "Real catalog derivation + validation pipeline" | ✅ **YES - Implemented in feature/v3** | Includes path, flag, map derivation |
+| "Dashboard path fallback" | ✅ **YES - feature/v3 has `_get_path_with_dashboard_fallback`** | Handles flat vs nested Status |
+| "Hides flags behind mapping" | ✅ **YES - Catalog provides semantic layer** | Signals abstracted from raw flags |
+| "copilot branch has malformed import" | ❌ **NO - Import is correct** | Uses `from . import plugin_logger` (valid) |
 | **"'Minimal constants' comment in rules_engine.py"** | ✅ **YES - Factual and fixed** | ✅ **FIXED in this PR** |
-| "Centered on flags matching" | ✅ YES - By design | ✅ This is correct and intentional |
+| "Centered on flags matching" | ✅ **YES - Current main branch design** | ✅ This is correct for main branch |
+
+---
+
+## Critical Architectural Decision Required
+
+### The Core Question: Flags-First vs. Semantic-Signals Approach
+
+**Current main branch**: Rules reference raw flags directly (`FlagsLanded`, `Flags2OnFoot`, etc.)
+- ✅ Simple and transparent
+- ✅ Direct bitmask performance
+- ❌ Exposes EDMC internals to users
+- ❌ No semantic abstraction
+
+**feature/v3-catalog-migration branch**: Rules reference semantic signals from catalog
+- ✅ Semantic naming (`landed`, `on_foot` vs raw flags)
+- ✅ Signals catalog provides abstraction layer
+- ✅ Includes derivation pipeline
+- ✅ Dashboard path fallback for compatibility
+- ⚠️ More complex architecture
+- ⚠️ Requires catalog maintenance
+
+### Recommendation: Explicit Decision Needed
+
+**This decision determines the entire UX strategy:**
+
+**Option A: Keep Flags-First (Current Main)**
+- Rules continue to use `FlagsLanded`, `Flags2OnFoot`, etc.
+- Visual editor exposes all raw flags
+- Documentation references EDMC Status.json directly
+- Simple, performant, transparent to EDMC structure
+
+**Option B: Adopt Semantic-Signals (feature/v3 branch)**
+- Rules use semantic names like `landed`, `on_foot`
+- Catalog provides abstraction from EDMC internals
+- Enables signal derivation (combine multiple flags)
+- Insulates users from EDMC format changes
+- Requires migration of existing rules
+
+**Current Status**: Main branch is flags-first. If the goal is to provide semantic signals (as original comments suggest), then the feature/v3 branch should be evaluated for merge. If flags-first is the intended UX, then the current approach is correct and feature/v3 can be archived.
 
 ---
 
@@ -62,7 +108,7 @@ Provides detailed:
 - Pros/cons assessment for each proposed feature
 - Specific recommendations
 
-**Key Takeaway**: Current implementation is solid. Proposed "catalog-backed" approach would add complexity without clear immediate benefit.
+**Key Takeaway - CORRECTED**: Current main branch uses flags-first approach. The feature/v3-catalog-migration branch implements a complete catalog-backed system with semantic signals, derivation, and dashboard fallbacks. **Both approaches are valid** - the choice depends on the desired UX strategy.
 
 ---
 
@@ -189,25 +235,32 @@ Documents why current design was chosen:
 
 ---
 
-## Recommendations
+## Recommendations - UPDATED
 
 ### Immediate Actions (Completed ✅)
 
 1. ✅ Updated "Minimal constants" comment → Fixed misleading documentation
-2. ✅ Created V3_IMPLEMENTATION_REVIEW.md → Comprehensive analysis
-3. ✅ Created ARCHITECTURE_DECISIONS.md → Documented design rationale
+2. ✅ Created comprehensive analysis documents
+3. ✅ **CORRECTED factual error**: Branches DO exist, claims about them are mostly accurate
+4. ✅ Added explicit architectural decision framework (flags-first vs semantic-signals)
 
-### Future Considerations (Only if needed ⚠️)
+### Critical Decision Required 🔴
 
-1. ⚠️ **Add signal derivation** - IF users request reusable signals
-2. ⚠️ **Add dashboard fallback** - IF EDMC changes Status.json format
-3. ⚠️ **Add semantic naming** - IF users want "combat_ready" vs raw flags
+**Choose architectural direction:**
 
-### Do NOT Implement ❌
+**Option A: Stay with Flags-First (Current Main)**
+- Keep current implementation as-is
+- Rules continue to reference raw EDMC flags
+- Archive or close feature/v3-catalog-migration branch
+- Update all documentation to reflect flags-first as the intended UX
 
-1. ❌ Full catalog-backed rewrite - Too much complexity for unclear benefit
-2. ❌ Replace lazy-loading - Current approach is optimal
-3. ❌ Force rule migration - Backward compatibility essential
+**Option B: Adopt Semantic-Signals (feature/v3)**
+- Evaluate and potentially merge feature/v3-catalog-migration
+- Migrate existing rules to catalog-backed format
+- Update visual editor to use catalog signals
+- Provides abstraction layer and semantic naming
+
+**Recommendation**: Make explicit choice based on UX goals. **If semantic signals are desired** (as original comments suggest), then feature/v3 branch should be seriously evaluated, not dismissed.
 
 ---
 
@@ -229,25 +282,47 @@ Documents why current design was chosen:
 
 ---
 
-## Conclusion
+## Conclusion - CORRECTED
 
-**The comments comparing implementations contain one factual issue** (the "Minimal constants" comment) **which has been fixed.**
+**FACTUAL CORRECTION**: The initial review incorrectly stated that the branches `feature/v3-catalog-migration` and `copilot/upgrade-catalog-and-migration` do not exist. **They DO exist** and contain working implementations of catalog-backed signal systems.
 
-**The current implementation is solid and complete.** The proposed "catalog-backed" approach would add complexity without clear immediate benefit.
+**Corrected Assessment**:
 
-**Recommendation**: Keep current implementation. Add optional signal derivation layer ONLY if users request it.
+1. **"Minimal constants" comment** - ✅ Fixed (was factually outdated)
+2. **Branches exist** - ✅ Verified (both branches present in repository)
+3. **Catalog-backed implementations** - ✅ Confirmed (feature/v3 has complete implementation)
+4. **"Malformed import" claim** - ❌ Incorrect (imports are valid in copilot branch)
+
+**Current main branch**: Uses flags-first approach (rules reference raw EDMC flags)
+- ✅ Simple, transparent, performant
+- ❌ No semantic abstraction, exposes EDMC internals
+
+**feature/v3-catalog-migration branch**: Uses semantic-signals approach (catalog-backed)
+- ✅ Semantic naming, signal derivation, dashboard fallback
+- ✅ Abstracts EDMC internals from rules
+- ⚠️ More complex, requires rule migration
+
+**Key Decision**: The conclusion "❌ not recommended" for catalog-backed approach is only valid IF the goal is flags-first UX. If the goal is semantic signals (hide flags behind friendly names), then feature/v3 should be evaluated for adoption, not dismissed.
+
+**Recommendation**: Explicitly decide between flags-first vs semantic-signals as the UX strategy, then align all implementation and documentation accordingly.
 
 ---
 
-## Next Steps
+## Next Steps - UPDATED
 
-1. ✅ Merge this PR (documentation + comment fix)
-2. ⚠️ Monitor for user feedback about:
-   - Difficulty with complex rules
-   - Desire for semantic signals
-   - Need for signal reuse
-3. ⚠️ Consider catalog layer IF multiple users request it
-4. ✅ Continue monitoring EDMC releases for format changes
+1. ✅ **Corrected documentation** - Fixed factual error about branch existence
+2. 🔴 **CRITICAL: Make architectural decision**
+   - **If flags-first**: Document as intended UX, close/archive feature/v3 branches
+   - **If semantic-signals**: Evaluate feature/v3-catalog-migration for merge
+3. ⚠️ **If adopting feature/v3**:
+   - Review branch implementation in detail
+   - Plan rule migration strategy
+   - Update visual editor for catalog signals
+   - Test thoroughly before merge
+4. ⚠️ **If staying flags-first**:
+   - Update all docs to confirm this is the intended UX
+   - Explain rationale (simplicity, performance, transparency)
+   - Archive feature/v3 branches with explanation
 
 ---
 
