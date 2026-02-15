@@ -644,7 +644,7 @@ class RuleEditorDialog:
                 # Try to parse value as JSON
                 try:
                     value = json.loads(value_str)
-                except:
+                except (json.JSONDecodeError, ValueError, TypeError):
                     value = value_str
                     
                 field_block = {"name": field_name}

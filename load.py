@@ -761,7 +761,15 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             from edmcruleengine.rule_editor_ui import RuleEditorDialog, load_events_config
             from edmcruleengine.rules_engine import FLAGS, FLAGS2, GUI_FOCUS_NAME_TO_VALUE
             
-            events_config = load_events_config(_plugin_dir if _plugin_dir else Path.cwd())
+            # Determine plugin directory for events config
+            if _plugin_dir:
+                plugin_dir = Path(_plugin_dir)
+            else:
+                # Fallback: try to determine from this file's location
+                plugin_dir = Path(__file__).parent
+                logger.warning(f"Plugin dir not set, using file parent: {plugin_dir}")
+            
+            events_config = load_events_config(plugin_dir)
             
             rule = rules_state["rules"][idx]
             dialog = RuleEditorDialog(frame, rule, events_config, FLAGS, FLAGS2, GUI_FOCUS_NAME_TO_VALUE)
