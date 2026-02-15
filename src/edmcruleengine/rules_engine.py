@@ -1,19 +1,20 @@
-"""
-Rule engine for matching EDMC dashboard/status data.
-
-Rules are loaded from JSON in the plugin directory and matched against
-decoded Flags/Flags2/GuiFocus values.
-"""
+"""Rule engine for catalog-backed signal rules."""
 
 from __future__ import annotations
 
+import re
 from collections import OrderedDict
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-# ---- Minimal constants (expand as needed) ----
+from . import plugin_logger
+from .signals_catalog import derive_signal_values, validate_condition
 
+logger = plugin_logger(__name__)
+
+
+# Backward-compatible constants still used by the legacy visual editor.
 FLAGS: Dict[str, int] = {
     "FlagsDocked": (1 << 0),
     "FlagsLanded": (1 << 1),
@@ -87,271 +88,42 @@ GUI_FOCUS: Dict[int, str] = {
 GUI_FOCUS_NAME_TO_VALUE: Dict[str, int] = {v: k for k, v in GUI_FOCUS.items()}
 
 
-def _bit_is_set(value: int, bit: int) -> bool:
-    return bool(value & bit)
-
-
-class _LazyFlagDict(dict):
-    """
-    Lazy-loading dictionary for flag boolean values.
-    
-    Decodes flags only when accessed, not all at once during initialization.
-    This optimization reduces memory usage and CPU time for large flag sets.
-    """
-    def __init__(self, flags_bits: int, flag_map: Dict[str, int]):
-        super().__init__()
-        self._flags_bits = flags_bits
-        self._flag_map = flag_map
-        self._cached: Dict[str, bool] = {}
-
-    def __getitem__(self, key: str) -> bool:
-        if key not in self._cached:
-            if key not in self._flag_map:
-                raise KeyError(key)
-            self._cached[key] = _bit_is_set(self._flags_bits, self._flag_map[key])
-        return self._cached[key]
-
-    def __contains__(self, key: object) -> bool:
-        return key in self._flag_map
-
-    def get(self, key: str, default: Any = None) -> Any:
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def items(self):
-        """Force full evaluation for iteration."""
-        for key in self._flag_map:
-            if key not in self._cached:
-                self._cached[key] = _bit_is_set(self._flags_bits, self._flag_map[key])
-        return self._cached.items()
-
-    def keys(self):
-        return self._flag_map.keys()
-
-    def values(self):
-        """Force full evaluation for iteration."""
-        for key in self._flag_map:
-            if key not in self._cached:
-                self._cached[key] = _bit_is_set(self._flags_bits, self._flag_map[key])
-        return self._cached.values()
-
-
-def decode_dashboard(entry: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Returns a normalized view with lazy-loaded flags:
-      - flags_bits, flags2_bits (raw integer values)
-      - flags_bool, flags2_bool (lazy-loading dicts)
-      - gui_focus_value (int), gui_focus_name (str)
-      
-    Optimization #14: Flags are only decoded when accessed, not all at once.
-    """
-    flags_bits = int(entry.get("Flags") or 0)
-    flags2_bits = int(entry.get("Flags2") or 0)
-    gui_val = int(entry.get("GuiFocus") or 0)
-
-    return {
-        "flags_bits": flags_bits,
-        "flags2_bits": flags2_bits,
-        "flags_bool": _LazyFlagDict(flags_bits, FLAGS),
-        "flags2_bool": _LazyFlagDict(flags2_bits, FLAGS2),
-        "gui_focus_value": gui_val,
-        "gui_focus_name": GUI_FOCUS.get(gui_val, f"UnknownGuiFocus({gui_val})"),
-        "raw": entry,
-    }
-
-
-import re
+_SHIFT_TOKEN_PATTERN = re.compile(r"^(Shift[1-2]|Subshift[1-7])$")
 
 
 class RuleMatchError(Exception):
-    pass
-
-
-class MissingDataError(RuleMatchError):
-    pass
+    """Raised for invalid rules that cannot be evaluated."""
 
 
 class RuleMatchResult(str, Enum):
     MATCH = "match"
     NO_MATCH = "no_match"
-    INDETERMINATE = "indeterminate"
-    SKIPPED = "skipped"  # Rule does not apply (source/event filter mismatch)
+    STABLE = "stable"
 
 
-def _require_fields(entry: Dict[str, Any], fields: Iterable[str]) -> bool:
-    return all(field in entry for field in fields)
+@dataclass
+class MatchResult:
+    rule_id: str
+    rule_title: str
+    source: str
+    event_type: str
+    actions: List[Dict[str, Any]]
+    signal_values: Dict[str, Any]
+    outcome: RuleMatchResult
 
 
-def _get_field(entry: Dict[str, Any], path: str) -> Tuple[bool, Any]:
-    current: Any = entry
-    for part in path.split("."):
-        if not isinstance(current, dict) or part not in current:
-            return False, None
-        current = current[part]
-    return True, current
-
-
-def _match_flags_block(
-    decoded: Dict[str, Any],
-    *,
-    which: str,
-    block: Dict[str, Any],
-    prev_decoded: Optional[Dict[str, Any]] = None,
-) -> bool:
-    current = decoded[which]
-
-    def require_known(names: Iterable[str], valid: Dict[str, int]) -> None:
-        unknown = [n for n in names if n not in valid]
-        if unknown:
-            raise RuleMatchError(f"Unknown flag(s) in {which}: {unknown}")
-
-    all_of = block.get("all_of")
-    if all_of is not None:
-        require_known(all_of, FLAGS if which == "flags_bool" else FLAGS2)
-        if not all(current[n] for n in all_of):
-            return False
-
-    any_of = block.get("any_of")
-    if any_of is not None:
-        require_known(any_of, FLAGS if which == "flags_bool" else FLAGS2)
-        if not any(current[n] for n in any_of):
-            return False
-
-    none_of = block.get("none_of")
-    if none_of is not None:
-        require_known(none_of, FLAGS if which == "flags_bool" else FLAGS2)
-        if any(current[n] for n in none_of):
-            return False
-
-    equals = block.get("equals")
-    if equals is not None:
-        require_known(equals.keys(), FLAGS if which == "flags_bool" else FLAGS2)
-        for name, val in equals.items():
-            if bool(current[name]) != bool(val):
-                return False
-
-    if "changed_to_true" in block or "changed_to_false" in block:
-        if prev_decoded is None:
-            return False
-
-        prev = prev_decoded[which]
-        changed_to_true = block.get("changed_to_true") or []
-        changed_to_false = block.get("changed_to_false") or []
-        require_known(changed_to_true, FLAGS if which == "flags_bool" else FLAGS2)
-        require_known(changed_to_false, FLAGS if which == "flags_bool" else FLAGS2)
-
-        for n in changed_to_true:
-            if not (prev.get(n) is False and current.get(n) is True):
-                return False
-        for n in changed_to_false:
-            if not (prev.get(n) is True and current.get(n) is False):
-                return False
-
-    return True
-
-
-def _match_gui_focus_block(
-    decoded: Dict[str, Any],
-    block: Dict[str, Any],
-    prev_decoded: Optional[Dict[str, Any]] = None,
-) -> bool:
-    cur_val = decoded["gui_focus_value"]
-
-    def to_val(v: Any) -> int:
-        if isinstance(v, int):
-            return v
-        if isinstance(v, str):
-            if v.startswith("UnknownGuiFocus("):
-                raise RuleMatchError("Cannot match UnknownGuiFocus string directly; use int.")
-            if v not in GUI_FOCUS_NAME_TO_VALUE:
-                raise RuleMatchError(f"Unknown GuiFocus name: {v}")
-            return GUI_FOCUS_NAME_TO_VALUE[v]
-        raise RuleMatchError(f"Invalid GuiFocus value type: {type(v)}")
-
-    if "equals" in block:
-        if cur_val != to_val(block["equals"]):
-            return False
-
-    if "in" in block:
-        wanted = [to_val(x) for x in block["in"]]
-        if cur_val not in wanted:
-            return False
-
-    if "changed_to" in block:
-        if prev_decoded is None:
-            return False
-        prev_val = prev_decoded["gui_focus_value"]
-        target = to_val(block["changed_to"])
-        if not (prev_val != target and cur_val == target):
-            return False
-
-    return True
-
-
-def _match_field_block(
-    entry: Dict[str, Any],
-    block: Dict[str, Any],
-    prev_entry: Optional[Dict[str, Any]] = None,
-) -> bool:
-    name = block.get("name")
-    if not isinstance(name, str) or not name:
-        raise RuleMatchError("field block requires non-empty string 'name'")
-
-    exists, value = _get_field(entry, name)
-    expected_exists = block.get("exists")
-    if expected_exists is not None and bool(exists) != bool(expected_exists):
-        return False
-
-    # If field does not exist and no explicit exists=false handling matched above,
-    # this rule is indeterminate for operators that need a concrete value.
-    if not exists:
-        if expected_exists is False:
-            return True
-        raise MissingDataError(f"Missing field '{name}'")
-
-    if "equals" in block and value != block["equals"]:
-        return False
-    if "in" in block and value not in block["in"]:
-        return False
-    if "not_in" in block and value in block["not_in"]:
-        return False
-    if "contains" in block:
-        target = block["contains"]
-        if isinstance(value, (str, list, tuple, set)):
-            if target not in value:
-                return False
-        elif isinstance(value, dict):
-            if target not in value.keys():
-                return False
-        else:
-            return False
-    if "gt" in block and not (value > block["gt"]):
-        return False
-    if "gte" in block and not (value >= block["gte"]):
-        return False
-    if "lt" in block and not (value < block["lt"]):
-        return False
-    if "lte" in block and not (value <= block["lte"]):
-        return False
-
-    if "changed" in block:
-        if prev_entry is None:
-            return False
-        prev_exists, prev_value = _get_field(prev_entry, name)
-        changed = prev_exists != exists or prev_value != value
-        if bool(changed) != bool(block["changed"]):
-            return False
-
-    if "changed_to" in block:
-        if prev_entry is None:
-            return False
-        _, prev_value = _get_field(prev_entry, name)
-        if prev_value == block["changed_to"] or value != block["changed_to"]:
-            return False
-
-    return True
+def decode_dashboard(entry: Dict[str, Any]) -> Dict[str, Any]:
+    """Backward-compatible helper used by older tests."""
+    flags_bits = int(entry.get("Flags") or 0)
+    flags2_bits = int(entry.get("Flags2") or 0)
+    gui_val = int(entry.get("GuiFocus") or 0)
+    return {
+        "flags_bits": flags_bits,
+        "flags2_bits": flags2_bits,
+        "gui_focus_value": gui_val,
+        "gui_focus_name": GUI_FOCUS.get(gui_val, f"UnknownGuiFocus({gui_val})"),
+        "raw": entry,
+    }
 
 
 def rule_evaluate(
@@ -360,113 +132,236 @@ def rule_evaluate(
     source: str,
     event_type: str,
     entry: Dict[str, Any],
-    decoded: Dict[str, Any],
+    decoded: Optional[Dict[str, Any]] = None,
     prev_decoded: Optional[Dict[str, Any]] = None,
 ) -> RuleMatchResult:
-    if not rule.get("enabled", True):
+    """
+    Backward-compatible function signature.
+    Returns MATCH only when the normalized v3 rule conditions are true.
+    """
+    del source, event_type, decoded, prev_decoded  # v3 rules are source/event agnostic.
+    when = rule.get("when") or {"all": []}
+    all_conditions = when.get("all") if isinstance(when, dict) else []
+    any_conditions = when.get("any") if isinstance(when, dict) else []
+    if not all_conditions and not any_conditions:
+        return RuleMatchResult.MATCH
+
+    signal_values = entry.get("signals")
+    if not isinstance(signal_values, dict):
         return RuleMatchResult.NO_MATCH
 
-    when = rule.get("when") or {}
-    source_filter = when.get("source")
-    if source_filter and source_filter != "any":
-        if isinstance(source_filter, str):
-            if source_filter != source:
-                return RuleMatchResult.SKIPPED
-        elif isinstance(source_filter, list):
-            if source not in source_filter:
-                return RuleMatchResult.SKIPPED
-        else:
-            return RuleMatchResult.SKIPPED
+    all_match = all(_eval_condition(c, signal_values) for c in all_conditions or [])
+    any_match = True if not any_conditions else any(_eval_condition(c, signal_values) for c in any_conditions)
+    return RuleMatchResult.MATCH if (all_match and any_match) else RuleMatchResult.NO_MATCH
 
-    event_filter = when.get("event")
-    if event_filter:
-        if isinstance(event_filter, str):
-            if event_filter != event_type:
-                return RuleMatchResult.SKIPPED
-        elif isinstance(event_filter, list):
-            if event_type not in event_filter:
-                return RuleMatchResult.SKIPPED
-        else:
-            return RuleMatchResult.SKIPPED
 
-    all_blocks: List[Dict[str, Any]] = when.get("all") or []
-    any_blocks: List[Dict[str, Any]] = when.get("any") or []
+def parse_rules_payload(payload: Any) -> List[Dict[str, Any]]:
+    """Support both top-level list and wrapped object forms."""
+    if isinstance(payload, list):
+        rules = payload
+    elif isinstance(payload, dict) and isinstance(payload.get("rules"), list):
+        rules = payload["rules"]
+    else:
+        raise ValueError("Rules file must be a list or an object with a 'rules' list")
 
-    def match_block(b: Dict[str, Any]) -> bool:
-        if "flags" in b:
-            return _match_flags_block(decoded, which="flags_bool", block=b["flags"], prev_decoded=prev_decoded)
-        if "flags2" in b:
-            return _match_flags_block(decoded, which="flags2_bool", block=b["flags2"], prev_decoded=prev_decoded)
-        if "gui_focus" in b:
-            return _match_gui_focus_block(decoded, block=b["gui_focus"], prev_decoded=prev_decoded)
-        if "field" in b:
-            prev_entry = prev_decoded["raw"] if prev_decoded else None
-            return _match_field_block(entry, block=b["field"], prev_entry=prev_entry)
-        raise RuleMatchError(f"Unknown match block: {b}")
+    if not all(isinstance(r, dict) for r in rules):
+        raise ValueError("Rules list must contain only objects")
+    return [dict(r) for r in rules]
 
-    for b in all_blocks:
+
+def normalize_and_validate_rules(rules: List[Dict[str, Any]], catalog: Dict[str, Any]) -> List[Dict[str, Any]]:
+    used_ids: set[str] = set()
+    normalized: List[Dict[str, Any]] = []
+
+    for idx, rule in enumerate(rules):
+        nrule = _normalize_rule(rule, idx, used_ids)
+        _validate_rule(nrule, catalog)
+        normalized.append(nrule)
+    return normalized
+
+
+def _slugify(text: str) -> str:
+    value = re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+    return value or "rule"
+
+
+def _allocate_rule_id(base: str, used_ids: set[str]) -> str:
+    candidate = base
+    suffix = 2
+    while candidate in used_ids:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used_ids.add(candidate)
+    return candidate
+
+
+def _normalize_rule(rule: Dict[str, Any], idx: int, used_ids: set[str]) -> Dict[str, Any]:
+    title = rule.get("title")
+    if not isinstance(title, str) or not title.strip():
+        raise ValueError(f"Rule[{idx}]: 'title' is required and must be a non-empty string")
+
+    rule_id = rule.get("id")
+    if rule_id is None:
+        rule_id = _allocate_rule_id(_slugify(title), used_ids)
+    else:
+        rule_id = str(rule_id).strip()
+        if not rule_id:
+            raise ValueError(f"Rule[{idx}] '{title}': 'id' must not be empty when provided")
+        if rule_id in used_ids:
+            raise ValueError(f"Rule[{idx}] '{title}': duplicate rule id '{rule_id}'")
+        used_ids.add(rule_id)
+
+    enabled = bool(rule.get("enabled", True))
+
+    when = rule.get("when")
+    if when is None:
+        when = {"all": []}
+    if not isinstance(when, dict):
+        raise ValueError(f"Rule '{rule_id}': 'when' must be an object")
+    all_conditions = when.get("all", [])
+    any_conditions = when.get("any", [])
+    if not isinstance(all_conditions, list) or not isinstance(any_conditions, list):
+        raise ValueError(f"Rule '{rule_id}': 'when.all' and 'when.any' must be arrays")
+
+    then_actions = _normalize_actions(rule.get("then", []), rule_id=rule_id, branch="then")
+    else_actions = _normalize_actions(rule.get("else", []), rule_id=rule_id, branch="else")
+
+    return {
+        "id": rule_id,
+        "title": title.strip(),
+        "enabled": enabled,
+        "when": {"all": all_conditions, "any": any_conditions},
+        "then": then_actions,
+        "else": else_actions,
+    }
+
+
+def _normalize_actions(raw: Any, *, rule_id: str, branch: str) -> List[Dict[str, Any]]:
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        actions = raw
+    elif isinstance(raw, dict):
+        # Legacy dict actions are converted to deterministic ordered action objects.
+        actions = [{k: v} for k, v in raw.items()]
+    else:
+        raise ValueError(f"Rule '{rule_id}': '{branch}' must be an array of action objects")
+
+    normalized: List[Dict[str, Any]] = []
+    for i, action in enumerate(actions):
+        if not isinstance(action, dict):
+            raise ValueError(f"Rule '{rule_id}': {branch}[{i}] must be an object")
+        normalized.append(_normalize_action(action, rule_id=rule_id, branch=branch, idx=i))
+    return normalized
+
+
+def _normalize_action(action: Dict[str, Any], *, rule_id: str, branch: str, idx: int) -> Dict[str, Any]:
+    if "type" in action:
+        action_type = str(action["type"])
+        if action_type == "log":
+            message = action.get("message", "")
+            return {"type": "log", "message": str(message)}
+        if action_type in {"vkb_set_shift", "vkb_clear_shift"}:
+            tokens = action.get("tokens", [])
+            if not isinstance(tokens, list) or not all(isinstance(t, str) for t in tokens):
+                raise ValueError(f"Rule '{rule_id}': {branch}[{idx}] {action_type} requires string array tokens")
+            _validate_shift_tokens(tokens, rule_id=rule_id, branch=branch, idx=idx)
+            return {"type": action_type, "tokens": list(tokens)}
+        raise ValueError(f"Rule '{rule_id}': {branch}[{idx}] unknown action type '{action_type}'")
+
+    if "log" in action:
+        return {"type": "log", "message": str(action.get("log", ""))}
+    if "vkb_set_shift" in action:
+        tokens = action.get("vkb_set_shift")
+        if not isinstance(tokens, list) or not all(isinstance(t, str) for t in tokens):
+            raise ValueError(f"Rule '{rule_id}': {branch}[{idx}] vkb_set_shift must be string array")
+        _validate_shift_tokens(tokens, rule_id=rule_id, branch=branch, idx=idx)
+        return {"type": "vkb_set_shift", "tokens": list(tokens)}
+    if "vkb_clear_shift" in action:
+        tokens = action.get("vkb_clear_shift")
+        if not isinstance(tokens, list) or not all(isinstance(t, str) for t in tokens):
+            raise ValueError(f"Rule '{rule_id}': {branch}[{idx}] vkb_clear_shift must be string array")
+        _validate_shift_tokens(tokens, rule_id=rule_id, branch=branch, idx=idx)
+        return {"type": "vkb_clear_shift", "tokens": list(tokens)}
+
+    raise ValueError(f"Rule '{rule_id}': {branch}[{idx}] has no supported action fields")
+
+
+def _validate_shift_tokens(tokens: List[str], *, rule_id: str, branch: str, idx: int) -> None:
+    for token in tokens:
+        if not _SHIFT_TOKEN_PATTERN.fullmatch(token):
+            raise ValueError(
+                f"Rule '{rule_id}': {branch}[{idx}] invalid shift token '{token}' "
+                "(expected Shift1/Shift2/Subshift1..Subshift7)"
+            )
+
+
+def _validate_rule(rule: Dict[str, Any], catalog: Dict[str, Any]) -> None:
+    rule_id = rule["id"]
+    when = rule["when"]
+    for i, condition in enumerate(when.get("all", [])):
         try:
-            if not match_block(b):
-                return RuleMatchResult.NO_MATCH
-        except MissingDataError:
-            return RuleMatchResult.INDETERMINATE
-
-    if any_blocks:
-        any_true = False
-        any_indeterminate = False
-        for b in any_blocks:
-            try:
-                if match_block(b):
-                    any_true = True
-                    break
-            except MissingDataError:
-                any_indeterminate = True
-
-        if not any_true and any_indeterminate:
-            return RuleMatchResult.INDETERMINATE
-        if not any_true:
-            return RuleMatchResult.NO_MATCH
-
-    return RuleMatchResult.MATCH
+            validate_condition(condition, catalog, rule_id=rule_id)
+        except ValueError as exc:
+            raise ValueError(f"Rule '{rule_id}' when.all[{i}]: {exc}") from exc
+    for i, condition in enumerate(when.get("any", [])):
+        try:
+            validate_condition(condition, catalog, rule_id=rule_id)
+        except ValueError as exc:
+            raise ValueError(f"Rule '{rule_id}' when.any[{i}]: {exc}") from exc
 
 
-@dataclass
-class MatchResult:
-    rule_id: str
-    source: str
-    event_type: str
-    then: Dict[str, Any]
-    otherwise: Dict[str, Any]
-    decoded: Dict[str, Any]
-    outcome: RuleMatchResult
+def _eval_condition(condition: Dict[str, Any], signal_values: Dict[str, Any]) -> bool:
+    signal = condition.get("signal")
+    op = condition.get("op")
+    value = signal_values.get(signal)
+    target = condition.get("value")
+
+    if op == "exists":
+        expected = condition.get("value", True)
+        return bool(value is not None) is bool(expected)
+    if op == "eq":
+        return value == target
+    if op == "ne":
+        return value != target
+    if op == "in":
+        return value in (target or [])
+    if op == "nin":
+        return value not in (target or [])
+    if op == "lt":
+        return value < target
+    if op == "lte":
+        return value <= target
+    if op == "gt":
+        return value > target
+    if op == "gte":
+        return value >= target
+    if op == "contains":
+        if isinstance(value, (str, list, tuple, set)):
+            return target in value
+        if isinstance(value, dict):
+            return target in value.keys()
+        return False
+    return False
 
 
 class DashboardRuleEngine:
-    # Maximum number of commander/beta combinations to track to prevent memory leaks
+    """Evaluates rules against catalog-derived signal values with edge triggering."""
+
     MAX_CACHE_SIZE = 64
 
     def __init__(
         self,
         rules: List[Dict[str, Any]],
         *,
+        catalog: Dict[str, Any],
         action_handler: Callable[[MatchResult], None],
     ) -> None:
-        # Validate and sanitize rule IDs
-        for i, rule in enumerate(rules):
-            if "id" not in rule:
-                rule["id"] = f"<rule-{i}>"
-            else:
-                rule_id = rule["id"]
-                # Ensure rule ID is string-like and sanitize it
-                if not isinstance(rule_id, str):
-                    rule["id"] = str(rule_id)
-                # Sanitize: remove control characters
-                rule["id"] = rule["id"].replace("\n", "\\n").replace("\r", "\\r")
-        
-        self.rules = rules
+        self.catalog = catalog
+        self.rules = normalize_and_validate_rules(rules, catalog)
         self.action_handler = action_handler
-        # Use OrderedDict with bounded size to prevent memory leaks from inactive commanders
-        self._prev_by_cmdr_beta: OrderedDict[Tuple[str, bool], Dict[str, Any]] = OrderedDict()
+        self._prev_match_by_cmdr_beta: OrderedDict[Tuple[str, bool], Dict[str, bool]] = OrderedDict()
+        self.catalog_version = int(catalog.get("version", -1))
 
     def on_notification(
         self,
@@ -476,47 +371,58 @@ class DashboardRuleEngine:
         event_type: str,
         entry: Dict[str, Any],
     ) -> None:
-        decoded = decode_dashboard(entry)
-        key = (cmdr, is_beta)
-        prev = self._prev_by_cmdr_beta.get(key)
+        signal_values = derive_signal_values(self.catalog, entry)
 
-        for r in self.rules:
-            try:
-                outcome = rule_evaluate(
-                    r,
-                    source=source,
-                    event_type=event_type,
-                    entry=entry,
-                    decoded=decoded,
-                    prev_decoded=prev,
-                )
+        key = (cmdr or "", bool(is_beta))
+        prev = self._prev_match_by_cmdr_beta.get(key, {})
+        next_state: Dict[str, bool] = dict(prev)
+
+        for rule in self.rules:
+            rule_id = rule["id"]
+            was_matched = bool(prev.get(rule_id, False))
+            is_matched = bool(rule.get("enabled", True) and self._rule_matches(rule, signal_values))
+            next_state[rule_id] = is_matched
+
+            if not was_matched and is_matched:
                 self.action_handler(
                     MatchResult(
-                        rule_id=r.get("id", "<no-id>"),
+                        rule_id=rule_id,
+                        rule_title=rule["title"],
                         source=source,
                         event_type=event_type,
-                        then=r.get("then", {}),
-                        otherwise=r.get("else", {}),
-                        decoded=decoded,
-                        outcome=outcome,
+                        actions=list(rule["then"]),
+                        signal_values=signal_values,
+                        outcome=RuleMatchResult.MATCH,
                     )
                 )
-            except RuleMatchError:
-                pass
+            elif was_matched and not is_matched:
+                self.action_handler(
+                    MatchResult(
+                        rule_id=rule_id,
+                        rule_title=rule["title"],
+                        source=source,
+                        event_type=event_type,
+                        actions=list(rule["else"]),
+                        signal_values=signal_values,
+                        outcome=RuleMatchResult.NO_MATCH,
+                    )
+                )
 
-        # Update the decoded state for this commander/beta combo
-        # Move to end to mark as recently used (for LRU eviction)
-        self._prev_by_cmdr_beta[key] = decoded
-        self._prev_by_cmdr_beta.move_to_end(key)
+        self._prev_match_by_cmdr_beta[key] = next_state
+        self._prev_match_by_cmdr_beta.move_to_end(key)
+        if len(self._prev_match_by_cmdr_beta) > self.MAX_CACHE_SIZE:
+            oldest = next(iter(self._prev_match_by_cmdr_beta))
+            del self._prev_match_by_cmdr_beta[oldest]
 
-        # Evict oldest entry if cache exceeds maximum size
-        if len(self._prev_by_cmdr_beta) > self.MAX_CACHE_SIZE:
-            evicted = next(iter(self._prev_by_cmdr_beta))
-            del self._prev_by_cmdr_beta[evicted]
+    def _rule_matches(self, rule: Dict[str, Any], signal_values: Dict[str, Any]) -> bool:
+        when = rule.get("when", {"all": []})
+        all_conditions = when.get("all", [])
+        any_conditions = when.get("any", [])
+
+        all_match = all(_eval_condition(c, signal_values) for c in all_conditions)
+        any_match = True if not any_conditions else any(_eval_condition(c, signal_values) for c in any_conditions)
+        return all_match and any_match
 
     def on_dashboard_entry(self, cmdr: str, is_beta: bool, entry: Dict[str, Any]) -> None:
-        """
-        Backward-compatible alias for existing callers.
-        """
-        event_type = str(entry.get("event", "Unknown"))
-        self.on_notification(cmdr, is_beta, "dashboard", event_type, entry)
+        event_type = str(entry.get("event", "Status"))
+        self.on_notification(cmdr=cmdr, is_beta=is_beta, source="dashboard", event_type=event_type, entry=entry)

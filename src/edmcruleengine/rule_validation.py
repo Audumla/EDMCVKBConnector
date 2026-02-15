@@ -1,68 +1,46 @@
-"""
-Rule validation utilities for EDMC VKB Connector.
+"""Rule validation utilities for v3 catalog-based rules."""
 
-Provides validation functions for rule structures without requiring UI dependencies.
-"""
+from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
+
+from .rules_engine import normalize_and_validate_rules
 
 
-def validate_rule(rule: Dict[str, Any]) -> Tuple[bool, str]:
+def validate_rule(rule: Dict[str, Any], catalog: Optional[Dict[str, Any]] = None) -> Tuple[bool, str]:
     """
-    Validate a rule structure.
-    
-    Args:
-        rule: Rule dictionary to validate
-        
-    Returns:
-        (is_valid, error_message) tuple
+    Validate a single v3 rule.
+
+    If a catalog is provided, condition values are fully validated against
+    signal/operator definitions. Without a catalog, only structural validation
+    is performed.
     """
-    # Check rule ID
-    rule_id = rule.get("id", "").strip()
-    if not rule_id:
-        return False, "Rule ID cannot be empty"
-    
-    # Check when clause
-    when = rule.get("when")
-    if when and not isinstance(when, dict):
-        return False, "When clause must be a dictionary"
-    
-    if when:
-        # Validate source if present
-        source = when.get("source")
-        if source and not isinstance(source, (str, list)):
-            return False, "Source must be a string or list"
-        
-        # Validate event if present  
-        event = when.get("event")
-        if event and not isinstance(event, (str, list)):
-            return False, "Event must be a string or list"
-        
-        # Validate condition blocks
-        all_blocks = when.get("all", [])
-        any_blocks = when.get("any", [])
-        
-        if not isinstance(all_blocks, list):
-            return False, "ALL blocks must be a list"
-        if not isinstance(any_blocks, list):
-            return False, "ANY blocks must be a list"
-    
-    # Check then/else clauses
-    for action_type in ["then", "else"]:
-        actions = rule.get(action_type)
-        if actions and not isinstance(actions, dict):
-            return False, f"{action_type.capitalize()} clause must be a dictionary"
-        
-        if actions:
-            # Validate shift flag actions
-            for key in ["vkb_set_shift", "vkb_clear_shift"]:
-                flags = actions.get(key)
-                if flags and not isinstance(flags, list):
-                    return False, f"{key} must be a list"
-            
-            # Validate log statement
-            log = actions.get("log")
-            if log is not None and not isinstance(log, str):
-                return False, "Log statement must be a string"
-    
+    if not isinstance(rule, dict):
+        return False, "Rule must be an object"
+
+    if catalog is None:
+        title = rule.get("title")
+        if not isinstance(title, str) or not title.strip():
+            return False, "title is required"
+
+        when = rule.get("when", {"all": []})
+        if not isinstance(when, dict):
+            return False, "when must be an object"
+        if "all" in when and not isinstance(when.get("all"), list):
+            return False, "when.all must be a list"
+        if "any" in when and not isinstance(when.get("any"), list):
+            return False, "when.any must be a list"
+
+        for branch in ("then", "else"):
+            block = rule.get(branch, [])
+            if block is None:
+                continue
+            if not isinstance(block, (list, dict)):
+                return False, f"{branch} must be a list of action objects"
+        return True, ""
+
+    try:
+        normalize_and_validate_rules([rule], catalog)
+    except Exception as exc:
+        return False, str(exc)
     return True, ""

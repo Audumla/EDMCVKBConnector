@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 from . import plugin_logger
 from .config import Config
 from .rules_engine import DashboardRuleEngine, MatchResult, RuleMatchResult
+from .signals_catalog import CatalogError, load_signals_catalog
 from .vkb_client import VKBClient
 
 logger = plugin_logger(__name__)
@@ -63,7 +64,10 @@ class EventHandler:
         self.event_types = config.get("event_types", [])
         self.rule_engine: Optional[DashboardRuleEngine] = None
         self._rules_path: Path = self._resolve_rules_path()
+        self._catalog_path: Path = self._resolve_catalog_path()
         self._rules_mtime_ns: Optional[int] = None
+        self._catalog_mtime_ns: Optional[int] = None
+        self.catalog_version: Optional[int] = None
         self._load_rules()
         self._shift_bitmap = 0
         self._subshift_bitmap = 0
@@ -76,20 +80,59 @@ class EventHandler:
             return Path(override)
         return self.plugin_dir / "rules.json"
 
+    def _resolve_catalog_path(self) -> Path:
+        override = self.config.get("signals_catalog_path", "") or ""
+        if override:
+            return Path(override)
+        return self.plugin_dir / "signals_catalog.json"
+
     def _load_rules(self, *, preserve_on_error: bool = False) -> None:
         rules_path = self._resolve_rules_path()
+        catalog_path = self._resolve_catalog_path()
         self._rules_path = rules_path
+        self._catalog_path = catalog_path
+
+        if not catalog_path.exists():
+            message = f"Signals catalog not found: {catalog_path}"
+            if preserve_on_error and self.rule_engine is not None:
+                logger.warning(f"{message}; keeping previous rules")
+                return
+            logger.error(message)
+            self.rule_engine = None
+            self._rules_mtime_ns = None
+            self._catalog_mtime_ns = None
+            self.catalog_version = None
+            return
 
         if not rules_path.exists():
             logger.info(f"No rules file found at {rules_path}")
             self.rule_engine = None
             self._rules_mtime_ns = None
+            self._catalog_mtime_ns = None
+            self.catalog_version = None
             return
 
         try:
             mtime_ns = rules_path.stat().st_mtime_ns
         except OSError:
             mtime_ns = None
+        try:
+            catalog_mtime_ns = catalog_path.stat().st_mtime_ns
+        except OSError:
+            catalog_mtime_ns = None
+
+        try:
+            catalog = load_signals_catalog(catalog_path)
+        except CatalogError as e:
+            if preserve_on_error and self.rule_engine is not None:
+                logger.warning(f"Failed to reload catalog from {catalog_path}: {e}; keeping previous rules")
+                return
+            logger.error(f"Failed to load signals catalog from {catalog_path}: {e}")
+            self.rule_engine = None
+            self._rules_mtime_ns = None
+            self._catalog_mtime_ns = None
+            self.catalog_version = None
+            return
 
         try:
             with rules_path.open("r", encoding="utf-8") as f:
@@ -111,22 +154,58 @@ class EventHandler:
             self.rule_engine = None
             return
 
-        self.rule_engine = DashboardRuleEngine(rules, action_handler=self._handle_rule_action)
+        try:
+            self.rule_engine = DashboardRuleEngine(
+                rules,
+                catalog=catalog,
+                action_handler=self._handle_rule_action,
+            )
+        except Exception as e:
+            if preserve_on_error and self.rule_engine is not None:
+                logger.warning(f"Failed to validate rules from {rules_path}: {e}; keeping previous rules")
+                return
+            logger.error(f"Failed to validate rules from {rules_path}: {e}")
+            self.rule_engine = None
+            self._rules_mtime_ns = None
+            self._catalog_mtime_ns = None
+            self.catalog_version = None
+            return
+
         self._rules_mtime_ns = mtime_ns
-        logger.info(f"Loaded {len(rules)} rules from {rules_path}")
+        self._catalog_mtime_ns = catalog_mtime_ns
+        self.catalog_version = int(catalog.get("version"))
+        logger.info(
+            f"Loaded {len(self.rule_engine.rules)} rules from {rules_path} "
+            f"with catalog v{self.catalog_version} ({catalog_path})"
+        )
 
     def _reload_rules_if_changed(self) -> None:
         current_path = self._resolve_rules_path()
+        current_catalog_path = self._resolve_catalog_path()
         current_mtime_ns: Optional[int] = None
+        current_catalog_mtime_ns: Optional[int] = None
 
         if current_path.exists():
             try:
                 current_mtime_ns = current_path.stat().st_mtime_ns
             except OSError:
                 current_mtime_ns = None
+        if current_catalog_path.exists():
+            try:
+                current_catalog_mtime_ns = current_catalog_path.stat().st_mtime_ns
+            except OSError:
+                current_catalog_mtime_ns = None
 
-        if current_path != self._rules_path or current_mtime_ns != self._rules_mtime_ns:
-            logger.info(f"Detected rules file change, reloading: {current_path}")
+        if (
+            current_path != self._rules_path
+            or current_mtime_ns != self._rules_mtime_ns
+            or current_catalog_path != self._catalog_path
+            or current_catalog_mtime_ns != self._catalog_mtime_ns
+        ):
+            logger.info(
+                f"Detected rules/catalog file change, reloading: rules={current_path}, "
+                f"catalog={current_catalog_path}"
+            )
             self._load_rules(preserve_on_error=True)
 
     def reload_rules(self) -> None:
@@ -228,33 +307,38 @@ class EventHandler:
         self._send_shift_state_if_changed(force=True)
 
     def _handle_rule_action(self, result: MatchResult) -> None:
-        if result.outcome in (RuleMatchResult.INDETERMINATE, RuleMatchResult.SKIPPED):
-            if result.outcome == RuleMatchResult.INDETERMINATE:
-                logger.debug(f"[EDMCVKBConnector:{result.rule_id}] Rule indeterminate (missing data)")
-            return
-
-        actions = result.then if result.outcome == RuleMatchResult.MATCH else result.otherwise
+        actions = result.actions
         if not actions:
             return
 
-        if not isinstance(actions, dict):
-            logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Rule actions must be a dict")
+        if not isinstance(actions, list):
+            logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Rule actions must be a list")
             return
 
-        for key, value in actions.items():
-            if key == "log":
-                message = str(value) if value is not None else ""
+        for action in actions:
+            if not isinstance(action, dict):
+                logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Invalid action object: {action}")
+                continue
+
+            action_type = action.get("type")
+            if action_type == "log":
+                message = str(action.get("message", ""))
                 logger.info(f"[EDMCVKBConnector:{result.rule_id}] {message}")
                 continue
 
-            if key in ("vkb_set_shift", "vkb_clear_shift"):
-                if not isinstance(value, list):
-                    logger.warning(f"[EDMCVKBConnector:{result.rule_id}] {key} must be a list")
+            if action_type in ("vkb_set_shift", "vkb_clear_shift"):
+                tokens = action.get("tokens")
+                if not isinstance(tokens, list):
+                    logger.warning(f"[EDMCVKBConnector:{result.rule_id}] {action_type} requires tokens list")
                     continue
-                self._apply_shift_tokens(result.rule_id, value, set_bits=(key == "vkb_set_shift"))
+                self._apply_shift_tokens(
+                    result.rule_id,
+                    tokens,
+                    set_bits=(action_type == "vkb_set_shift"),
+                )
                 continue
 
-            logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Unknown action key: {key}")
+            logger.warning(f"[EDMCVKBConnector:{result.rule_id}] Unknown action type: {action_type}")
 
         self._send_shift_state_if_changed()
 

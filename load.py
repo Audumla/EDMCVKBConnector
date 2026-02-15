@@ -839,9 +839,11 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     def _new_rule() -> None:
         new_rule = {
             "id": _next_rule_id(),
+            "title": "New Rule",
             "enabled": True,
-            "when": {},
-            "then": {},
+            "when": {"all": []},
+            "then": [],
+            "else": [],
         }
         rules_state["rules"].append(new_rule)
         new_idx = len(rules_state["rules"]) - 1

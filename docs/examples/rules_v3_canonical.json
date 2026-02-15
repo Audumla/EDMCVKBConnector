@@ -1,7 +1,6 @@
 [
   {
-    "id": "gear_down_shift",
-    "title": "Gear Down Shift",
+    "title": "All Rule - Gear Down",
     "enabled": true,
     "when": {
       "all": [
@@ -16,12 +15,12 @@
     ]
   },
   {
-    "id": "hardpoints_shift",
-    "title": "Hardpoints Shift",
+    "title": "Any Rule - Map Open",
     "enabled": true,
     "when": {
-      "all": [
-        { "signal": "hardpoints", "op": "eq", "value": "deployed" }
+      "any": [
+        { "signal": "gui_focus", "op": "in", "value": ["GalaxyMap", "SystemMap"] },
+        { "signal": "gui_focus", "op": "eq", "value": "Codex" }
       ]
     },
     "then": [
@@ -32,12 +31,15 @@
     ]
   },
   {
-    "id": "map_focus_shift",
-    "title": "Map Focus Shift",
+    "title": "Combined Rule - Combat Setup",
     "enabled": true,
     "when": {
+      "all": [
+        { "signal": "landing_gear", "op": "eq", "value": "up" }
+      ],
       "any": [
-        { "signal": "gui_focus", "op": "in", "value": ["GalaxyMap", "SystemMap"] }
+        { "signal": "hardpoints", "op": "eq", "value": "deployed" },
+        { "signal": "in_danger", "op": "eq", "value": true }
       ]
     },
     "then": [

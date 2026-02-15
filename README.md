@@ -54,6 +54,7 @@ Main keys:
 - `debug` (default `false`)
 - `event_types` (empty list means no event-type filtering)
 - `rules_path` (optional override, otherwise `<plugin_dir>/rules.json`)
+- `signals_catalog_path` (optional override, otherwise `<plugin_dir>/signals_catalog.json`)
 
 ### Event Type Filter
 
@@ -73,9 +74,15 @@ Port=50995
 
 ## Rules
 
-Rules are read from `rules.json` and can set/clear shift tokens:
-- `vkb_set_shift`: `["Shift1", "Subshift3"]`
-- `vkb_clear_shift`: `["Shift1", "Subshift3"]`
+Rules are read from `rules.json` and validated against `signals_catalog.json` (catalog v3).
+Catalog loading is strict: missing/invalid/incompatible catalog disables rule loading with a clear error.
+
+Rules use catalog signals and operators only:
+- condition shape: `{ "signal": "gear_down", "op": "eq", "value": true }`
+- actions are ordered arrays:
+  - `{ "type": "vkb_set_shift", "tokens": ["Shift1", "Subshift3"] }`
+  - `{ "type": "vkb_clear_shift", "tokens": ["Shift1", "Subshift3"] }`
+  - `{ "type": "log", "message": "..." }`
 
 ### Visual Rule Editor
 
@@ -85,7 +92,7 @@ The plugin includes a visual rule editor accessible from EDMC preferences:
 3. Select a rule and click **Visual Editor**
 
 The visual editor provides a structured interface for:
-- Configuring when conditions (source, event, condition blocks)
+- Configuring when conditions
 - Setting then/else actions (shift flags, log statements)
 - Browsing available EDMC events and flags
 - Real-time JSON preview
@@ -96,6 +103,8 @@ See [Visual Rule Editor Guide](docs/VISUAL_RULE_EDITOR.md) for details.
 
 Full schema and examples for manual JSON editing:
 - [Rules Schema](docs/RULES_SCHEMA.md)
+- [Migration Guide](docs/MIGRATION_V3.md)
+- [Canonical v3 example rules](docs/examples/rules_v3_canonical.json)
 
 ## Documentation
 
