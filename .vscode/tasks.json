@@ -1,0 +1,61 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "EDMC: Bootstrap Dev Environment",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "scripts/bootstrap_dev_env.py"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "EDMC: Bootstrap + Run Dev Tests",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "scripts/bootstrap_dev_env.py",
+                "--run-tests"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "EDMC: Deploy Plugin To EDMC (DEV)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "scripts/deploy_to_edmc.py"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "EDMC: Link Plugin Into EDMC (DEV)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "scripts/link_plugin_to_edmc_clone.py",
+                "--force"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "EDMC: Run EDMC (DEV)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "scripts/run_edmc_from_clone.py"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "EDMC: Bootstrap + Link (DEV)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "EDMC: Bootstrap Dev Environment",
+                "EDMC: Link Plugin Into EDMC (DEV)"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

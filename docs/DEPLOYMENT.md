@@ -38,15 +38,18 @@ EDMCVKBConnector/
 
 ## Installation
 
-### For Users (From Release)
+### For EDMC (DEV) Workflow
 
-1. **Download** the latest release archive from GitHub
-2. **Extract** the archive to your EDMC plugins directory:
-   - **Windows**: `%APPDATA%\EDMarketConnector\plugins\`
-   - **macOS**: `~/Library/Application Support/EDMarketConnector/plugins/`
-   - **Linux**: `~/.local/share/EDMarketConnector/plugins/`
-3. **Restart** EDMC
-4. **Configure** in EDMC preferences (VKB host/port) and optionally create `rules.json`
+1. Ensure EDMC (DEV) repository exists at `../EDMarketConnector`
+2. Link this plugin into EDMC (DEV):
+   ```bash
+   python scripts/link_plugin_to_edmc_clone.py --force
+   ```
+3. Run EDMC (DEV):
+   ```bash
+   python scripts/run_edmc_from_clone.py
+   ```
+4. Configure in EDMC preferences (VKB host/port) and optionally create `rules.json`
 
 Compatibility baseline:
 - VKB-Link `v0.8.2+`
@@ -158,11 +161,9 @@ sha256sum EDMCVKBConnector-0.1.0.zip
    # Should see: load.py, edmcruleengine/, README.md, etc.
    ```
 
-2. **Check EDMC Log**:
-   EDMC logs to:
-   - **Windows**: `%TEMP%\EDMarketConnector.log`
-   - **macOS**: `~/Library/Logs/EDMarketConnector.log`
-   - **Linux**: `~/.local/share/EDMarketConnector/EDMC.log`
+2. **Check EDMC (DEV) Output**:
+   - If launched via `python scripts/run_edmc_from_clone.py`, monitor terminal output.
+   - If launched another way from EDMC (DEV), review the runtime logs configured by that run mode.
 
 3. **Look for Plugin Message**:
    ```

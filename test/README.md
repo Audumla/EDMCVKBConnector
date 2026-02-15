@@ -11,7 +11,7 @@ python dev_test.py
 ```
 
 This script will:
-- ✓ Find and configure the actual EDMC installation
+- ✓ Find and configure EDMC (DEV)
 - ✓ Run unit tests  
 - ✓ Run integration tests
 - ✓ Show next steps
@@ -37,18 +37,14 @@ python mock_vkb_server.py 60
 python test_integration.py
 ```
 
-### 3. Test with Real EDMC
+### 3. Test with EDMC (DEV)
 
-**For Windows:**
-```powershell
-# Create symlink to plugin directory
-mklink /D "%APPDATA%\EDMarketConnector\plugins\edmcvkbconnector" "h:\development\projects\EDMCVKBConnector"
-
-# Or copy the src folder manually to:
-# %APPDATA%\EDMarketConnector\plugins\edmcvkbconnector\
+Create/update symlink to EDMC (DEV) plugin directory:
+```bash
+python ../scripts/link_plugin_to_edmc_clone.py --force
 ```
 
-**Then:**
+Then:
 1. Start EDMC
 2. Open plugin preferences: Settings → VKB Connector
 3. Set VKB Host and Port (default: 127.0.0.1:50995)
@@ -161,9 +157,9 @@ tests/
 
 ## Next Steps After Tests Pass
 
-1. **Copy plugin to EDMC**:
-   ```powershell
-   mklink /D "%APPDATA%\EDMarketConnector\plugins\edmcvkbconnector" "h:\development\projects\EDMCVKBConnector"
+1. **Link plugin to EDMC (DEV)**:
+   ```bash
+   python ../scripts/link_plugin_to_edmc_clone.py --force
    ```
 
 2. **Start EDMC** and check logs

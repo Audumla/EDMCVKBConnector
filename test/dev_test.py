@@ -103,7 +103,7 @@ def main():
             # Run VKB server tests
             result = subprocess.run(
                 [sys.executable, str(Path(__file__).parent / "test_vkb_server_integration.py")],
-                cwd=str(workspace_root / "tests"),
+                cwd=str(workspace_root / "test"),
             )
             
             if result.returncode == 0:
@@ -116,7 +116,7 @@ def main():
                 # Run rules engine tests
                 result = subprocess.run(
                     [sys.executable, str(Path(__file__).parent / "test_rules_comprehensive.py")],
-                    cwd=str(workspace_root / "tests"),
+                    cwd=str(workspace_root / "test"),
                 )
                 
                 if result.returncode == 0:
@@ -140,7 +140,7 @@ def main():
     print("\nNext steps:")
     print("1. Start mock VKB server: python test/mock_vkb_server.py 60")
     print("2. Test with real EDMC or use mock server")
-    print("3. See TESTING.md for detailed testing options")
+    print("3. See test/README.md for detailed testing options")
     
     return 0
 

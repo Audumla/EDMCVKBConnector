@@ -18,16 +18,20 @@ EDMC plugin that maps Elite Dangerous events and status state to VKB shift/subsh
 - Verified test tool: `VKBDevCfg v0.93.96`
 - VKB software/firmware downloads: https://www.njoy32.vkb-sim.pro/home
 
-## Quick Start (Windows)
+## Quick Start (EDMC DEV)
 
-1. Build the plugin zip:
-   ```powershell
-   python scripts/package_plugin.py
+1. Bootstrap local development:
+   ```bash
+   python scripts/bootstrap_dev_env.py
    ```
-2. Extract `dist/EDMCVKBConnector-<version>.zip` into:
-   `%APPDATA%\EDMarketConnector\plugins\`
-3. Restart EDMC.
-4. Open `File -> Settings -> Plugins`, configure host/port, and enable rules if needed.
+2. Link plugin into EDMC (DEV):
+   ```bash
+   python scripts/link_plugin_to_edmc_clone.py --force
+   ```
+3. Run EDMC (DEV):
+   ```bash
+   python scripts/run_edmc_from_clone.py
+   ```
 
 ## Configuration
 
@@ -95,21 +99,53 @@ Full schema and examples for manual JSON editing:
 
 ## Development
 
+### VS Code (recommended)
+
+After cloning this repo in VS Code, run:
+- `Terminal -> Run Task -> EDMC: Bootstrap Dev Environment`
+
+This task runs `scripts/bootstrap_dev_env.py`, which will:
+- create `../EDMarketConnector` from GitHub if missing
+- pull latest EDMC changes if it already exists
+- create `.venv` in this repo
+- install `requirements.txt` and `.[dev]`
+- install EDMC (DEV) requirements into `.venv` (for launching EDMC from source)
+
+For a full bootstrap + test pass, run:
+- `Terminal -> Run Task -> EDMC: Bootstrap + Run Dev Tests`
+
+EDMC (DEV) workflow:
+- `Terminal -> Run Task -> EDMC: Link Plugin Into EDMC (DEV)`
+- `Terminal -> Run Task -> EDMC: Run EDMC (DEV)`
+
+`Run EDMC (DEV)` automatically checks/install EDMC Python requirements in
+your selected interpreter if needed.
+
+For convenience:
+- `Terminal -> Run Task -> EDMC: Bootstrap + Link (DEV)`
+  runs bootstrap then linking in sequence.
+
+### CLI
+
 ```bash
 git clone https://github.com/Audumla/EDMCVKBConnector.git
 cd EDMCVKBConnector
-python -m venv venv
+python scripts/bootstrap_dev_env.py
 ```
 
-Windows:
+Run tests:
 ```powershell
-venv\Scripts\activate
-pip install -r requirements.txt -e .[dev]
+python scripts/bootstrap_dev_env.py --run-tests
 ```
 
-Run tests (Windows):
+Link into EDMC (DEV) repo plugins folder:
 ```powershell
-python test/run_all_tests.py
+python scripts/link_plugin_to_edmc_clone.py --force
+```
+
+Run EDMC GUI from EDMC (DEV) repo:
+```powershell
+python scripts/run_edmc_from_clone.py
 ```
 
 ## License
