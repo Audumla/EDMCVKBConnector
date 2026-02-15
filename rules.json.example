@@ -1,114 +1,193 @@
 [
   {
-    "id": "landing gear down",
+    "title": "Hardpoints Deployed",
     "enabled": true,
     "when": {
-      "source": "dashboard",
-      "event": "Status",
       "all": [
         {
-          "flags": {
-            "equals": {
-              "FlagsLandingGearDown": true
-            }
-          }
+          "signal": "hardpoints",
+          "op": "eq",
+          "value": "deployed"
         }
       ]
     },
-    "then": {
-      "vkb_set_shift": ["Subshift3"]
-    },
-    "else": {
-      "vkb_clear_shift": ["Subshift3"]
-    }
+    "then": [
+      {
+        "vkb_set_shift": ["Shift1"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Shift1"]
+      }
+    ]
   },
   {
-    "id": "hardpoints_deployed_in_ship",
+    "title": "Galaxy Map Opened",
     "enabled": true,
     "when": {
-      "source": "dashboard",
       "all": [
         {
-          "flags": {
-            "all_of": [
-              "FlagsHardpointsDeployed",
-              "FlagsInMainShip"
-            ]
-          }
+          "signal": "gui_focus",
+          "op": "eq",
+          "value": "GalaxyMap"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Shift2"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Shift2"]
+      }
+    ]
+  },
+  {
+    "title": "Emergency Situation",
+    "enabled": true,
+    "when": {
+      "any": [
+        {
+          "signal": "in_danger",
+          "op": "eq",
+          "value": true
         },
         {
-          "flags2": {
-            "none_of": [
-              "Flags2OnFoot"
-            ]
-          }
+          "signal": "low_health",
+          "op": "eq",
+          "value": true
+        },
+        {
+          "signal": "overheating",
+          "op": "eq",
+          "value": true
         }
       ]
     },
-    "then": {
-      "log": "Hardpoints deployed (in ship)"
-    }
+    "then": [
+      {
+        "vkb_set_shift": ["Subshift1"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Subshift1"]
+      }
+    ]
   },
   {
-    "id": "galaxy_map_opened",
+    "title": "Combat Mode with Shields",
     "enabled": true,
     "when": {
-      "source": "dashboard",
       "all": [
         {
-          "gui_focus": {
-            "equals": "GuiFocusGalaxyMap"
-          }
+          "signal": "hud_mode",
+          "op": "eq",
+          "value": "combat"
+        },
+        {
+          "signal": "shields_up",
+          "op": "eq",
+          "value": true
         }
       ]
     },
-    "then": {
-      "log": "Galaxy map opened"
-    }
+    "then": [
+      {
+        "vkb_set_shift": ["Subshift2"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Subshift2"]
+      }
+    ]
   },
   {
-    "id": "example_shift",
-    "enabled": false,
-    "when": {
-      "source": "dashboard",
-      "all": [
-        {
-          "flags": {
-            "all_of": [
-              "FlagsInSRV"
-            ]
-          }
-        }
-      ]
-    },
-    "then": {
-      "vkb_set_shift": [
-        "Shift1",
-        "Subshift3"
-      ]
-    }
-  },
-  {
-    "id": "Combat Mode",
+    "title": "Docked or Landed",
     "enabled": true,
     "when": {
-      "source": "dashboard",
-      "event": "Status",
       "all": [
         {
-          "flags": {
-            "equals": {
-              "FlagsAnalysisMode": false
-            }
-          }
+          "signal": "docking_state",
+          "op": "in",
+          "value": ["docked", "landed"]
         }
       ]
     },
-    "then": {
-      "vkb_set_shift": ["Shift1"]
+    "then": [
+      {
+        "vkb_set_shift": ["Subshift3"]
+      },
+      {
+        "log": "Ship is docked or landed"
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Subshift3"]
+      }
+    ]
+  },
+  {
+    "title": "SRV Mode",
+    "enabled": true,
+    "when": {
+      "all": [
+        {
+          "signal": "vehicle",
+          "op": "eq",
+          "value": "srv"
+        }
+      ]
     },
-    "else": {
-      "vkb_clear_shift": ["Shift1"]
-    }
+    "then": [
+      {
+        "vkb_set_shift": ["Shift1", "Subshift4"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Subshift4"]
+      }
+    ]
+  },
+  {
+    "title": "Combined Condition: All and Any",
+    "enabled": true,
+    "when": {
+      "all": [
+        {
+          "signal": "in_ship",
+          "op": "eq",
+          "value": true
+        }
+      ],
+      "any": [
+        {
+          "signal": "fsd_state",
+          "op": "eq",
+          "value": "charging"
+        },
+        {
+          "signal": "fsd_state",
+          "op": "eq",
+          "value": "jumping"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Subshift5"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Subshift5"]
+      }
+    ]
   }
 ]

@@ -1,0 +1,271 @@
+{
+  "version": 3,
+  "ui_tiers": {
+    "core": { "label": "Common", "icon": "star" },
+    "detail": { "label": "More", "icon": "dots" }
+  },
+  "operators": {
+    "eq": { "symbol": "=", "label": "Equals" },
+    "ne": { "symbol": "≠", "label": "Not equal" },
+    "in": { "symbol": "∈", "label": "In list" },
+    "nin": { "symbol": "∉", "label": "Not in list" },
+    "lt": { "symbol": "<", "label": "Less than" },
+    "lte": { "symbol": "≤", "label": "Less than or equal" },
+    "gt": { "symbol": ">", "label": "Greater than" },
+    "gte": { "symbol": "≥", "label": "Greater than or equal" },
+    "contains": { "symbol": "⊇", "label": "Contains" },
+    "exists": { "symbol": "∃", "label": "Exists" }
+  },
+  "bitfields": {
+    "ship_flags": "dashboard.Flags",
+    "foot_flags": "dashboard.Flags2"
+  },
+  "signals": {
+    "gui_focus": {
+      "type": "enum",
+      "title": "Focus",
+      "ui": { "label": "Focused screen", "icon": "screen", "category": "HUD", "tier": "core" },
+      "values": [
+        { "value": "NoFocus", "label": "None", "icon": "circle" },
+        { "value": "InternalPanel", "label": "Left panel", "icon": "panel-left" },
+        { "value": "ExternalPanel", "label": "Right panel", "icon": "panel-right" },
+        { "value": "CommsPanel", "label": "Comms", "icon": "message" },
+        { "value": "RolePanel", "label": "Role", "icon": "user" },
+        { "value": "StationServices", "label": "Station", "icon": "station" },
+        { "value": "GalaxyMap", "label": "Galaxy map", "icon": "map" },
+        { "value": "SystemMap", "label": "System map", "icon": "map-pin" },
+        { "value": "Orrery", "label": "Orrery", "icon": "orbit" },
+        { "value": "FSS", "label": "FSS", "icon": "scan" },
+        { "value": "SAA", "label": "SAA", "icon": "waves" },
+        { "value": "Codex", "label": "Codex", "icon": "book" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "path", "path": "dashboard.GuiFocus", "default": 0 },
+        "map": {
+          "0": "NoFocus",
+          "1": "InternalPanel",
+          "2": "ExternalPanel",
+          "3": "CommsPanel",
+          "4": "RolePanel",
+          "5": "StationServices",
+          "6": "GalaxyMap",
+          "7": "SystemMap",
+          "8": "Orrery",
+          "9": "FSS",
+          "10": "SAA",
+          "11": "Codex"
+        },
+        "default": "NoFocus"
+      }
+    },
+
+    "landing_gear": {
+      "type": "enum",
+      "title": "Landing gear",
+      "ui": { "label": "Landing gear", "icon": "landing-gear", "category": "Docking", "tier": "core" },
+      "values": [
+        { "value": "up", "label": "Up", "icon": "arrow-up" },
+        { "value": "down", "label": "Down", "icon": "arrow-down" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "flag", "field_ref": "ship_flags", "bit": 2 },
+        "map": { "false": "up", "true": "down" },
+        "default": "up"
+      }
+    },
+
+    "hardpoints": {
+      "type": "enum",
+      "title": "Hardpoints",
+      "ui": { "label": "Hardpoints", "icon": "crosshair", "category": "Combat", "tier": "core" },
+      "values": [
+        { "value": "retracted", "label": "Retracted", "icon": "minus" },
+        { "value": "deployed", "label": "Deployed", "icon": "plus" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "flag", "field_ref": "ship_flags", "bit": 6 },
+        "map": { "false": "retracted", "true": "deployed" },
+        "default": "retracted"
+      }
+    },
+
+    "cargo_scoop": {
+      "type": "enum",
+      "title": "Cargo scoop",
+      "ui": { "label": "Cargo scoop", "icon": "box", "category": "Ship", "tier": "core" },
+      "values": [
+        { "value": "retracted", "label": "Retracted", "icon": "minus" },
+        { "value": "deployed", "label": "Deployed", "icon": "plus" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "flag", "field_ref": "ship_flags", "bit": 9 },
+        "map": { "false": "retracted", "true": "deployed" },
+        "default": "retracted"
+      }
+    },
+
+    "hud_mode": {
+      "type": "enum",
+      "title": "HUD mode",
+      "ui": { "label": "HUD mode", "icon": "radar", "category": "HUD", "tier": "core" },
+      "values": [
+        { "value": "combat", "label": "Combat", "icon": "swords" },
+        { "value": "analysis", "label": "Analysis", "icon": "microscope" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "flag", "field_ref": "ship_flags", "bit": 27 },
+        "map": { "false": "combat", "true": "analysis" },
+        "default": "combat"
+      }
+    },
+
+    "docking_state": {
+      "type": "enum",
+      "title": "Docking",
+      "ui": { "label": "Docking state", "icon": "anchor", "category": "Docking", "tier": "core" },
+      "values": [
+        { "value": "in_space", "label": "In space", "icon": "sparkle" },
+        { "value": "landed", "label": "Landed", "icon": "planet" },
+        { "value": "docked", "label": "Docked", "icon": "dock" }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 0 }, "value": "docked" },
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 1 }, "value": "landed" }
+        ],
+        "default": "in_space"
+      }
+    },
+
+    "supercruise": {
+      "type": "enum",
+      "title": "Supercruise",
+      "ui": { "label": "Supercruise", "icon": "speed", "category": "Travel", "tier": "core" },
+      "values": [
+        { "value": "off", "label": "Off", "icon": "circle" },
+        { "value": "on", "label": "On", "icon": "circle-dot" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "flag", "field_ref": "ship_flags", "bit": 4 },
+        "map": { "false": "off", "true": "on" },
+        "default": "off"
+      }
+    },
+
+    "fsd_state": {
+      "type": "enum",
+      "title": "FSD",
+      "ui": { "label": "FSD state", "icon": "rocket", "category": "Travel", "tier": "core" },
+      "values": [
+        { "value": "idle", "label": "Idle", "icon": "pause" },
+        { "value": "charging", "label": "Charging", "icon": "bolt" },
+        { "value": "cooldown", "label": "Cooldown", "icon": "clock" },
+        { "value": "jumping", "label": "Jumping", "icon": "zap" }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 30 }, "value": "jumping" },
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 18 }, "value": "cooldown" },
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 17 }, "value": "charging" }
+        ],
+        "default": "idle"
+      }
+    },
+
+    "vehicle": {
+      "type": "enum",
+      "title": "Vehicle",
+      "ui": { "label": "Current vehicle", "icon": "ship", "category": "Context", "tier": "core" },
+      "values": [
+        { "value": "ship", "label": "Ship", "icon": "ship" },
+        { "value": "srv", "label": "SRV", "icon": "car" },
+        { "value": "fighter", "label": "Fighter", "icon": "jet" },
+        { "value": "unknown", "label": "Unknown", "icon": "help" }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 26 }, "value": "srv" },
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 25 }, "value": "fighter" },
+          { "when": { "op": "flag", "field_ref": "ship_flags", "bit": 24 }, "value": "ship" }
+        ],
+        "default": "unknown"
+      }
+    },
+
+    "presence": {
+      "type": "enum",
+      "title": "Presence",
+      "ui": { "label": "On foot / in vehicle", "icon": "walk", "category": "Context", "tier": "core" },
+      "values": [
+        { "value": "vehicle", "label": "In vehicle", "icon": "ship" },
+        { "value": "foot", "label": "On foot", "icon": "walk" }
+      ],
+      "derive": {
+        "op": "map",
+        "from": { "op": "flag", "field_ref": "foot_flags", "bit": 0 },
+        "map": { "false": "vehicle", "true": "foot" },
+        "default": "vehicle"
+      }
+    },
+
+    "docked": { "type": "bool", "title": "Docked", "ui": { "label": "Docked", "icon": "dock", "category": "Docking", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 0 } },
+    "landed": { "type": "bool", "title": "Landed", "ui": { "label": "Landed", "icon": "planet", "category": "Docking", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 1 } },
+    "gear_down": { "type": "bool", "title": "Gear down", "ui": { "label": "Landing gear down", "icon": "landing-gear", "category": "Docking", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 2 } },
+    "shields_up": { "type": "bool", "title": "Shields up", "ui": { "label": "Shields up", "icon": "shield", "category": "Combat", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 3 } },
+    "in_supercruise": { "type": "bool", "title": "Supercruise", "ui": { "label": "In supercruise", "icon": "speed", "category": "Travel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 4 } },
+    "fa_off": { "type": "bool", "title": "FA off", "ui": { "label": "Flight assist off", "icon": "plane", "category": "Ship", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 5 } },
+    "weapons_out": { "type": "bool", "title": "Hardpoints deployed", "ui": { "label": "Hardpoints deployed", "icon": "crosshair", "category": "Combat", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 6 } },
+    "in_wing": { "type": "bool", "title": "Wing", "ui": { "label": "In wing", "icon": "users", "category": "Crew", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 7 } },
+    "lights_on": { "type": "bool", "title": "Lights", "ui": { "label": "Lights on", "icon": "lightbulb", "category": "Ship", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 8 } },
+    "scoop_out": { "type": "bool", "title": "Scoop deployed", "ui": { "label": "Cargo scoop deployed", "icon": "box", "category": "Ship", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 9 } },
+    "silent_running": { "type": "bool", "title": "Silent running", "ui": { "label": "Silent running", "icon": "mute", "category": "Ship", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 10 } },
+    "fuel_scooping": { "type": "bool", "title": "Scooping", "ui": { "label": "Fuel scooping", "icon": "fuel", "category": "Fuel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 11 } },
+    "srv_handbrake": { "type": "bool", "title": "Handbrake", "ui": { "label": "SRV handbrake", "icon": "brake", "category": "SRV", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 12 } },
+    "srv_turret": { "type": "bool", "title": "Turret", "ui": { "label": "SRV turret mode", "icon": "turret", "category": "SRV", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 13 } },
+    "srv_under_ship": { "type": "bool", "title": "Under ship", "ui": { "label": "SRV under ship", "icon": "arrow-down", "category": "SRV", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 14 } },
+    "srv_assist": { "type": "bool", "title": "Assist", "ui": { "label": "SRV drive assist", "icon": "car", "category": "SRV", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 15 } },
+    "mass_locked": { "type": "bool", "title": "Mass locked", "ui": { "label": "Mass locked", "icon": "lock", "category": "Travel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 16 } },
+    "fsd_charging": { "type": "bool", "title": "Charging", "ui": { "label": "FSD charging", "icon": "bolt", "category": "Travel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 17 } },
+    "fsd_cooldown": { "type": "bool", "title": "Cooldown", "ui": { "label": "FSD cooldown", "icon": "clock", "category": "Travel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 18 } },
+    "low_fuel": { "type": "bool", "title": "Low fuel", "ui": { "label": "Low fuel", "icon": "warning", "category": "Fuel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 19 } },
+    "overheating": { "type": "bool", "title": "Overheating", "ui": { "label": "Overheating", "icon": "thermometer", "category": "Heat", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 20 } },
+    "has_position": { "type": "bool", "title": "Coordinates", "ui": { "label": "Has coordinates", "icon": "pin", "category": "Sensors", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 21 } },
+    "in_danger": { "type": "bool", "title": "Danger", "ui": { "label": "In danger", "icon": "alert", "category": "Combat", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 22 } },
+    "interdicted": { "type": "bool", "title": "Interdicted", "ui": { "label": "Being interdicted", "icon": "target", "category": "Travel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 23 } },
+    "in_ship": { "type": "bool", "title": "In ship", "ui": { "label": "In main ship", "icon": "ship", "category": "Context", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 24 } },
+    "in_fighter": { "type": "bool", "title": "In fighter", "ui": { "label": "In fighter", "icon": "jet", "category": "Context", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 25 } },
+    "in_srv": { "type": "bool", "title": "In SRV", "ui": { "label": "In SRV", "icon": "car", "category": "Context", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 26 } },
+    "analysis_mode": { "type": "bool", "title": "Analysis", "ui": { "label": "Analysis mode", "icon": "microscope", "category": "HUD", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 27 } },
+    "night_vision": { "type": "bool", "title": "Night vision", "ui": { "label": "Night vision", "icon": "moon", "category": "HUD", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 28 } },
+    "avg_altitude": { "type": "bool", "title": "Altitude", "ui": { "label": "Average altitude", "icon": "mountain", "category": "Sensors", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 29 } },
+    "fsd_jump": { "type": "bool", "title": "Jump", "ui": { "label": "FSD jump", "icon": "zap", "category": "Travel", "tier": "core" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 30 } },
+    "srv_high_beam": { "type": "bool", "title": "High beam", "ui": { "label": "SRV high beam", "icon": "flashlight", "category": "SRV", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "ship_flags", "bit": 31 } },
+
+    "on_foot": { "type": "bool", "title": "On foot", "ui": { "label": "On foot", "icon": "walk", "category": "Foot", "tier": "core" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 0 } },
+    "in_taxi": { "type": "bool", "title": "Taxi", "ui": { "label": "In taxi", "icon": "taxi", "category": "Travel", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 1 } },
+    "in_multicrew": { "type": "bool", "title": "Multicrew", "ui": { "label": "In multicrew", "icon": "users", "category": "Crew", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 2 } },
+    "foot_station": { "type": "bool", "title": "Station", "ui": { "label": "On foot in station", "icon": "station", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 3 } },
+    "foot_planet": { "type": "bool", "title": "Planet", "ui": { "label": "On foot on planet", "icon": "planet", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 4 } },
+    "ads": { "type": "bool", "title": "Aim", "ui": { "label": "Aiming down sight", "icon": "crosshair", "category": "Foot", "tier": "core" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 5 } },
+    "low_oxygen": { "type": "bool", "title": "Low oxygen", "ui": { "label": "Low oxygen", "icon": "air", "category": "Foot", "tier": "core" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 6 } },
+    "low_health": { "type": "bool", "title": "Low health", "ui": { "label": "Low health", "icon": "heart", "category": "Foot", "tier": "core" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 7 } },
+    "cold": { "type": "bool", "title": "Cold", "ui": { "label": "Cold", "icon": "snow", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 8 } },
+    "hot": { "type": "bool", "title": "Hot", "ui": { "label": "Hot", "icon": "sun", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 9 } },
+    "very_cold": { "type": "bool", "title": "Very cold", "ui": { "label": "Very cold", "icon": "snowflake", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 10 } },
+    "very_hot": { "type": "bool", "title": "Very hot", "ui": { "label": "Very hot", "icon": "flame", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 11 } },
+    "glide": { "type": "bool", "title": "Glide", "ui": { "label": "Glide mode", "icon": "glide", "category": "Docking", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 12 } },
+    "foot_hangar": { "type": "bool", "title": "Hangar", "ui": { "label": "On foot in hangar", "icon": "warehouse", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 13 } },
+    "foot_social": { "type": "bool", "title": "Social", "ui": { "label": "In social space", "icon": "coffee", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 14 } },
+    "foot_exterior": { "type": "bool", "title": "Exterior", "ui": { "label": "On foot outside", "icon": "door-open", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 15 } },
+    "breathable_air": { "type": "bool", "title": "Air", "ui": { "label": "Breathable atmosphere", "icon": "leaf", "category": "Foot", "tier": "detail" }, "derive": { "op": "flag", "field_ref": "foot_flags", "bit": 16 } }
+  }
+}
