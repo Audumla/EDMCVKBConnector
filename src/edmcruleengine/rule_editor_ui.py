@@ -18,6 +18,12 @@ from .rule_validation import validate_rule
 
 logger = logging.getLogger(__name__)
 
+# Default shift flags if not found in config
+DEFAULT_SHIFT_FLAGS = [
+    "Shift1", "Shift2", "Subshift1", "Subshift2", "Subshift3",
+    "Subshift4", "Subshift5", "Subshift6", "Subshift7"
+]
+
 
 class RuleEditorDialog:
     """Visual editor dialog for a single rule."""
@@ -237,13 +243,16 @@ class RuleEditorDialog:
         
         # Fallback if no config
         if not shift_flags:
-            for flag_id in ["Shift1", "Shift2", "Subshift1", "Subshift2", "Subshift3", 
-                           "Subshift4", "Subshift5", "Subshift6", "Subshift7"]:
+            for flag_id in DEFAULT_SHIFT_FLAGS:
                 shift_flags.append({
                     "id": flag_id,
                     "name": flag_id,
                     "description": ""
                 })
+        
+        # Calculate max width for consistent alignment
+        max_name_len = max(len(f["name"]) for f in shift_flags) if shift_flags else 15
+        label_width = max(15, max_name_len + 2)
         
         shift_vars = {}
         for flag_info in shift_flags:
@@ -253,7 +262,7 @@ class RuleEditorDialog:
             flag_frame = ttk.Frame(shift_frame)
             flag_frame.pack(fill=tk.X, pady=2)
             
-            ttk.Label(flag_frame, text=f"{flag_name}:", width=15).pack(side=tk.LEFT)
+            ttk.Label(flag_frame, text=f"{flag_name}:", width=label_width).pack(side=tk.LEFT)
             
             # State: Set, Clear, or Unchanged
             state_var = tk.StringVar(value="unchanged")
@@ -805,6 +814,5 @@ def load_events_config(plugin_dir: Path) -> Dict[str, Any]:
             "sources": [],
             "events": [],
             "condition_types": [],
-            "shift_flags": ["Shift1", "Shift2", "Subshift1", "Subshift2", 
-                           "Subshift3", "Subshift4", "Subshift5", "Subshift6", "Subshift7"]
+            "shift_flags": DEFAULT_SHIFT_FLAGS
         }
