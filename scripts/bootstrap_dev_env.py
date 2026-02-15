@@ -4,6 +4,7 @@ This script ensures:
 1) A sibling EDMC (DEV) repository exists and is up to date.
 2) A local virtual environment exists at .venv.
 3) Dependencies are installed for plugin development/testing.
+4) Plugin is linked into EDMC (DEV) plugins directory.
 
 Default EDMC (DEV) location:
     ../EDMarketConnector
@@ -22,10 +23,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dev_paths import PROJECT_ROOT, load_dev_config, resolve_path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_EDMC_ROOT = (PROJECT_ROOT.parent / "EDMarketConnector").resolve()
+DEFAULT_CONFIG_FILE = PROJECT_ROOT / "dev_paths.json"
 EDMC_REPO_URL = "https://github.com/EDCD/EDMarketConnector.git"
+PLUGIN_NAME = "EDMCVKBConnector"
 
 
 def run(cmd: list[str], *, cwd: Path | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -147,16 +149,116 @@ def run_dev_tests(py: Path) -> int:
     return result.returncode
 
 
+def remove_existing(path: Path) -> None:
+    """Remove existing directory, symlink, or junction."""
+    if not path.exists() and not path.is_symlink():
+        return
+
+    # On Windows, directory symlinks/junctions are best removed with `rmdir`.
+    if os.name == "nt":
+        result = subprocess.run(
+            ["cmd", "/c", "rmdir", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return
+
+    try:
+        path.unlink()
+        return
+    except IsADirectoryError:
+        pass
+    except OSError:
+        pass
+
+    if path.is_dir():
+        import shutil
+        shutil.rmtree(path)
+        return
+
+    path.unlink()
+
+
+def create_windows_junction(link_path: Path, target_path: Path) -> None:
+    """Create a Windows directory junction."""
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link_path), str(target_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        details = result.stderr.strip() or result.stdout.strip() or "unknown error"
+        raise RuntimeError(f"Failed to create junction: {details}")
+
+
+def create_link(link_path: Path, target_path: Path) -> str:
+    """Create a symlink or junction linking plugin into EDMC."""
+    try:
+        os.symlink(str(target_path), str(link_path), target_is_directory=True)
+        return "symlink"
+    except OSError as exc:
+        if os.name != "nt":
+            raise RuntimeError(f"Failed to create symlink: {exc}") from exc
+        create_windows_junction(link_path, target_path)
+        return "junction"
+
+
+def link_plugin_into_edmc(edmc_root: Path) -> bool:
+    """Link the plugin directory into EDMC plugins folder."""
+    plugins_dir = edmc_root / "plugins"
+    plugins_dir.mkdir(parents=True, exist_ok=True)
+
+    target_path = PROJECT_ROOT.resolve()
+    link_path = plugins_dir / PLUGIN_NAME
+
+    if link_path.exists() or link_path.is_symlink():
+        if link_path.is_symlink() and link_path.resolve() == target_path:
+            print(f"[OK] Plugin already linked: {link_path} -> {target_path}")
+            return True
+        print(f"[INFO] Replacing existing path: {link_path}")
+        remove_existing(link_path)
+
+    try:
+        link_type = create_link(link_path, target_path)
+        print(f"[SUCCESS] Linked plugin into EDMC as {link_type}:")
+        print(f"  {link_path} -> {target_path}")
+        return True
+    except Exception as exc:
+        print(f"[WARN] Could not link plugin: {exc}")
+        return False
+
+
 def parse_args() -> argparse.Namespace:
+    bootstrap = argparse.ArgumentParser(add_help=False)
+    bootstrap.add_argument(
+        "--config-file",
+        default=str(DEFAULT_CONFIG_FILE),
+        help=argparse.SUPPRESS,
+    )
+    bootstrap_args, remaining = bootstrap.parse_known_args()
+    config_file = Path(bootstrap_args.config_file).expanduser().resolve()
+    config_data = load_dev_config(config_file)
+
+    default_edmc_root = resolve_path("edmc_root", config_data, PROJECT_ROOT.parent / "EDMarketConnector")
+    default_venv_dir = resolve_path("venv_dir", config_data, PROJECT_ROOT / ".venv")
+
     parser = argparse.ArgumentParser(description="Bootstrap EDMCVKBConnector development environment")
     parser.add_argument(
+        "--config-file",
+        default=str(config_file),
+        help="Path to development path config JSON (default: ./dev_paths.json)",
+    )
+    parser.add_argument(
         "--edmc-root",
-        default=str(DEFAULT_EDMC_ROOT),
+        default=str(default_edmc_root),
         help="Path to EDMC (DEV) repository",
     )
     parser.add_argument(
         "--venv-dir",
-        default=str(PROJECT_ROOT / ".venv"),
+        default=str(default_venv_dir),
         help="Path for the local virtual environment",
     )
     parser.add_argument(
@@ -174,7 +276,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip installing EDMC (DEV) requirements into the virtual environment",
     )
-    return parser.parse_args()
+    return parser.parse_args(remaining)
 
 
 def main() -> int:
@@ -189,6 +291,9 @@ def main() -> int:
             install_edmc_deps(py, edmc_root)
         else:
             print("[INFO] Skipping EDMC Python dependencies (--no-edmc-python-deps)")
+        
+        # Link plugin into EDMC plugins directory
+        link_plugin_into_edmc(edmc_root)
     except FileNotFoundError as exc:
         print(f"[FAIL] Required command not found: {exc}")
         return 1

@@ -125,6 +125,40 @@ def _restore_test_shift_state_from_config() -> None:
     _event_handler._subshift_bitmap = subshift_bitmap
 
 
+def _ensure_rules_file_exists(plugin_dir: str) -> None:
+    """
+    Ensure rules.json exists, creating from example if needed.
+    
+    This ensures that users' rules are never overridden when the plugin updates.
+    On first run, the default rules.json.example is copied to rules.json.
+    
+    Args:
+        plugin_dir: The plugin installation directory.
+    """
+    rules_path = os.path.join(plugin_dir, "rules.json")
+    rules_example_path = os.path.join(plugin_dir, "rules.json.example")
+    
+    # If rules.json already exists, user has configured it - don't touch it
+    if os.path.exists(rules_path):
+        logger.debug(f"User rules file exists: {rules_path}")
+        return
+    
+    # If example doesn't exist either, that's okay - some deployments might not include it
+    if not os.path.exists(rules_example_path):
+        logger.debug(f"No default rules file found: {rules_example_path}")
+        return
+    
+    # Copy the example to create the initial rules.json
+    try:
+        with open(rules_example_path, "r", encoding="utf-8") as src:
+            content = src.read()
+        with open(rules_path, "w", encoding="utf-8") as dst:
+            dst.write(content)
+        logger.info(f"Created default rules file: {rules_path}")
+    except Exception as e:
+        logger.warning(f"Could not create default rules file from {rules_example_path}: {e}")
+
+
 def _resolve_rules_file_path() -> str:
     """Resolve the rules.json path used by the plugin."""
     global _config, _plugin_dir
@@ -191,8 +225,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     Start the plugin (called by EDMC 5.0+).
     
     Initializes the VKB connector with automatic reconnection on startup.
-    If initial connection fails, the plugin will continue running and attempt
-    to reconnect automatically in the background.
+    Connection happens in a background thread to avoid blocking the UI.
     
     Args:
         plugin_dir: Directory where the plugin is installed.
@@ -205,12 +238,16 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
         from edmcruleengine import Config, EventHandler
+        import threading
 
         logger.info(f"VKB Connector v{VERSION} starting")
 
         # Initialize configuration (uses EDMC's stored preferences)
         _config = Config()
         _plugin_dir = plugin_dir
+
+        # Ensure default rules.json exists (from rules.json.example) if user hasn't created one
+        _ensure_rules_file_exists(_plugin_dir)
 
         vkb_host = _config.get("vkb_host", "127.0.0.1")
         vkb_port = _config.get("vkb_port", 50995)
@@ -232,15 +269,23 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         _event_handler = EventHandler(_config, plugin_dir=_plugin_dir)
         _restore_test_shift_state_from_config()
 
-        # Connect to VKB hardware and start automatic reconnection
-        # Note: connect() will start the reconnection worker even if initial connection fails
-        if _event_handler.connect():
-            logger.info("Successfully connected to VKB hardware on startup")
-        else:
-            logger.warning(
-                f"Initial connection to VKB hardware failed at {vkb_host}:{vkb_port}. "
-                "Automatic reconnection enabled (2s retry for 1 minute, then 10s fallback)."
-            )
+        # Start connection attempt in background thread to avoid blocking UI
+        def _connect_in_background() -> None:
+            """Try to connect to VKB in background without blocking the UI."""
+            try:
+                if _event_handler.connect():
+                    logger.info("Successfully connected to VKB hardware on startup")
+                else:
+                    logger.warning(
+                        f"Initial connection to VKB hardware failed at {vkb_host}:{vkb_port}. "
+                        "Automatic reconnection enabled (2s retry for 1 minute, then 10s fallback)."
+                    )
+            except Exception as e:
+                logger.error(f"Error during background connection attempt: {e}", exc_info=True)
+
+        # Start the connection attempt in a daemon thread so it doesn't block
+        connect_thread = threading.Thread(target=_connect_in_background, daemon=True)
+        connect_thread.start()
 
         # Return the internal name for the plugin (shown in EDMC UI)
         return "VKB Connector"

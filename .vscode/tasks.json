@@ -8,54 +8,50 @@
             "args": [
                 "scripts/bootstrap_dev_env.py"
             ],
-            "problemMatcher": []
+            "problemMatcher": [],
+            "detail": "Set up development environment: clone EDMC, create venv, install deps, link plugin"
         },
         {
-            "label": "EDMC: Bootstrap + Run Dev Tests",
+            "label": "EDMC: Bootstrap + Run Tests",
             "type": "shell",
             "command": "python",
             "args": [
                 "scripts/bootstrap_dev_env.py",
                 "--run-tests"
             ],
-            "problemMatcher": []
+            "problemMatcher": [],
+            "detail": "Bootstrap environment and run all tests"
         },
         {
-            "label": "EDMC: Deploy Plugin To EDMC (DEV)",
+            "label": "EDMC: Run EDMC (DEV - Isolated Config)",
             "type": "shell",
             "command": "python",
             "args": [
-                "scripts/deploy_to_edmc.py"
+                "scripts/run_edmc_from_dev.py"
             ],
-            "problemMatcher": []
+            "problemMatcher": [],
+            "detail": "Run EDMC from dev repository with isolated config (won't touch your installed EDMC settings)"
         },
         {
-            "label": "EDMC: Link Plugin Into EDMC (DEV)",
+            "label": "EDMC: Run EDMC (DEV - System Config)",
             "type": "shell",
             "command": "python",
             "args": [
-                "scripts/link_plugin_to_edmc_clone.py",
-                "--force"
+                "scripts/run_edmc_from_dev.py",
+                "--use-system-config"
             ],
-            "problemMatcher": []
+            "problemMatcher": [],
+            "detail": "Run EDMC from dev repository using your actual EDMC configuration"
         },
         {
-            "label": "EDMC: Run EDMC (DEV)",
+            "label": "EDMC: Package Plugin",
             "type": "shell",
             "command": "python",
             "args": [
-                "scripts/run_edmc_from_clone.py"
+                "scripts/package_plugin.py"
             ],
-            "problemMatcher": []
-        },
-        {
-            "label": "EDMC: Bootstrap + Link (DEV)",
-            "dependsOrder": "sequence",
-            "dependsOn": [
-                "EDMC: Bootstrap Dev Environment",
-                "EDMC: Link Plugin Into EDMC (DEV)"
-            ],
-            "problemMatcher": []
+            "problemMatcher": [],
+            "detail": "Create distributable ZIP file in dist/ directory"
         }
     ]
 }

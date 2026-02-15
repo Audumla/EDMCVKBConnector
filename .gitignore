@@ -45,7 +45,9 @@ Thumbs.db
 # EDMC plugin specific
 config.json
 rules.json
+dev_paths.json
 *.log
+.edmc_dev_config/
 
 # Testing
 .pytest_cache/

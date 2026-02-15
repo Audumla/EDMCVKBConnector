@@ -18,20 +18,30 @@ EDMC plugin that maps Elite Dangerous events and status state to VKB shift/subsh
 - Verified test tool: `VKBDevCfg v0.93.96`
 - VKB software/firmware downloads: https://www.njoy32.vkb-sim.pro/home
 
-## Quick Start (EDMC DEV)
+## Quick Start (Development)
 
-1. Bootstrap local development:
+1. **Bootstrap** - Set up development environment (one-time):
    ```bash
    python scripts/bootstrap_dev_env.py
    ```
-2. Link plugin into EDMC (DEV):
+   This will:
+   - Clone EDMC repository to `../EDMarketConnector`
+   - Create virtual environment at `.venv`
+   - Install all dependencies
+   - Link the plugin into EDMC plugins directory
+
+2. **Run EDMC** - Launch EDMC with isolated dev config:
    ```bash
-   python scripts/link_plugin_to_edmc_clone.py --force
+   python scripts/run_edmc_from_dev.py
    ```
-3. Run EDMC (DEV):
+   This uses an isolated configuration that won't touch your installed EDMC settings.
+
+3. **Package** - Create distributable ZIP:
    ```bash
-   python scripts/run_edmc_from_clone.py
+   python scripts/package_plugin.py
    ```
+
+See [scripts/README.md](scripts/README.md) for detailed documentation.
 
 ## Configuration
 
@@ -99,54 +109,55 @@ Full schema and examples for manual JSON editing:
 
 ## Development
 
-### VS Code (recommended)
+See [scripts/README.md](scripts/README.md) for complete development workflow documentation.
 
-After cloning this repo in VS Code, run:
-- `Terminal -> Run Task -> EDMC: Bootstrap Dev Environment`
+### Quick Reference
 
-This task runs `scripts/bootstrap_dev_env.py`, which will:
-- create `../EDMarketConnector` from GitHub if missing
-- pull latest EDMC changes if it already exists
-- create `.venv` in this repo
-- install `requirements.txt` and `.[dev]`
-- install EDMC (DEV) requirements into `.venv` (for launching EDMC from source)
-
-For a full bootstrap + test pass, run:
-- `Terminal -> Run Task -> EDMC: Bootstrap + Run Dev Tests`
-
-EDMC (DEV) workflow:
-- `Terminal -> Run Task -> EDMC: Link Plugin Into EDMC (DEV)`
-- `Terminal -> Run Task -> EDMC: Run EDMC (DEV)`
-
-`Run EDMC (DEV)` automatically checks/install EDMC Python requirements in
-your selected interpreter if needed.
-
-For convenience:
-- `Terminal -> Run Task -> EDMC: Bootstrap + Link (DEV)`
-  runs bootstrap then linking in sequence.
-
-### CLI
-
+**Initial setup:**
 ```bash
-git clone https://github.com/Audumla/EDMCVKBConnector.git
-cd EDMCVKBConnector
 python scripts/bootstrap_dev_env.py
 ```
+Sets up: EDMC clone, venv, dependencies, and links the plugin.
 
-Run tests:
-```powershell
-python scripts/bootstrap_dev_env.py --run-tests
+**Run EDMC with isolated dev config (recommended):**
+```bash
+python scripts/run_edmc_from_dev.py
+```
+Uses a completely isolated configuration that won't touch your installed EDMC settings.
+
+**Run EDMC with your actual config (for testing with real commanders):**
+```bash
+python scripts/run_edmc_from_dev.py --use-system-config
 ```
 
-Link into EDMC (DEV) repo plugins folder:
-```powershell
-python scripts/link_plugin_to_edmc_clone.py --force
+**Package for distribution:**
+```bash
+python scripts/package_plugin.py
 ```
 
-Run EDMC GUI from EDMC (DEV) repo:
-```powershell
-python scripts/run_edmc_from_clone.py
-```
+### Isolated Development Configuration
+
+By default, `python scripts/run_edmc_from_dev.py` uses completely isolated EDMC configuration. This works by:
+
+1. Creating isolated config directory in `.edmc_dev_config/`
+2. Creating minimal config file: `.edmc_dev_config/config.toml`
+3. Passing `--config .edmc_dev_config/config.toml` to EDMC at launch
+4. EDMC reads all settings from that file instead of system configuration
+
+**Benefits:**
+- Your installed EDMC remains completely untouched
+- Clean environment for testing
+- Easy to reset: delete `.edmc_dev_config/` and start fresh
+- Plugin loads directly from source via symlink (no copying)
+
+### VS Code Tasks
+
+Available tasks (Terminal > Run Task):
+- **EDMC: Bootstrap Dev Environment** - Initial setup
+- **EDMC: Bootstrap + Run Tests** - Setup + test suite
+- **EDMC: Run EDMC (DEV)** - Run with isolated config
+- **EDMC: Run EDMC (DEV - System Config)** - Run with real EDMC config  
+- **EDMC: Package Plugin** - Create dist ZIP
 
 ## License
 
