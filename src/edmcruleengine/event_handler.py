@@ -18,7 +18,7 @@ from .vkb_client import VKBClient
 logger = plugin_logger(__name__)
 
 # Pre-compiled regex for shift token parsing (optimization #11)
-# Matches: Shift1-2 or Subshift1-8
+# Matches: Shift1, Shift2 or Subshift1 through Subshift8
 _SHIFT_TOKEN_PATTERN = re.compile(r"^(Subshift|Shift)(\d+)$")
 
 
@@ -304,7 +304,7 @@ class EventHandler:
             idx = int(match.group(2))
             
             if shift_type == "Shift":
-                # Shift codes 1-2 only (mapped to bits 0-1)
+                # Shift codes 1-2 (Shift1 maps to bit 0, Shift2 to bit 1)
                 if idx < 1 or idx > 2:
                     logger.warning(f"[{rule_id}] Shift index {idx} out of range (1-2): {token}")
                     continue

@@ -263,6 +263,7 @@ class V3RuleEngine:
         # Validate and normalize rules
         validator = V3RuleValidator(catalog)
         self.rules = []
+        self.skipped_rules = []  # Track rules that failed validation
         
         for i, rule in enumerate(rules):
             try:
@@ -271,6 +272,9 @@ class V3RuleEngine:
                 self.rules.append(normalized)
             except RuleValidationError as e:
                 logger.error(f"Rule validation failed: {e}")
+                # Track skipped rule
+                rule_title = rule.get("title", f"<rule at index {i}>")
+                self.skipped_rules.append((i, rule_title, str(e)))
                 # Skip invalid rules but continue loading others
         
         # Track previous match state for edge triggering

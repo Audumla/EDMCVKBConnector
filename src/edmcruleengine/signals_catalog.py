@@ -263,6 +263,10 @@ class SignalsCatalog:
         ]
 
 
+# Maximum length for readable part of generated ID
+MAX_READABLE_ID_LENGTH = 40
+
+
 def generate_id_from_title(title: str) -> str:
     """
     Generate a deterministic, stable ID from a rule title.
@@ -284,7 +288,7 @@ def generate_id_from_title(title: str) -> str:
     
     # Create readable part: replace non-alphanumeric with underscores
     readable = "".join(c if c.isalnum() else "_" for c in normalized)
-    readable = readable[:40]  # Limit length
+    readable = readable[:MAX_READABLE_ID_LENGTH]  # Limit length
     readable = readable.strip("_")
     
     # Combine: readable_part_hash

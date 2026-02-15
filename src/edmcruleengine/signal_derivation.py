@@ -51,7 +51,7 @@ class SignalDerivation:
                 value = self.derive_signal(signal_name, signal_def, entry)
                 result[signal_name] = value
             except Exception as e:
-                logger.warning(f"Failed to derive signal '{signal_name}': {e}")
+                logger.warning(f"Failed to derive signal '{signal_name}': {type(e).__name__}: {e}")
                 # Use default for failed derivation
                 signal_type = signal_def.get("type")
                 if signal_type == "bool":
