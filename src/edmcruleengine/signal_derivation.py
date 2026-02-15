@@ -205,8 +205,12 @@ class SignalDerivation:
         map_dict = spec.get("map", {})
         default = spec.get("default")
         
-        # Try string conversion
-        key = str(input_value)
+        # Try string conversion (handle boolean special case)
+        if isinstance(input_value, bool):
+            key = str(input_value).lower()  # "true" or "false"
+        else:
+            key = str(input_value)
+        
         if key in map_dict:
             return map_dict[key]
         
@@ -266,6 +270,12 @@ class SignalDerivation:
         Returns:
             Extracted value or None if path doesn't exist
         """
+        # Handle special "dashboard" prefix - in raw entries, dashboard fields
+        # are at the root level, not nested under "dashboard"
+        if path.startswith("dashboard."):
+            field_name = path.split(".", 1)[1]
+            return data.get(field_name)
+        
         current = data
         for part in path.split("."):
             if isinstance(current, dict) and part in current:
