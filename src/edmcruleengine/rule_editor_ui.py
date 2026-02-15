@@ -328,11 +328,11 @@ class RuleEditorDialog:
         block_frame = ttk.LabelFrame(parent_frame, text=f"{block_type.upper()} Condition Block", padding=5)
         block_frame.pack(fill=tk.X, pady=5)
         
-        # Condition type selector
+        # Condition type selector with description
         type_frame = ttk.Frame(block_frame)
         type_frame.pack(fill=tk.X, pady=2)
         
-        ttk.Label(type_frame, text="Condition Type:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(type_frame, text="What to check:").pack(side=tk.LEFT, padx=(0, 5))
         
         cond_type_var = tk.StringVar(value="flags")
         if block_data:
@@ -345,10 +345,35 @@ class RuleEditorDialog:
                 cond_type_var.set("gui_focus")
             elif "field" in block_data:
                 cond_type_var.set("field")
-                
-        type_combo = ttk.Combobox(type_frame, textvariable=cond_type_var, width=15, state="readonly")
-        type_combo["values"] = [ct["id"] for ct in self.events_config.get("condition_types", [])]
+        
+        # Build condition type dropdown with descriptions
+        condition_types = self.events_config.get("condition_types", [])
+        type_display_names = []
+        type_map = {}
+        
+        for ct in condition_types:
+            ct_id = ct["id"]
+            ct_name = ct.get("name", ct_id)
+            type_display_names.append(ct_name)
+            type_map[ct_name] = ct_id
+            
+        type_combo = ttk.Combobox(type_frame, textvariable=cond_type_var, width=20, state="readonly")
+        type_combo["values"] = [ct["id"] for ct in condition_types]
         type_combo.pack(side=tk.LEFT)
+        
+        # Add help text for selected type
+        help_label = ttk.Label(type_frame, text="", foreground="gray")
+        help_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        def update_help_text(event=None):
+            selected = cond_type_var.get()
+            for ct in condition_types:
+                if ct["id"] == selected:
+                    help_label.configure(text=f"({ct.get('description', '')})")
+                    break
+        
+        type_combo.bind("<<ComboboxSelected>>", update_help_text)
+        update_help_text()  # Set initial help text
         
         # Details frame (changes based on type)
         details_frame = ttk.Frame(block_frame)
@@ -396,10 +421,10 @@ class RuleEditorDialog:
         """Build flags/flags2 condition details."""
         flags_dict = self.flags_dict if flags_type == "flags" else self.flags2_dict
         
-        # Operator selector
+        # Operator selector with descriptions
         op_frame = ttk.Frame(parent)
         op_frame.pack(fill=tk.X, pady=2)
-        ttk.Label(op_frame, text="Operator:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(op_frame, text="Match type:").pack(side=tk.LEFT, padx=(0, 5))
         
         # Determine current operator
         current_op = "all_of"
@@ -415,9 +440,28 @@ class RuleEditorDialog:
         op_var = tk.StringVar(value=current_op)
         parent.operator_var = op_var
         
+        # Create operator descriptions
+        op_descriptions = {
+            "all_of": "All selected flags must be set",
+            "any_of": "At least one selected flag must be set",
+            "none_of": "None of the selected flags can be set",
+            "equals": "Flags must exactly match selected"
+        }
+        
         op_combo = ttk.Combobox(op_frame, textvariable=op_var, width=15, state="readonly")
         op_combo["values"] = ["all_of", "any_of", "none_of", "equals"]
         op_combo.pack(side=tk.LEFT)
+        
+        # Add help text for operator
+        op_help = ttk.Label(op_frame, text="", foreground="gray")
+        op_help.pack(side=tk.LEFT, padx=(10, 0))
+        
+        def update_op_help(event=None):
+            selected = op_var.get()
+            op_help.configure(text=f"({op_descriptions.get(selected, '')})")
+        
+        op_combo.bind("<<ComboboxSelected>>", update_op_help)
+        update_op_help()  # Set initial help text
         
         # Flags listbox for selection
         list_frame = ttk.Frame(parent)
