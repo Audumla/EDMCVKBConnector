@@ -679,6 +679,7 @@ class TestSignalResolutionWithRealData:
         
         # Derive signals manually to verify
         from edmcruleengine.signal_derivation import SignalDerivation
+        import time
         
         derivation = SignalDerivation(handler.catalog._data)
         event_data = {
@@ -686,11 +687,12 @@ class TestSignalResolutionWithRealData:
             "StationName": "Test Station"
         }
         
-        signals = derivation.derive_all_signals(event_data)
+        # Build context with recent event
+        context = {"recent_events": {event_data["event"]: time.time()}}
+        signals = derivation.derive_all_signals(event_data, context)
         
-        # Should have event_docked signal
-        assert "event_docked" in signals
-        assert signals["event_docked"] is True
+        # Should have travel_event signal set to docked
+        assert signals["travel_event"] == "docked"
 
 
 if __name__ == "__main__":

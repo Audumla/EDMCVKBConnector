@@ -327,7 +327,7 @@ class TestProductionWorkflow:
         
         rules = [{
             "title": "Docked",
-            "when": {"all": [{"signal": "flag_docked", "op": "eq", "value": True}]},
+            "when": {"all": [{"signal": "docking_state", "op": "eq", "value": "docked"}]},
             "then": [{"log": "docked"}]
         }]
         

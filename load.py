@@ -87,6 +87,53 @@ _plugin_dir = None
 _prefs_vars = {}
 
 
+class _ToolTip:
+    """Simple tooltip helper for tkinter widgets."""
+
+    def __init__(self, widget, text: str, delay_ms: int = 500) -> None:
+        self.widget = widget
+        self.text = text
+        self.delay_ms = delay_ms
+        self._after_id = None
+        self._tip_window = None
+
+        widget.bind("<Enter>", self._schedule)
+        widget.bind("<Leave>", self._hide)
+        widget.bind("<ButtonPress>", self._hide)
+
+    def _schedule(self, event=None) -> None:
+        self._cancel()
+        self._after_id = self.widget.after(self.delay_ms, self._show)
+
+    def _cancel(self) -> None:
+        if self._after_id is not None:
+            try:
+                self.widget.after_cancel(self._after_id)
+            except Exception:
+                pass
+            self._after_id = None
+
+    def _show(self) -> None:
+        if self._tip_window or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 12
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 8
+        self._tip_window = tk.Toplevel(self.widget)
+        self._tip_window.wm_overrideredirect(True)
+        self._tip_window.wm_geometry(f"+{x}+{y}")
+        label = ttk.Label(self._tip_window, text=self.text, relief="solid", borderwidth=1)
+        label.pack(ipadx=6, ipady=3)
+
+    def _hide(self, event=None) -> None:
+        self._cancel()
+        if self._tip_window is not None:
+            try:
+                self._tip_window.destroy()
+            except Exception:
+                pass
+            self._tip_window = None
+
+
 def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]:
     """Compute shift/subshift bitmap values from UI checkbox vars."""
     global _prefs_vars
@@ -268,6 +315,15 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         # Initialize event handler with automatic reconnection
         _event_handler = EventHandler(_config, plugin_dir=_plugin_dir)
         _restore_test_shift_state_from_config()
+        
+        # On startup, refresh unregistered events against catalog
+        # This removes any events that may have been added to the catalog since last run
+        try:
+            removed_count = _event_handler.refresh_unregistered_events_against_catalog()
+            if removed_count > 0:
+                logger.info(f"Startup: {removed_count} previously unregistered event(s) now in catalog")
+        except Exception as e:
+            logger.warning(f"Error refreshing unregistered events on startup: {e}")
 
         # Start connection attempt in background thread to avoid blocking UI
         def _connect_in_background() -> None:
@@ -392,6 +448,9 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
         _event_handler.reload_rules()
         _event_handler.disconnect()
         _event_handler.connect()
+        
+        # Refresh unregistered events against updated catalog
+        _event_handler.refresh_unregistered_events_against_catalog()
         
     except Exception as e:
         logger.error(f"Error in prefs_changed: {e}", exc_info=True)
@@ -559,7 +618,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     
     Uses EDMC's myNotebook widgets when available.
     """
-    global _prefs_vars, _config
+    global _prefs_vars, _config, tk, ttk
 
     try:
         import tkinter as tk
@@ -587,10 +646,11 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     frame.rowconfigure(0, weight=1)
 
     settings_tab = ttk.Frame(notebook)
-    rules_tab = ttk.Frame(notebook)
+    events_tab = ttk.Frame(notebook)
     notebook.add(settings_tab, text="Settings")
-    notebook.add(rules_tab, text="Rules")
+    notebook.add(events_tab, text="Unregistered Events")
 
+    settings_tab.columnconfigure(0, weight=1)
     settings_tab.columnconfigure(1, weight=1)
 
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
@@ -614,90 +674,464 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         "test_subshift_vars": subshift_vars,
     }
 
-    ttk.Label(settings_tab, text="VKB Host:").grid(row=0, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(settings_tab, textvariable=host_var, width=24).grid(row=0, column=1, sticky="w", padx=4, pady=2)
+    vkb_link_frame = ttk.LabelFrame(settings_tab, text="VKB-Link", padding=6)
+    vkb_link_frame.grid(row=0, column=0, sticky="nsew", padx=(4, 6), pady=2)
+    vkb_link_frame.columnconfigure(1, weight=1)
 
-    ttk.Label(settings_tab, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=2)
-    ttk.Entry(settings_tab, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=2)
+    ttk.Label(vkb_link_frame, text="VKB Host:").grid(row=0, column=0, sticky="w", padx=4, pady=(2, 6))
+    ttk.Entry(vkb_link_frame, textvariable=host_var, width=24).grid(row=0, column=1, sticky="ew", padx=4, pady=(2, 6))
 
-    ttk.Separator(settings_tab, orient="horizontal").grid(row=2, column=0, columnspan=2, sticky="ew", padx=4, pady=(8, 6))
+    ttk.Label(vkb_link_frame, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=(0, 2))
+    ttk.Entry(vkb_link_frame, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=(0, 2))
 
-    test_frame = ttk.Frame(settings_tab)
-    test_frame.grid(row=3, column=0, columnspan=2, sticky="w", padx=4, pady=2)
+    static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=6)
+    static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2)
 
-    ttk.Label(test_frame, text="Shift:").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
+    ttk.Label(static_shift_frame, text="Shift:").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
     for i, shift_code in enumerate((1, 2)):
         ttk.Checkbutton(
-            test_frame,
+            static_shift_frame,
             text=f"{shift_code}",
             variable=shift_vars[i],
             command=_apply_test_shift_from_ui,
         ).grid(row=0, column=1 + i, sticky="w", padx=2, pady=2)
 
-    ttk.Label(test_frame, text="SubShift:").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=2)
+    ttk.Label(static_shift_frame, text="SubShift:").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=2)
     for i in range(7):
         ttk.Checkbutton(
-            test_frame,
+            static_shift_frame,
             text=f"{i + 1}",
             variable=subshift_vars[i],
             command=_apply_test_shift_from_ui,
         ).grid(row=1, column=1 + i, sticky="w", padx=2, pady=2)
+    settings_tab.rowconfigure(1, weight=1)
 
-    # Rules tab
-    rules_status_var = tk.StringVar(value="")
+    # Rules summary panel
     rules_path_var = tk.StringVar(value="")
+    rules_cache: list[dict] = []
+    rules_wrapped = False
+    rules_path = ""
+    rules_mtime: Optional[float] = None
+    rules_poll_ms = 1500
 
     def _refresh_rules_path() -> None:
         rules_path_var.set(_resolve_rules_file_path())
 
-    def _open_rules_editor() -> None:
+    def _open_rules_editor(initial_rule_index: Optional[int] = None) -> None:
         try:
             from edmcruleengine.rule_editor import show_rule_editor
 
             _refresh_rules_path()
             rules_file = Path(rules_path_var.get())
             plugin_dir = Path(_plugin_dir) if _plugin_dir else Path(__file__).parent
-            show_rule_editor(frame, rules_file, plugin_dir)
-            rules_status_var.set("Opened rules editor")
+            window = show_rule_editor(
+                frame,
+                rules_file,
+                plugin_dir,
+                initial_rule_index=initial_rule_index,
+            )
+            if window is not None:
+                def _on_editor_closed(event):
+                    if event.widget is window:
+                        _refresh_rules_summary()
+                window.bind("<Destroy>", _on_editor_closed)
         except Exception as e:
             logger.error(f"Failed to open rule editor: {e}", exc_info=True)
-            rules_status_var.set(f"Failed to open editor: {e}")
+            return
 
-    def _reload_rules() -> None:
+    def _edit_rule(index: int) -> None:
+        _open_rules_editor(initial_rule_index=index)
+
+    def _save_rules_summary(next_rules: list[dict], wrapped: bool, path: str) -> bool:
+        if not _save_rules_file_from_ui(next_rules, wrapped, path):
+            return False
+
         if _event_handler:
             _event_handler.reload_rules()
-            rules_status_var.set("Reloaded rules")
-        else:
-            rules_status_var.set("Rules not loaded yet")
+        return True
 
-    rules_tab.columnconfigure(1, weight=1)
+    def _toggle_rule_enabled(index: int, enabled_var: tk.BooleanVar) -> None:
+        nonlocal rules_cache
+        if index < 0 or index >= len(rules_cache):
+            return
+        rules_cache[index]["enabled"] = bool(enabled_var.get())
+        _save_rules_summary(rules_cache, rules_wrapped, rules_path)
 
-    ttk.Label(rules_tab, text="Rules Editor", font=("TkDefaultFont", 12, "bold")).grid(
-        row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 4)
-    )
-    ttk.Label(rules_tab, text="Edit rules using the catalog-driven editor.").grid(
-        row=1, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8)
-    )
+    def _duplicate_rule(index: int) -> None:
+        nonlocal rules_cache
+        if index < 0 or index >= len(rules_cache):
+            return
+        original = rules_cache[index]
+        duplicate = json.loads(json.dumps(original))
+        title = duplicate.get("title", "Rule")
+        duplicate["title"] = f"{title} (copy)"
+        duplicate.pop("id", None)
+        rules_cache.insert(index + 1, duplicate)
+        if _save_rules_summary(rules_cache, rules_wrapped, rules_path):
+            _refresh_rules_summary()
 
-    ttk.Label(rules_tab, text="Rules file:").grid(row=2, column=0, sticky="w", padx=8, pady=2)
+    def _delete_rule(index: int) -> None:
+        nonlocal rules_cache
+        if index < 0 or index >= len(rules_cache):
+            return
+        from tkinter import messagebox
+
+        rule = rules_cache[index]
+        title = rule.get("title", rule.get("id", "this rule"))
+        if not messagebox.askyesno("Confirm Delete", f'Delete rule "{title}"?'):
+            return
+        del rules_cache[index]
+        if _save_rules_summary(rules_cache, rules_wrapped, rules_path):
+            _refresh_rules_summary()
+
+    def _get_rules_mtime() -> Optional[float]:
+        try:
+            return Path(_resolve_rules_file_path()).stat().st_mtime
+        except FileNotFoundError:
+            return None
+        except OSError as e:
+            logger.debug(f"Failed to stat rules file: {e}")
+            return None
+
+    def _refresh_rules_summary() -> None:
+        nonlocal rules_cache, rules_wrapped, rules_path
+        for widget in rules_list_frame.winfo_children():
+            widget.destroy()
+
+        rules_cache, rules_wrapped, rules_path = _load_rules_file_for_ui()
+        rules_path_var.set(rules_path)
+
+        if not rules_cache:
+            empty_label = ttk.Label(rules_list_frame, text="No rules found", foreground="gray")
+            empty_label.pack(anchor="w", padx=4, pady=4)
+            return
+
+        def _format_rule_summary(rule: dict) -> str:
+            op_map = {
+                "eq": "=",
+                "ne": "!=",
+                "in": "in",
+                "nin": "not in",
+                "lt": "<",
+                "lte": "<=",
+                "gt": ">",
+                "gte": ">=",
+                "contains": "contains",
+                "exists": "exists",
+            }
+
+            def _format_value(val: Any) -> str:
+                if isinstance(val, bool):
+                    return "true" if val else "false"
+                if isinstance(val, list):
+                    return ", ".join(str(v) for v in val)
+                return str(val)
+
+            when = rule.get("when", {})
+            all_conds = when.get("all", []) if isinstance(when, dict) else []
+            any_conds = when.get("any", []) if isinstance(when, dict) else []
+
+            cond_parts = []
+            for cond in all_conds:
+                if not isinstance(cond, dict):
+                    continue
+                signal = cond.get("signal", "")
+                op = op_map.get(cond.get("op"), cond.get("op", ""))
+                value = _format_value(cond.get("value"))
+                if signal and op:
+                    cond_parts.append(f"{signal} {op} {value}")
+
+            if any_conds:
+                any_parts = []
+                for cond in any_conds:
+                    if not isinstance(cond, dict):
+                        continue
+                    signal = cond.get("signal", "")
+                    op = op_map.get(cond.get("op"), cond.get("op", ""))
+                    value = _format_value(cond.get("value"))
+                    if signal and op:
+                        any_parts.append(f"{signal} {op} {value}")
+                if any_parts:
+                    cond_parts.append("(" + " OR ".join(any_parts) + ")")
+
+            if cond_parts:
+                when_text = "When: " + " AND ".join(cond_parts)
+            else:
+                when_text = "When: (always)"
+
+            def _format_actions(actions: list[dict]) -> str:
+                parts = []
+                for action in actions:
+                    if not isinstance(action, dict):
+                        continue
+                    if "vkb_set_shift" in action:
+                        tokens = action["vkb_set_shift"]
+                        tokens = tokens if isinstance(tokens, list) else [tokens]
+                        parts.append("Set " + ", ".join(str(t) for t in tokens))
+                    elif "vkb_clear_shift" in action:
+                        tokens = action["vkb_clear_shift"]
+                        tokens = tokens if isinstance(tokens, list) else [tokens]
+                        parts.append("Clear " + ", ".join(str(t) for t in tokens))
+                    elif "log" in action:
+                        parts.append(f"Log '{action['log']}'")
+                return "; ".join(parts)
+
+            then_text = "Then: " + _format_actions(rule.get("then", []))
+            else_text = "Else: " + _format_actions(rule.get("else", []))
+
+            summary = " | ".join(
+                part for part in [when_text, then_text, else_text] if part and not part.endswith(": ")
+            )
+            if len(summary) > 160:
+                summary = summary[:157].rstrip() + "..."
+            return summary
+
+        for idx, rule in enumerate(rules_cache):
+            item_frame = ttk.Frame(rules_list_frame)
+            item_frame.pack(fill=tk.X, pady=2)
+
+            actions_frame = ttk.Frame(item_frame)
+            actions_frame.pack(side=tk.LEFT, padx=(0, 6))
+
+            edit_button = ttk.Button(actions_frame, text="✎", width=3, command=lambda i=idx: _edit_rule(i))
+            edit_button.pack(side=tk.LEFT, padx=1)
+            _ToolTip(edit_button, "Edit rule")
+
+            dup_button = ttk.Button(actions_frame, text="⎘", width=3, command=lambda i=idx: _duplicate_rule(i))
+            dup_button.pack(side=tk.LEFT, padx=1)
+            _ToolTip(dup_button, "Duplicate rule")
+
+            del_button = ttk.Button(actions_frame, text="🗑", width=3, command=lambda i=idx: _delete_rule(i))
+            del_button.pack(side=tk.LEFT, padx=1)
+            _ToolTip(del_button, "Delete rule")
+
+            enabled_var = tk.BooleanVar(value=rule.get("enabled", True))
+            enabled_button = ttk.Checkbutton(
+                item_frame,
+                variable=enabled_var,
+                command=lambda i=idx, var=enabled_var: _toggle_rule_enabled(i, var),
+            )
+            enabled_button.pack(side=tk.LEFT, padx=(0, 4))
+            _ToolTip(enabled_button, "Enable or disable rule")
+
+            title = rule.get("title", rule.get("id", "Untitled"))
+            rule_id = rule.get("id", "")
+            title_text = f"{title} [{rule_id}]" if rule_id else title
+            summary = _format_rule_summary(rule)
+            title_label = ttk.Label(item_frame, text=f"{title_text} - {summary}" if summary else title_text)
+            title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    rules_frame = ttk.LabelFrame(settings_tab, text="Rules", padding=6)
+    rules_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
+    rules_frame.columnconfigure(0, weight=1)
+    rules_frame.rowconfigure(1, weight=1)
+
+    rules_header = ttk.Frame(rules_frame)
+    rules_header.grid(row=0, column=0, sticky="ew")
+    rules_header.columnconfigure(1, weight=1)
+
+    ttk.Label(rules_header, text="Rules file:").grid(row=0, column=0, sticky="w", padx=(0, 6))
     _refresh_rules_path()
-    ttk.Label(rules_tab, textvariable=rules_path_var, foreground="gray").grid(
-        row=2, column=1, sticky="w", padx=8, pady=2
+    ttk.Label(rules_header, textvariable=rules_path_var, foreground="gray").grid(
+        row=0, column=1, sticky="w"
     )
 
-    rules_buttons = ttk.Frame(rules_tab)
-    rules_buttons.grid(row=3, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 0))
+    list_container = ttk.Frame(rules_frame)
+    list_container.grid(row=1, column=0, sticky="nsew", pady=(6, 0))
 
-    ttk.Button(rules_buttons, text="Open Rules Editor", command=_open_rules_editor).grid(
-        row=0, column=0, sticky="w"
+    list_canvas = tk.Canvas(list_container, highlightthickness=0, height=180)
+    list_scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=list_canvas.yview)
+    rules_list_frame = ttk.Frame(list_canvas)
+
+    list_window = list_canvas.create_window((0, 0), window=rules_list_frame, anchor="nw")
+
+    def _on_rules_frame_configure(event=None):
+        list_canvas.configure(scrollregion=list_canvas.bbox("all"))
+
+    def _on_rules_canvas_configure(event):
+        list_canvas.itemconfigure(list_window, width=event.width)
+
+    rules_list_frame.bind("<Configure>", _on_rules_frame_configure)
+    list_canvas.bind("<Configure>", _on_rules_canvas_configure)
+
+    list_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    list_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    list_canvas.configure(yscrollcommand=list_scrollbar.set)
+
+    _refresh_rules_summary()
+
+    def _poll_rules_changes() -> None:
+        nonlocal rules_mtime
+        if not frame.winfo_exists():
+            return
+        current_mtime = _get_rules_mtime()
+        if current_mtime != rules_mtime:
+            rules_mtime = current_mtime
+            _refresh_rules_summary()
+        frame.after(rules_poll_ms, _poll_rules_changes)
+
+    rules_mtime = _get_rules_mtime()
+    frame.after(rules_poll_ms, _poll_rules_changes)
+
+    # Events Tab - Unregistered Events Tracker
+    events_tab.columnconfigure(0, weight=1)
+    events_tab.rowconfigure(3, weight=1)
+
+    ttk.Label(events_tab, text="Unregistered Events", font=("TkDefaultFont", 12, "bold")).grid(
+        row=0, column=0, sticky="w", padx=8, pady=(8, 4)
     )
-    ttk.Button(rules_buttons, text="Reload Rules", command=_reload_rules).grid(
-        row=0, column=1, sticky="w", padx=(6, 0)
+    ttk.Label(
+        events_tab,
+        text="Events received that are not registered in signals_catalog.json\nThese may need to be added to the catalog for future use."
+    ).grid(row=1, column=0, sticky="w", padx=8, pady=(0, 6))
+
+    # Variables for events display
+    events_status_var = tk.StringVar(value="")
+    events_count_var = tk.StringVar(value="No unregistered events")
+
+    def _refresh_unregistered_events() -> None:
+        """Refresh the unregistered events list."""
+        if not _event_handler:
+            events_count_var.set("Event handler not initialized")
+            return
+
+        try:
+            # Refresh against catalog
+            removed_count = _event_handler.refresh_unregistered_events_against_catalog()
+            total_count = _event_handler.get_unregistered_events_count()
+
+            if removed_count > 0:
+                events_status_var.set(f"Refreshed: {removed_count} event(s) now in catalog removed")
+            else:
+                events_status_var.set("Catalog check complete")
+
+            if total_count == 0:
+                events_count_var.set("No unregistered events tracked")
+            elif total_count == 1:
+                events_count_var.set("1 unregistered event tracked")
+            else:
+                events_count_var.set(f"{total_count} unregistered events tracked")
+        except Exception as e:
+            logger.error(f"Error refreshing unregistered events: {e}", exc_info=True)
+            events_status_var.set(f"Error: {e}")
+
+    def _clear_all_unregistered_events() -> None:
+        """Clear all unregistered events."""
+        if not _event_handler:
+            events_status_var.set("Event handler not initialized")
+            return
+
+        try:
+            from tkinter import messagebox
+
+            if messagebox.askyesno(
+                "Clear All Unregistered Events",
+                "Are you sure you want to clear all tracked unregistered events?\nThis cannot be undone.",
+            ):
+                count = _event_handler.clear_all_unregistered_events()
+                events_status_var.set(f"Cleared {count} event(s)")
+                _refresh_unregistered_events()
+        except Exception as e:
+            logger.error(f"Error clearing unregistered events: {e}", exc_info=True)
+            events_status_var.set(f"Error: {e}")
+
+    def _show_unregistered_events_list() -> None:
+        """Display detailed list of unregistered events."""
+        if not _event_handler:
+            from tkinter import messagebox
+
+            messagebox.showwarning("Not Ready", "Event handler not initialized")
+            return
+
+        try:
+            events = _event_handler.get_unregistered_events()
+
+            if not events:
+                from tkinter import messagebox
+
+                messagebox.showinfo("No Events", "No unregistered events currently tracked")
+                return
+
+            # Create a new window to display events
+            details_window = tk.Toplevel(frame)
+            details_window.title("Unregistered Events Details")
+            details_window.geometry("800x500")
+
+            # Create frame with scrollbar
+            canvas_frame = ttk.Frame(details_window)
+            canvas_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+            canvas = tk.Canvas(canvas_frame)
+            scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+            )
+
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            # Add events to the scrollable frame
+            for i, event in enumerate(events):
+                event_frame = ttk.LabelFrame(
+                    scrollable_frame,
+                    text=f"{event['event_type']} (from {event['source']})",
+                    padding=6,
+                )
+                event_frame.pack(fill=tk.X, padx=4, pady=4)
+
+                # Event details
+                info_text = f"First seen: {event.get('first_seen', 'unknown')}\n"
+                info_text += f"Last seen: {event.get('last_seen', 'unknown')}\n"
+                info_text += f"Occurrences: {event.get('occurrences', 0)}"
+
+                ttk.Label(event_frame, text=info_text, justify=tk.LEFT).pack(anchor="w", pady=(0, 4))
+
+                # Sample data preview
+                ttk.Label(event_frame, text="Sample data:", font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
+                sample_text = tk.Text(event_frame, height=4, width=80, wrap=tk.WORD)
+                sample_text.pack(anchor="w", fill=tk.BOTH, expand=True)
+
+                sample_data = event.get("sample_data", {})
+                sample_str = json.dumps(sample_data, indent=2)
+                sample_text.insert("1.0", sample_str)
+                sample_text.config(state=tk.DISABLED)
+
+            canvas.pack(side="left", fill=tk.BOTH, expand=True)
+            scrollbar.pack(side="right", fill="y")
+
+        except Exception as e:
+            logger.error(f"Error showing unregistered events details: {e}", exc_info=True)
+            from tkinter import messagebox
+
+            messagebox.showerror("Error", f"Failed to display events: {e}")
+
+    # Events tab content
+    ttk.Label(events_tab, textvariable=events_count_var, font=("TkDefaultFont", 10, "bold")).grid(
+        row=2, column=0, sticky="w", padx=8, pady=(6, 4)
     )
 
-    ttk.Label(rules_tab, textvariable=rules_status_var).grid(
-        row=4, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 0)
+    events_buttons = ttk.Frame(events_tab)
+    events_buttons.grid(row=3, column=0, sticky="nw", padx=8, pady=(0, 6))
+
+    ttk.Button(events_buttons, text="View Details", command=_show_unregistered_events_list).grid(
+        row=0, column=0, sticky="w", padx=(0, 6)
     )
+    ttk.Button(events_buttons, text="Refresh", command=_refresh_unregistered_events).grid(
+        row=0, column=1, sticky="w", padx=(0, 6)
+    )
+    ttk.Button(events_buttons, text="Clear All", command=_clear_all_unregistered_events).grid(
+        row=0, column=2, sticky="w"
+    )
+
+    ttk.Label(events_tab, textvariable=events_status_var, foreground="gray").grid(
+        row=4, column=0, sticky="w", padx=8, pady=(0, 6)
+    )
+
+    # Initial population of event counts
+    _refresh_unregistered_events()
 
     return frame
 

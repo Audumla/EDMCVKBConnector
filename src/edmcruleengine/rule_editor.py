@@ -33,7 +33,7 @@ class RuleEditorUI:
     Provides rules list view and rule editor with catalog-driven controls.
     """
     
-    def __init__(self, parent, rules_file: Path, plugin_dir: Path):
+    def __init__(self, parent, rules_file: Path, plugin_dir: Path, initial_rule_index: Optional[int] = None):
         """
         Initialize the rule editor UI.
         
@@ -45,6 +45,10 @@ class RuleEditorUI:
         self.parent = parent
         self.rules_file = rules_file
         self.plugin_dir = plugin_dir
+        self.catalog_path = Path(plugin_dir) / "signals_catalog.json"
+        self.catalog_mtime = self._get_catalog_mtime()
+        self.pending_catalog_reload = False
+        self.catalog_poll_ms = 1500
         
         # Try to load catalog
         self.catalog: Optional[SignalsCatalog] = None
@@ -79,6 +83,13 @@ class RuleEditorUI:
         
         # Build UI
         self._build_ui()
+
+        if initial_rule_index is not None and not self.catalog_error:
+            if 0 <= initial_rule_index < len(self.rules):
+                self._edit_rule(initial_rule_index)
+
+        # Start catalog change watcher
+        self._schedule_catalog_poll()
         
         # Center window on screen (handle withdrawn parent)
         self.window.update_idletasks()
@@ -158,11 +169,20 @@ class RuleEditorUI:
 
     def _reload_catalog(self):
         """Reload the signals catalog and refresh the UI."""
+        if self.current_view == "editor" and self.active_editor and self.active_editor.has_changes:
+            if not messagebox.askyesno(
+                "Unsaved Changes",
+                "You have unsaved changes. Reloading the catalog will discard them. Continue?"
+            ):
+                return
         try:
             self.catalog = SignalsCatalog.from_plugin_dir(str(self.plugin_dir))
             self.catalog_error = None
             logger.info("Reloaded signals catalog")
-            self._show_rules_list()
+            if self.current_view == "editor" and self.editing_rule_index is not None:
+                self._show_rule_editor()
+            else:
+                self._show_rules_list()
         except CatalogError as e:
             self.catalog_error = str(e)
             logger.error(f"Failed to reload catalog: {e}")
@@ -265,6 +285,48 @@ class RuleEditorUI:
         else:
             for idx, rule in enumerate(self.rules):
                 self._create_rule_list_item(rules_frame, idx, rule)
+
+    def _get_catalog_mtime(self) -> Optional[float]:
+        """Return the catalog file mtime or None if unavailable."""
+        try:
+            return self.catalog_path.stat().st_mtime
+        except FileNotFoundError:
+            return None
+        except OSError as e:
+            logger.debug(f"Failed to stat catalog file: {e}")
+            return None
+
+    def _schedule_catalog_poll(self):
+        """Schedule polling for catalog changes."""
+        if not self.window.winfo_exists():
+            return
+        self.window.after(self.catalog_poll_ms, self._poll_catalog_changes)
+
+    def _poll_catalog_changes(self):
+        """Poll for catalog file changes and refresh UI when needed."""
+        if not self.window.winfo_exists():
+            return
+
+        current_mtime = self._get_catalog_mtime()
+        if current_mtime != self.catalog_mtime:
+            self.catalog_mtime = current_mtime
+            self._on_catalog_file_changed()
+
+        self.window.after(self.catalog_poll_ms, self._poll_catalog_changes)
+
+    def _on_catalog_file_changed(self):
+        """Handle catalog changes without clobbering active edits."""
+        if self.current_view == "editor" and self.active_editor and self.active_editor.has_changes:
+            if not self.pending_catalog_reload:
+                self.pending_catalog_reload = True
+                messagebox.showinfo(
+                    "Catalog Changed",
+                    "Signals catalog changed on disk. Save or cancel your edits to reload."
+                )
+            return
+
+        self.pending_catalog_reload = False
+        self._reload_catalog()
     
     def _create_rule_list_item(self, parent, idx: int, rule: Dict[str, Any]):
         """Create a single rule list item."""
@@ -514,12 +576,18 @@ class RuleEditorUI:
             self.active_editor = None
             self._show_rules_list()
             messagebox.showinfo("Saved", "Rule saved successfully")
+            if self.pending_catalog_reload:
+                self.pending_catalog_reload = False
+                self._reload_catalog()
     
     def _on_cancel_edit(self):
         """Callback when edit is cancelled."""
         self.editing_rule_index = None
         self.active_editor = None
         self._show_rules_list()
+        if self.pending_catalog_reload:
+            self.pending_catalog_reload = False
+            self._reload_catalog()
     
     def _on_close(self):
         """Handle window close."""
@@ -654,29 +722,20 @@ class RuleEditor:
 
     def _build_signal_display_maps(self):
         """Build display labels for signals and ensure uniqueness."""
-        self.icon_map = getattr(self, "icon_map", {})
-        if not self.icon_map:
-            self._load_icon_map()
         display_counts: Dict[str, int] = {}
 
-        for category in sorted(self.signals_by_category.keys()):
+        for category in sorted(self.signals_by_category.keys(), key=str.casefold):
             for signal_id, signal_def in self.signals_by_category[category]:
                 ui = signal_def.get("ui", {})
                 label = ui.get("label", signal_id)
-                icon_name = ui.get("icon", "")
-                icon_char = self.icon_map.get(icon_name, "") if icon_name else ""
-                icon_label = f"{icon_char} {label}".strip() if icon_char else label
-                base_display = f"{category}: {icon_label}"
+                base_display = f"{category}: {label}"
                 display_counts[base_display] = display_counts.get(base_display, 0) + 1
 
-        for category in sorted(self.signals_by_category.keys()):
+        for category in sorted(self.signals_by_category.keys(), key=str.casefold):
             for signal_id, signal_def in self.signals_by_category[category]:
                 ui = signal_def.get("ui", {})
                 label = ui.get("label", signal_id)
-                icon_name = ui.get("icon", "")
-                icon_char = self.icon_map.get(icon_name, "") if icon_name else ""
-                icon_label = f"{icon_char} {label}".strip() if icon_char else label
-                base_display = f"{category}: {icon_label}"
+                base_display = f"{category}: {label}"
                 if display_counts.get(base_display, 0) > 1:
                     display = f"{base_display} ({signal_id})"
                 else:
@@ -684,10 +743,10 @@ class RuleEditor:
 
                 self.signal_display_to_id[display] = signal_id
                 self.signal_id_to_display[signal_id] = display
-                
+
                 # Also store simple display (without category) for category-specific dropdowns
                 if signal_id not in self.signal_id_to_simple_display:
-                    self.signal_id_to_simple_display[signal_id] = icon_label
+                    self.signal_id_to_simple_display[signal_id] = label
     
     def _build_ui(self):
         """Build the editor UI."""
@@ -727,11 +786,11 @@ class RuleEditor:
         self._build_when_section(content_frame)
         self._build_then_section(content_frame)
         self._build_else_section(content_frame)
-        
-        # Save/Cancel buttons at bottom
-        button_frame = ttk.Frame(main_frame)
+
+        # Save/Cancel buttons at bottom, right aligned under panels
+        button_frame = ttk.Frame(content_frame)
         button_frame.pack(fill=tk.X, pady=(10, 0))
-        
+
         ttk.Button(button_frame, text="💾 Save", command=self._save, width=15).pack(side=tk.RIGHT, padx=5)
         ttk.Button(button_frame, text="Cancel", command=self._on_back, width=15).pack(side=tk.RIGHT)
     
@@ -933,7 +992,7 @@ class RuleEditor:
             if has_visible:
                 categories.append(category)
         
-        combo["values"] = sorted(categories)
+        combo["values"] = sorted(categories, key=str.casefold)
         
         # Pre-select category if loading existing condition
         if cond_data["signal_var"].get() and cond_data["signal_var"].get() in self.signal_display_to_id:
@@ -956,14 +1015,14 @@ class RuleEditor:
                     if simple_display:
                         signals.append(simple_display)
         
-        combo["values"] = sorted(signals)
+        combo["values"] = sorted(signals, key=str.casefold)
     
     def _populate_signal_dropdown(self, combo: ttk.Combobox):
         """Populate signal dropdown with filtered signals."""
         signals = []
         show_detail = self.show_detail_tier.get()
 
-        for category in sorted(self.signals_by_category.keys()):
+        for category in sorted(self.signals_by_category.keys(), key=str.casefold):
             for signal_id, signal_def in self.signals_by_category[category]:
                 tier = signal_def.get("ui", {}).get("tier", "core")
                 if tier == "core" or show_detail:
@@ -971,7 +1030,7 @@ class RuleEditor:
                     if display:
                         signals.append(display)
 
-        combo["values"] = signals
+        combo["values"] = sorted(signals, key=str.casefold)
     
     def _on_tier_changed(self):
         """Handle tier filter toggle."""
@@ -1150,11 +1209,12 @@ class RuleEditor:
                 section_row = ttk.Frame(cond_data["value_widget_frame"])
                 section_row.pack(fill=tk.X, expand=True)
                 ttk.Label(section_row, text="Group:", width=6).pack(side=tk.LEFT, padx=(0, 4))
-                section_var = tk.StringVar(value=next(iter(enum_sections.keys())))
+                section_names = sorted(enum_sections.keys(), key=str.casefold)
+                section_var = tk.StringVar(value=section_names[0] if section_names else "")
                 section_combo = ttk.Combobox(
                     section_row,
                     textvariable=section_var,
-                    values=list(enum_sections.keys()),
+                    values=section_names,
                     state="readonly",
                     width=28
                 )
@@ -1180,7 +1240,8 @@ class RuleEditor:
                         for i in listbox.curselection()
                     }
                     listbox.delete(0, tk.END)
-                    for label in enum_sections.get(section_var.get(), []):
+                    labels = sorted(enum_sections.get(section_var.get(), []), key=str.casefold)
+                    for label in labels:
                         listbox.insert(tk.END, label)
                     for idx, label in enumerate(listbox.get(0, tk.END)):
                         raw = cond_data["enum_display_to_value"].get(label, label)
@@ -1204,8 +1265,9 @@ class RuleEditor:
                 list_frame = ttk.Frame(cond_data["value_widget_frame"])
                 list_frame.pack(fill=tk.X, expand=True)
 
-                listbox = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, height=min(4, max(1, len(value_labels))))
-                for label in value_labels:
+                sorted_labels = sorted(value_labels, key=str.casefold)
+                listbox = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, height=min(4, max(1, len(sorted_labels))))
+                for label in sorted_labels:
                     listbox.insert(tk.END, label)
                 listbox.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
@@ -1231,11 +1293,12 @@ class RuleEditor:
                 section_row.pack(fill=tk.X, expand=True)
 
                 ttk.Label(section_row, text="Group:", width=6).pack(side=tk.LEFT, padx=(0, 4))
-                section_var = tk.StringVar(value=next(iter(enum_sections.keys())))
+                section_names = sorted(enum_sections.keys(), key=str.casefold)
+                section_var = tk.StringVar(value=section_names[0] if section_names else "")
                 section_combo = ttk.Combobox(
                     section_row,
                     textvariable=section_var,
-                    values=list(enum_sections.keys()),
+                    values=section_names,
                     state="readonly",
                     width=28
                 )
@@ -1255,7 +1318,7 @@ class RuleEditor:
                 cond_data["value_var"].trace_add("write", lambda *args: self._mark_changed())
 
                 def refresh_values():
-                    labels = enum_sections.get(section_var.get(), [])
+                    labels = sorted(enum_sections.get(section_var.get(), []), key=str.casefold)
                     value_combo["values"] = labels
                     current = cond_data["value_var"].get()
                     if current not in labels:
@@ -1267,7 +1330,7 @@ class RuleEditor:
                 value_combo = ttk.Combobox(
                     cond_data["value_widget_frame"],
                     textvariable=cond_data["value_var"],
-                    values=value_labels,
+                    values=sorted(value_labels, key=str.casefold),
                     state="readonly",
                     width=20
                 )
@@ -1278,6 +1341,14 @@ class RuleEditor:
 
                 if not cond_data["value_var"].get() and value_labels:
                     value_combo.current(0)
+
+        else:
+            # Handle numeric, string, and other types with a text entry
+            entry = ttk.Entry(cond_data["value_widget_frame"], textvariable=cond_data["value_var"], width=20)
+            entry.pack(fill=tk.X, expand=True)
+            cond_data["value_widget"] = entry
+            cond_data["value_kind"] = "text"
+            cond_data["value_var"].trace_add("write", lambda *args: self._mark_changed())
 
     def _get_enum_hierarchy(
         self,
@@ -1318,6 +1389,7 @@ class RuleEditor:
                     if display not in all_labels:
                         all_labels.append(display)
             if labels:
+                labels.sort(key=str.casefold)
                 prefix = "Journal / " if is_edmc_event else ""
                 grouped[f"{prefix}{section_name}"] = labels
 
@@ -1332,6 +1404,7 @@ class RuleEditor:
                     if label not in all_labels:
                         all_labels.append(label)
             if dashboard_labels:
+                dashboard_labels.sort(key=str.casefold)
                 grouped["Dashboard"] = dashboard_labels
 
             capi_events = inventory.get("capi", {}).get("events", [])
@@ -1351,12 +1424,13 @@ class RuleEditor:
                     if label not in all_labels:
                         all_labels.append(label)
             for group_name, labels in capi_groups.items():
-                grouped[group_name] = labels
+                grouped[group_name] = sorted(labels, key=str.casefold)
 
         if not grouped:
             return None
 
         if len(grouped) > 1:
+            all_labels.sort(key=str.casefold)
             grouped = {"All": all_labels, **grouped}
         return grouped
     
@@ -1412,18 +1486,14 @@ class RuleEditor:
         value_to_display: Dict[Any, str] = {}
         display_values: List[str] = []
 
-        icon_map = getattr(self, "icon_map", {})
-
         for item in signal_def.get("values", []):
             value = item.get("value")
             label = item.get("label", value)
-            icon_name = item.get("icon", "")
-            icon_char = icon_map.get(icon_name, "") if icon_name else ""
-            display = f"{icon_char} {label}".strip() if icon_char else label
-            display_values.append(display)
-            display_to_value[display] = value
-            value_to_display[value] = display
+            display_values.append(label)
+            display_to_value[label] = value
+            value_to_display[value] = label
 
+        display_values = sorted(display_values, key=str.casefold)
         return display_values, display_to_value, value_to_display
 
     def _apply_condition_from_rule(self, cond_data: Dict, condition: Dict[str, Any]):
@@ -1529,13 +1599,10 @@ class RuleEditor:
                 shifts = action["vkb_clear_shift"]
                 existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
                 break
-        
-        clear_shift_var = tk.StringVar(value=existing_clear_shifts[0] if existing_clear_shifts else "")
-        for token in ALL_SHIFT_TOKENS:
-            rb = ttk.Radiobutton(clear_row, text=token, variable=clear_shift_var, value=token, command=lambda: self._mark_changed())
-            rb.pack(side=tk.LEFT, padx=2)
-        
-        self.clear_shift_var = clear_shift_var
+
+        clear_shift_vars = self._build_shift_checkbox_row(clear_row, existing_clear_shifts)
+
+        self.clear_shift_vars = clear_shift_vars
         
         # Set actions - inline with icon
         set_row = ttk.Frame(actions_frame)
@@ -1552,13 +1619,10 @@ class RuleEditor:
                 shifts = action["vkb_set_shift"]
                 existing_set_shifts = shifts if isinstance(shifts, list) else [shifts]
                 break
-        
-        set_shift_var = tk.StringVar(value=existing_set_shifts[0] if existing_set_shifts else "")
-        for token in ALL_SHIFT_TOKENS:
-            rb = ttk.Radiobutton(set_row, text=token, variable=set_shift_var, value=token, command=lambda: self._mark_changed())
-            rb.pack(side=tk.LEFT, padx=2)
-        
-        self.set_shift_var = set_shift_var
+
+        set_shift_vars = self._build_shift_checkbox_row(set_row, existing_set_shifts)
+
+        self.set_shift_vars = set_shift_vars
         
         # Log message - inline with icon
         log_row = ttk.Frame(actions_frame)
@@ -1602,13 +1666,10 @@ class RuleEditor:
                 shifts = action["vkb_clear_shift"]
                 existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
                 break
-        
-        else_clear_shift_var = tk.StringVar(value=existing_clear_shifts[0] if existing_clear_shifts else "")
-        for token in ALL_SHIFT_TOKENS:
-            rb = ttk.Radiobutton(clear_row, text=token, variable=else_clear_shift_var, value=token, command=lambda: self._mark_changed())
-            rb.pack(side=tk.LEFT, padx=2)
-        
-        self.else_clear_shift_var = else_clear_shift_var
+
+        else_clear_shift_vars = self._build_shift_checkbox_row(clear_row, existing_clear_shifts)
+
+        self.else_clear_shift_vars = else_clear_shift_vars
         
         # Set actions - inline with icon
         set_row = ttk.Frame(else_frame)
@@ -1625,13 +1686,10 @@ class RuleEditor:
                 shifts = action["vkb_set_shift"]
                 existing_set_shifts = shifts if isinstance(shifts, list) else [shifts]
                 break
-        
-        else_set_shift_var = tk.StringVar(value=existing_set_shifts[0] if existing_set_shifts else "")
-        for token in ALL_SHIFT_TOKENS:
-            rb = ttk.Radiobutton(set_row, text=token, variable=else_set_shift_var, value=token, command=lambda: self._mark_changed())
-            rb.pack(side=tk.LEFT, padx=2)
-        
-        self.else_set_shift_var = else_set_shift_var
+
+        else_set_shift_vars = self._build_shift_checkbox_row(set_row, existing_set_shifts)
+
+        self.else_set_shift_vars = else_set_shift_vars
         
         # Log message - inline with icon
         log_row = ttk.Frame(else_frame)
@@ -1653,6 +1711,30 @@ class RuleEditor:
         
         self.else_log_var = else_log_var
         else_log_var.trace_add("write", lambda *args: self._mark_changed())
+
+    def _build_shift_checkbox_row(self, parent, existing_tokens: List[str]) -> List[Tuple[str, tk.BooleanVar]]:
+        """Build Shift/SubShift checkboxes on one line with labels."""
+        shift_vars: List[Tuple[str, tk.BooleanVar]] = []
+
+        def token_label(token: str) -> str:
+            digits = "".join(ch for ch in token if ch.isdigit())
+            return digits or token
+
+        ttk.Label(parent, text="Shift:").pack(side=tk.LEFT, padx=(0, 6))
+        for token in SHIFT_TOKENS:
+            var = tk.BooleanVar(value=token in existing_tokens)
+            cb = ttk.Checkbutton(parent, text=token_label(token), variable=var, command=lambda: self._mark_changed())
+            cb.pack(side=tk.LEFT, padx=2)
+            shift_vars.append((token, var))
+
+        ttk.Label(parent, text="SubShift:").pack(side=tk.LEFT, padx=(8, 6))
+        for token in SUBSHIFT_TOKENS:
+            var = tk.BooleanVar(value=token in existing_tokens)
+            cb = ttk.Checkbutton(parent, text=token_label(token), variable=var, command=lambda: self._mark_changed())
+            cb.pack(side=tk.LEFT, padx=2)
+            shift_vars.append((token, var))
+
+        return shift_vars
     
 
 
@@ -1752,15 +1834,15 @@ class RuleEditor:
                 rule["when"]["any"].append(cond)
         
         # Build Then actions
-        if hasattr(self, "clear_shift_var"):
-            clear_shift = self.clear_shift_var.get()
+        if hasattr(self, "clear_shift_vars"):
+            clear_shift = [token for token, var in self.clear_shift_vars if var.get()]
             if clear_shift:
-                rule["then"].append({"vkb_clear_shift": [clear_shift]})
-        
-        if hasattr(self, "set_shift_var"):
-            set_shift = self.set_shift_var.get()
+                rule["then"].append({"vkb_clear_shift": clear_shift})
+
+        if hasattr(self, "set_shift_vars"):
+            set_shift = [token for token, var in self.set_shift_vars if var.get()]
             if set_shift:
-                rule["then"].append({"vkb_set_shift": [set_shift]})
+                rule["then"].append({"vkb_set_shift": set_shift})
         
         if hasattr(self, "log_var"):
             log_msg = self.log_var.get().strip()
@@ -1768,15 +1850,15 @@ class RuleEditor:
                 rule["then"].append({"log": log_msg})
         
         # Build Else actions
-        if hasattr(self, "else_clear_shift_var"):
-            else_clear_shift = self.else_clear_shift_var.get()
+        if hasattr(self, "else_clear_shift_vars"):
+            else_clear_shift = [token for token, var in self.else_clear_shift_vars if var.get()]
             if else_clear_shift:
-                rule["else"].append({"vkb_clear_shift": [else_clear_shift]})
-        
-        if hasattr(self, "else_set_shift_var"):
-            else_set_shift = self.else_set_shift_var.get()
+                rule["else"].append({"vkb_clear_shift": else_clear_shift})
+
+        if hasattr(self, "else_set_shift_vars"):
+            else_set_shift = [token for token, var in self.else_set_shift_vars if var.get()]
             if else_set_shift:
-                rule["else"].append({"vkb_set_shift": [else_set_shift]})
+                rule["else"].append({"vkb_set_shift": else_set_shift})
         
         if hasattr(self, "else_log_var"):
             else_log_msg = self.else_log_var.get().strip()
@@ -1849,7 +1931,7 @@ class RuleEditor:
             self.on_cancel_callback()
 
 
-def show_rule_editor(parent, rules_file: Path, plugin_dir: Path):
+def show_rule_editor(parent, rules_file: Path, plugin_dir: Path, initial_rule_index: Optional[int] = None):
     """
     Show the rule editor UI.
     
@@ -1859,7 +1941,7 @@ def show_rule_editor(parent, rules_file: Path, plugin_dir: Path):
         plugin_dir: Plugin directory path
     """
     try:
-        editor = RuleEditorUI(parent, rules_file, plugin_dir)
+        editor = RuleEditorUI(parent, rules_file, plugin_dir, initial_rule_index=initial_rule_index)
         return editor.window
     except Exception as e:
         logger.error(f"Failed to open rule editor: {e}", exc_info=True)

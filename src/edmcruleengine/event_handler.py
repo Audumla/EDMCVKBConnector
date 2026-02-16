@@ -7,13 +7,14 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from . import plugin_logger
 from .config import Config
 from .rule_loader import load_rules_file, RuleLoadError
 from .rules_engine import RuleEngine, MatchResult
 from .signals_catalog import SignalsCatalog, CatalogError
+from .unregistered_events_tracker import UnregisteredEventsTracker
 from .vkb_client import VKBClient
 
 logger = plugin_logger(__name__)
@@ -76,6 +77,12 @@ class EventHandler:
         self._last_sent_subshift = None
         self._recent_events: Dict[str, float] = {}  # event_name -> timestamp
         self._event_window_seconds = 5  # How long to track events
+        
+        # Initialize unregistered events tracker
+        self.unregistered_events_tracker = UnregisteredEventsTracker(
+            self.plugin_dir,
+            catalog=self.catalog
+        )
 
     def _resolve_rules_path(self) -> Path:
         override = self.config.get("rules_path", "") or ""
@@ -88,6 +95,9 @@ class EventHandler:
         try:
             self.catalog = SignalsCatalog.from_plugin_dir(str(self.plugin_dir))
             logger.info("Loaded signals catalog")
+            # Update tracker's catalog reference if tracker exists
+            if hasattr(self, 'unregistered_events_tracker'):
+                self.unregistered_events_tracker.set_catalog(self.catalog)
         except CatalogError as e:
             logger.error(f"Failed to load signals catalog: {e}")
             self.catalog = None
@@ -255,6 +265,13 @@ class EventHandler:
                 logger.debug(f"Unexpected error in rule engine: {e}", exc_info=True)
         else:
             logger.debug(f"No rule engine loaded — event '{event_type}' not forwarded to VKB")
+        
+        # Track unregistered events (events not found in the signals catalog)
+        # This helps identify missing events that should be added to the catalog
+        try:
+            self.unregistered_events_tracker.track_event(event_type, event_data, source=source)
+        except Exception as e:
+            logger.debug(f"Error tracking unregistered event: {e}", exc_info=True)
 
     def _on_socket_connected(self) -> None:
         """
@@ -397,4 +414,50 @@ class EventHandler:
     def set_debug(self, enabled: bool) -> None:
         """Enable or disable debug logging."""
         self.debug = enabled
-        logger.info(f"Debug logging {'enabled' if enabled else 'disabled'}")
+        logger.info(f"Debug logging {'enabled' if enabled else 'disabled'}")    
+    # ==== Unregistered Events Management ====
+    
+    def get_unregistered_events(self) -> List[Dict[str, Any]]:
+        """
+        Get list of all tracked unregistered events.
+        
+        Returns:
+            List of event entry dictionaries, sorted by last_seen (newest first)
+        """
+        return self.unregistered_events_tracker.get_unregistered_events()
+    
+    def get_unregistered_events_count(self) -> int:
+        """Get the count of tracked unregistered events."""
+        return self.unregistered_events_tracker.get_events_count()
+    
+    def refresh_unregistered_events_against_catalog(self) -> int:
+        """
+        Refresh unregistered events list against the current catalog.
+        
+        Removes any events that are now found in the catalog.
+        
+        Returns:
+            Number of events removed from the tracking list
+        """
+        return self.unregistered_events_tracker.refresh_against_catalog()
+    
+    def clear_unregistered_event(self, event_type: str) -> bool:
+        """
+        Clear a specific unregistered event from tracking.
+        
+        Args:
+            event_type: Event type to clear
+            
+        Returns:
+            True if cleared, False if not found
+        """
+        return self.unregistered_events_tracker.clear_event(event_type)
+    
+    def clear_all_unregistered_events(self) -> int:
+        """
+        Clear all tracked unregistered events.
+        
+        Returns:
+            Number of events cleared
+        """
+        return self.unregistered_events_tracker.clear_all_events()

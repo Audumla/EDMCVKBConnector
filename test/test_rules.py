@@ -52,7 +52,7 @@ class TestSignalsCatalog:
         catalog = SignalsCatalog.from_file(catalog_path)
         
         assert catalog.get_signal_type("hardpoints") == "enum"
-        assert catalog.get_signal_type("flag_docked") == "bool"
+        assert catalog.get_signal_type("docking_state") == "enum"
         assert catalog.get_signal_type("nonexistent") is None
     
     def test_catalog_get_signal_values(self):
@@ -254,9 +254,9 @@ class TestRuleValidator:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "flag_docked",
+                    "signal": "docking_state",
                     "op": "unknown_op",
-                    "value": True
+                    "value": "docked"
                 }]
             }
         }
@@ -281,19 +281,19 @@ class TestRuleValidator:
             validator.validate_rule(rule, 0)
     
     def test_validate_bool_signal_wrong_type(self, validator):
-        """Test validation fails with wrong value type for bool signal."""
+        """Test validation fails with wrong value type for enum signal."""
         rule = {
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "flag_docked",
+                    "signal": "docking_state",
                     "op": "eq",
-                    "value": "not_a_boolean"
+                    "value": "invalid_state"
                 }]
             }
         }
         
-        with pytest.raises(RuleValidationError, match="boolean"):
+        with pytest.raises(RuleValidationError, match="invalid value"):
             validator.validate_rule(rule, 0)
 
 
@@ -343,9 +343,9 @@ class TestRuleEngine:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "flag_docked",
+                    "signal": "docking_state",
                     "op": "eq",
-                    "value": True
+                    "value": "docked"
                 }]
             },
             "then": [{"vkb_set_shift": ["Shift1"]}]
@@ -376,9 +376,9 @@ class TestRuleEngine:
             "title": "Test",
             "when": {
                 "all": [{
-                    "signal": "flag_docked",
+                    "signal": "docking_state",
                     "op": "eq",
-                    "value": True
+                    "value": "docked"
                 }]
             },
             "then": [{"log": "docked"}],
@@ -419,8 +419,8 @@ class TestRuleEngine:
             "title": "Emergency",
             "when": {
                 "any": [
-                    {"signal": "flag_in_danger", "op": "eq", "value": True},
-                    {"signal": "flag_overheating", "op": "eq", "value": True}
+                    {"signal": "flag_in_danger", "op": "eq", "value": "danger"},
+                    {"signal": "flag_overheating", "op": "eq", "value": "overheating"}
                 ]
             },
             "then": [{"log": "emergency"}]

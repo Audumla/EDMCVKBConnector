@@ -252,6 +252,73 @@ class SignalsCatalog:
             name for name, sig in self.signals.items()
             if sig.get("ui", {}).get("category") == category
         ]
+    
+    def get_all_known_events(self) -> Set[str]:
+        """
+        Extract all known event names from the catalog.
+        
+        Scans through all signals to find event names referenced in:
+        - Signal derive.op == "event" (event_name field)
+        - Signal sources Journal events list
+        - Any recent_event references in enum values
+        
+        Returns:
+            Set of all known event type names from the catalog
+        """
+        known_events = set()
+        
+        for signal_name, signal_def in self.signals.items():
+            if not isinstance(signal_def, dict):
+                continue
+            
+            # Check derive section for event_name
+            derive = signal_def.get("derive", {})
+            if isinstance(derive, dict):
+                if derive.get("op") == "event":
+                    event_name = derive.get("event_name")
+                    if isinstance(event_name, str):
+                        known_events.add(event_name)
+            
+            # Check sources.journal for events list
+            sources = signal_def.get("sources", {})
+            if isinstance(sources, dict):
+                journal_source = sources.get("journal", {})
+                if isinstance(journal_source, dict):
+                    events = journal_source.get("events")
+                    if isinstance(events, list):
+                        for event in events:
+                            if isinstance(event, str):
+                                known_events.add(event)
+            
+            # Check enum values for recent_event references  
+            signal_type = signal_def.get("type")
+            if signal_type == "enum":
+                values = signal_def.get("values", [])
+                if isinstance(values, list):
+                    for value_def in values:
+                        if isinstance(value_def, dict):
+                            recent_event = value_def.get("recent_event")
+                            if isinstance(recent_event, str):
+                                known_events.add(recent_event)
+                
+                # Also check derive cases for recent_event references
+                derive = signal_def.get("derive", {})
+                if isinstance(derive, dict):
+                    cases = derive.get("cases", [])
+                    if isinstance(cases, list):
+                        for case in cases:
+                            if isinstance(case, dict):
+                                when = case.get("when", {})
+                                if isinstance(when, dict) and when.get("op") == "recent":
+                                    event_name = when.get("event_name")
+                                    if isinstance(event_name, str):
+                                        known_events.add(event_name)
+        
+        return known_events
+    
+    def has_signal(self, name: str) -> bool:
+        """Check if a signal exists in the catalog (alias for signal_exists)."""
+        return self.signal_exists(name)
 
 
 # Maximum length for readable part of generated ID

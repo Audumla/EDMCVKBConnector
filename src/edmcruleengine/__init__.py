@@ -36,10 +36,12 @@ def set_plugin_logger_name(name: str) -> None:
         "src.edmcruleengine.vkb_client",
         "src.edmcruleengine.event_handler",
         "src.edmcruleengine.rules_engine",
+        "src.edmcruleengine.unregistered_events_tracker",
         "edmcruleengine.config",
         "edmcruleengine.vkb_client",
         "edmcruleengine.event_handler",
         "edmcruleengine.rules_engine",
+        "edmcruleengine.unregistered_events_tracker",
     ):
         module = sys.modules.get(module_name)
         if module is None or not hasattr(module, "logger"):

@@ -7,6 +7,14 @@ Validates:
 - Data transmission and reception
 - Server restart and automatic reconnection
 - Connection loss and recovery
+
+VISUAL TEST MODE:
+Run with --visual flag to cycle through shift combinations with real VKB-Link:
+  python test/test_vkb_server_integration.py --visual
+
+This will connect to VKB-Link (must be running on port 50995) and cycle through
+all shift/subshift combinations with 100ms delays. Watch the VKB-Link UI to
+verify status flags change correctly.
 """
 
 import time
@@ -352,7 +360,118 @@ def test_disconnect_during_reconnection():
     print("  OK: Disconnect-during-reconnection test passed")
 
 
+def test_visual_shift_combinations():
+    """
+    Visual test: Cycles through shift/subshift combinations with delays.
+    
+    REQUIRES REAL VKB-LINK RUNNING on port 50995.
+    Watch the VKB-Link UI to see status flags change in real-time.
+    
+    Tests:
+    - All individual Shift flags (Shift1, Shift2)
+    - All individual Subshift flags (Subshift1-7)
+    - Some combination patterns
+    - Clear all flags
+    
+    Run manually with: python test/test_vkb_server_integration.py --visual
+    """
+    print("\n" + "="*60)
+    print("VISUAL TEST: Shift Combination Cycling")
+    print("="*60)
+    print("\nREQUIRES: VKB-Link.exe running on 127.0.0.1:50995")
+    print("WATCH: VKB-Link UI to see status flags change\n")
+    
+    client = VKBClient(
+        host="127.0.0.1",
+        port=50995,  # Real VKB-Link port
+        socket_timeout=2,
+    )
+    
+    # Try to connect
+    if not client.connect():
+        print("❌ FAILED: Could not connect to VKB-Link on port 50995")
+        print("   Make sure VKB-Link.exe is running!")
+        return
+    
+    print("✓ Connected to VKB-Link\n")
+    
+    delay = 0.1  # 100ms between changes
+    
+    try:
+        # Test individual Shift flags
+        print("Testing Shift flags:")
+        for shift_code in [1, 2]:
+            shift_bitmap = 1 << (shift_code - 1)
+            print(f"  Shift{shift_code} (bitmap: 0x{shift_bitmap:02X})")
+            client.send_event("VKBShiftBitmap", {"shift": shift_bitmap, "subshift": 0})
+            time.sleep(delay)
+        
+        # Clear
+        print("  Clear all")
+        client.send_event("VKBShiftBitmap", {"shift": 0, "subshift": 0})
+        time.sleep(delay * 2)
+        
+        # Test individual Subshift flags
+        print("\nTesting Subshift flags:")
+        for subshift_code in range(1, 8):  # Subshift1-7
+            subshift_bitmap = 1 << (subshift_code - 1)
+            print(f"  Subshift{subshift_code} (bitmap: 0x{subshift_bitmap:02X})")
+            client.send_event("VKBShiftBitmap", {"shift": 0, "subshift": subshift_bitmap})
+            time.sleep(delay)
+        
+        # Clear
+        print("  Clear all")
+        client.send_event("VKBShiftBitmap", {"shift": 0, "subshift": 0})
+        time.sleep(delay * 2)
+        
+        # Test combinations
+        print("\nTesting combinations:")
+        
+        # Shift1 + Subshift1
+        print("  Shift1 + Subshift1")
+        client.send_event("VKBShiftBitmap", {"shift": 0x01, "subshift": 0x01})
+        time.sleep(delay * 2)
+        
+        # Shift2 + Subshift2
+        print("  Shift2 + Subshift2")
+        client.send_event("VKBShiftBitmap", {"shift": 0x02, "subshift": 0x02})
+        time.sleep(delay * 2)
+        
+        # Both Shifts + Subshift3-5
+        print("  Shift1+2 + Subshift3+4+5")
+        client.send_event("VKBShiftBitmap", {"shift": 0x03, "subshift": 0x1C})
+        time.sleep(delay * 2)
+        
+        # All Subshifts
+        print("  All Subshifts (1-7)")
+        client.send_event("VKBShiftBitmap", {"shift": 0x00, "subshift": 0x7F})
+        time.sleep(delay * 2)
+        
+        # Everything
+        print("  ALL FLAGS SET")
+        client.send_event("VKBShiftBitmap", {"shift": 0x03, "subshift": 0x7F})
+        time.sleep(delay * 3)
+        
+        # Clear
+        print("  Clear all\n")
+        client.send_event("VKBShiftBitmap", {"shift": 0, "subshift": 0})
+        time.sleep(delay)
+        
+        print("✓ Visual test complete!")
+        print("  Check VKB-Link UI to verify all flags changed correctly.\n")
+        
+    finally:
+        client.disconnect()
+
+
 if __name__ == "__main__":
+    import sys
+    
+    # Check for --visual flag
+    if "--visual" in sys.argv:
+        test_visual_shift_combinations()
+        sys.exit(0)
+    
     try:
         print("\n" + "="*60)
         print("VKB Server Integration Tests")

@@ -54,3 +54,6 @@ dev_paths.json
 .coverage
 htmlcov/
 .tox/
+test/fixtures/VKB-Link*
+
+
