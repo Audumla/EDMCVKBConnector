@@ -3013,45 +3013,78 @@
       }
     },
     "pips_sys": {
-      "type": "number",
+      "type": "enum",
       "title": "Pips (Sys)",
       "ui": {
         "label": "Systems pips",
         "category": "Ship",
         "tier": "detail"
       },
+      "values": [
+        {"value": "0", "label": "0 pips"},
+        {"value": "1", "label": "0.5 pips"},
+        {"value": "2", "label": "1 pip"},
+        {"value": "3", "label": "1.5 pips"},
+        {"value": "4", "label": "2 pips"},
+        {"value": "5", "label": "2.5 pips"},
+        {"value": "6", "label": "3 pips"},
+        {"value": "7", "label": "3.5 pips"},
+        {"value": "8", "label": "4 pips"}
+      ],
       "derive": {
         "op": "path",
         "path": "dashboard.Pips.0",
-        "default": 0
+        "default": "0"
       }
     },
     "pips_eng": {
-      "type": "number",
+      "type": "enum",
       "title": "Pips (Eng)",
       "ui": {
         "label": "Engine pips",
         "category": "Ship",
         "tier": "detail"
       },
+      "values": [
+        {"value": "0", "label": "0 pips"},
+        {"value": "1", "label": "0.5 pips"},
+        {"value": "2", "label": "1 pip"},
+        {"value": "3", "label": "1.5 pips"},
+        {"value": "4", "label": "2 pips"},
+        {"value": "5", "label": "2.5 pips"},
+        {"value": "6", "label": "3 pips"},
+        {"value": "7", "label": "3.5 pips"},
+        {"value": "8", "label": "4 pips"}
+      ],
       "derive": {
         "op": "path",
         "path": "dashboard.Pips.1",
-        "default": 0
+        "default": "0"
       }
     },
     "pips_wep": {
-      "type": "number",
+      "type": "enum",
       "title": "Pips (Wep)",
       "ui": {
         "label": "Weapon pips",
         "category": "Ship",
         "tier": "detail"
       },
+      "values": [
+        {"value": "0", "label": "0 pips"},
+        {"value": "1", "label": "0.5 pips"},
+        {"value": "2", "label": "1 pip"},
+        {"value": "3", "label": "1.5 pips"},
+        {"value": "4", "label": "2 pips"},
+        {"value": "5", "label": "2.5 pips"},
+        {"value": "6", "label": "3 pips"},
+        {"value": "7", "label": "3.5 pips"},
+        {"value": "8", "label": "4 pips"}
+      ],
       "derive": {
         "op": "path",
         "path": "dashboard.Pips.2",
-        "default": 0
+        "default": "0"
       }
     },
     "power_distribution": {
@@ -3986,17 +4019,30 @@
       }
     },
     "selected_weapon": {
-      "type": "string",
+      "type": "enum",
       "title": "Weapon",
       "ui": {
         "label": "Selected weapon",
         "category": "On-Foot",
         "tier": "detail"
       },
+      "values": [
+        {"value": "none", "label": "None"},
+        {"value": "unarmed", "label": "Unarmed"},
+        {"value": "energylink", "label": "Energy Link"},
+        {"value": "arc_cutter", "label": "Arc Cutter"},
+        {"value": "profile_analyser", "label": "Profile Analyser"},
+        {"value": "genetic_sampler", "label": "Genetic Sampler"},
+        {"value": "kinetic", "label": "Kinetic"},
+        {"value": "laser", "label": "Laser"},
+        {"value": "plasma", "label": "Plasma"},
+        {"value": "rocket", "label": "Rocket"},
+        {"value": "grenades", "label": "Grenades"}
+      ],
       "derive": {
         "op": "path",
         "path": "dashboard.SelectedWeapon",
-        "default": ""
+        "default": "none"
       }
     },
     "oxygen_level": {
@@ -4243,17 +4289,31 @@
       }
     },
     "powerplay_power": {
-      "type": "string",
+      "type": "enum",
       "title": "Power",
       "ui": {
         "label": "Pledged power",
         "category": "Powerplay",
         "tier": "core"
       },
+      "values": [
+        {"value": "none", "label": "Independent"},
+        {"value": "aisling_duval", "label": "Aisling Duval"},
+        {"value": "arissa_lavigny-duval", "label": "Arissa Lavigny-Duval"},
+        {"value": "denton_patreus", "label": "Denton Patreus"},
+        {"value": "zemina_torval", "label": "Zemina Torval"},
+        {"value": "edmund_mahon", "label": "Edmund Mahon"},
+        {"value": "li_yong-rui", "label": "Li Yong-Rui"},
+        {"value": "felicia_winters", "label": "Felicia Winters"},
+        {"value": "zachary_hudson", "label": "Zachary Hudson"},
+        {"value": "yuri_grom", "label": "Yuri Grom"},
+        {"value": "archon_delaine", "label": "Archon Delaine"},
+        {"value": "pranav_antal", "label": "Pranav Antal"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.Powerplay.Power",
-        "default": ""
+        "default": "none"
       }
     },
     "powerplay_rank": {
@@ -4536,17 +4596,29 @@
     },
     "_comment_station_data": "=== STATION DATA (FROM CAPI/STATE) ===",
     "station_type": {
-      "type": "string",
+      "type": "enum",
       "title": "Station type",
       "ui": {
         "label": "Station type",
         "category": "Station",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "coriolis", "label": "Coriolis Starport"},
+        {"value": "orbis", "label": "Orbis Starport"},
+        {"value": "ocellus", "label": "Ocellus Starport"},
+        {"value": "outpost", "label": "Outpost"},
+        {"value": "crateroutpost", "label": "Planetary Outpost"},
+        {"value": "craterport", "label": "Planetary Port"},
+        {"value": "megaship", "label": "Megaship"},
+        {"value": "asteroidbase", "label": "Asteroid Base"},
+        {"value": "fleetcarrier", "label": "Fleet Carrier"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.StationType",
-        "default": ""
+        "default": "unknown"
       }
     },
     "station_faction": {
@@ -4564,45 +4636,89 @@
       }
     },
     "station_government": {
-      "type": "string",
+      "type": "enum",
       "title": "Station government",
       "ui": {
         "label": "Station government",
         "category": "Station",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "$government_anarchy;", "label": "Anarchy"},
+        {"value": "$government_communism;", "label": "Communism"},
+        {"value": "$government_confederacy;", "label": "Confederacy"},
+        {"value": "$government_cooperative;", "label": "Cooperative"},
+        {"value": "$government_corporate;", "label": "Corporate"},
+        {"value": "$government_democracy;", "label": "Democracy"},
+        {"value": "$government_dictatorship;", "label": "Dictatorship"},
+        {"value": "$government_feudal;", "label": "Feudal"},
+        {"value": "$government_patronage;", "label": "Patronage"},
+        {"value": "$government_prison;", "label": "Prison Colony"},
+        {"value": "$government_prisoncolony;", "label": "Prison Colony"},
+        {"value": "$government_theocracy;", "label": "Theocracy"},
+        {"value": "$government_engineer;", "label": "Engineer"},
+        {"value": "$government_carrier;", "label": "Private Ownership"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.StationGovernment",
-        "default": ""
+        "default": "unknown"
       }
     },
     "station_allegiance": {
-      "type": "string",
+      "type": "enum",
       "title": "Station allegiance",
       "ui": {
         "label": "Station allegiance",
         "category": "Station",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "alliance", "label": "Alliance"},
+        {"value": "empire", "label": "Empire"},
+        {"value": "federation", "label": "Federation"},
+        {"value": "independent", "label": "Independent"},
+        {"value": "pirate", "label": "Pirate"},
+        {"value": "pilotsfederation", "label": "Pilots Federation"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.StationAllegiance",
-        "default": ""
+        "default": "unknown"
       }
     },
     "station_economy": {
-      "type": "string",
+      "type": "enum",
       "title": "Station economy",
       "ui": {
         "label": "Station economy",
         "category": "Station",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "$economy_agri;", "label": "Agriculture"},
+        {"value": "$economy_colony;", "label": "Colony"},
+        {"value": "$economy_extraction;", "label": "Extraction"},
+        {"value": "$economy_hightech;", "label": "High Tech"},
+        {"value": "$economy_industrial;", "label": "Industrial"},
+        {"value": "$economy_military;", "label": "Military"},
+        {"value": "$economy_refinery;", "label": "Refinery"},
+        {"value": "$economy_service;", "label": "Service"},
+        {"value": "$economy_terraforming;", "label": "Terraforming"},
+        {"value": "$economy_tourism;", "label": "Tourism"},
+        {"value": "$economy_engineer;", "label": "Engineer"},
+        {"value": "$economy_prison;", "label": "Prison"},
+        {"value": "$economy_damaged;", "label": "Damaged"},
+        {"value": "$economy_rescue;", "label": "Rescue"},
+        {"value": "$economy_carrier;", "label": "Private Enterprise"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.StationEconomy",
-        "default": ""
+        "default": "unknown"
       }
     },
     "station_distance_ls": {
@@ -4649,59 +4765,101 @@
       }
     },
     "system_government": {
-      "type": "string",
+      "type": "enum",
       "title": "System government",
       "ui": {
         "label": "System government",
         "category": "System",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "$government_anarchy;", "label": "Anarchy"},
+        {"value": "$government_communism;", "label": "Communism"},
+        {"value": "$government_confederacy;", "label": "Confederacy"},
+        {"value": "$government_cooperative;", "label": "Cooperative"},
+        {"value": "$government_corporate;", "label": "Corporate"},
+        {"value": "$government_democracy;", "label": "Democracy"},
+        {"value": "$government_dictatorship;", "label": "Dictatorship"},
+        {"value": "$government_feudal;", "label": "Feudal"},
+        {"value": "$government_patronage;", "label": "Patronage"},
+        {"value": "$government_theocracy;", "label": "Theocracy"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.SystemGovernment",
-        "default": ""
+        "default": "unknown"
       }
     },
     "system_allegiance": {
-      "type": "string",
+      "type": "enum",
       "title": "System allegiance",
       "ui": {
         "label": "System allegiance",
         "category": "System",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "alliance", "label": "Alliance"},
+        {"value": "empire", "label": "Empire"},
+        {"value": "federation", "label": "Federation"},
+        {"value": "independent", "label": "Independent"},
+        {"value": "pirate", "label": "Pirate"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.SystemAllegiance",
-        "default": ""
+        "default": "unknown"
       }
     },
     "system_economy": {
-      "type": "string",
+      "type": "enum",
       "title": "System economy",
       "ui": {
         "label": "System economy",
         "category": "System",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "$economy_agri;", "label": "Agriculture"},
+        {"value": "$economy_colony;", "label": "Colony"},
+        {"value": "$economy_extraction;", "label": "Extraction"},
+        {"value": "$economy_hightech;", "label": "High Tech"},
+        {"value": "$economy_industrial;", "label": "Industrial"},
+        {"value": "$economy_military;", "label": "Military"},
+        {"value": "$economy_refinery;", "label": "Refinery"},
+        {"value": "$economy_service;", "label": "Service"},
+        {"value": "$economy_terraforming;", "label": "Terraforming"},
+        {"value": "$economy_tourism;", "label": "Tourism"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.SystemEconomy",
-        "default": ""
+        "default": "unknown"
       }
     },
     "system_security": {
-      "type": "string",
+      "type": "enum",
       "title": "System security",
       "ui": {
         "label": "System security",
         "category": "System",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "$system_security_low;", "label": "Low Security"},
+        {"value": "$system_security_medium;", "label": "Medium Security"},
+        {"value": "$system_security_high;", "label": "High Security"},
+        {"value": "$galaxy_map_info_state_anarchy;", "label": "Anarchy"},
+        {"value": "$system_security_lawless;", "label": "Lawless"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.SystemSecurity",
-        "default": ""
+        "default": "unknown"
       }
     },
     "system_population": {
@@ -5288,31 +5446,49 @@
       }
     },
     "target_pilot_rank": {
-      "type": "string",
+      "type": "enum",
       "title": "Target rank",
       "ui": {
         "label": "Target pilot rank",
         "category": "Target",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "harmless", "label": "Harmless"},
+        {"value": "mostly_harmless", "label": "Mostly Harmless"},
+        {"value": "novice", "label": "Novice"},
+        {"value": "competent", "label": "Competent"},
+        {"value": "expert", "label": "Expert"},
+        {"value": "master", "label": "Master"},
+        {"value": "dangerous", "label": "Dangerous"},
+        {"value": "deadly", "label": "Deadly"},
+        {"value": "elite", "label": "Elite"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.Target.PilotRank",
-        "default": ""
+        "default": "unknown"
       }
     },
     "target_legal_status": {
-      "type": "string",
+      "type": "enum",
       "title": "Target legal status",
       "ui": {
         "label": "Target legal status",
         "category": "Target",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "clean", "label": "Clean"},
+        {"value": "wanted", "label": "Wanted"},
+        {"value": "lawless", "label": "Lawless"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.Target.LegalStatus",
-        "default": ""
+        "default": "unknown"
       }
     },
     "target_bounty": {
@@ -5372,17 +5548,30 @@
       }
     },
     "target_subsystem": {
-      "type": "string",
+      "type": "enum",
       "title": "Target subsystem",
       "ui": {
         "label": "Targeted subsystem",
         "category": "Target",
         "tier": "detail"
       },
+      "values": [
+        {"value": "none", "label": "None"},
+        {"value": "$int_powerplant;", "label": "Power Plant"},
+        {"value": "$int_engine;", "label": "Thrusters"},
+        {"value": "$int_hyperdrive;", "label": "Frame Shift Drive"},
+        {"value": "$int_lifesupport;", "label": "Life Support"},
+        {"value": "$int_powerdistributor;", "label": "Power Distributor"},
+        {"value": "$int_sensors;", "label": "Sensors"},
+        {"value": "$int_fueltank;", "label": "Fuel Tank"},
+        {"value": "$int_cargohatch;", "label": "Cargo Hatch"},
+        {"value": "$hpt_turret;", "label": "Weapons"},
+        {"value": "$ext_drivebay;", "label": "Drive"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.Target.SubSystem",
-        "default": ""
+        "default": "none"
       }
     },
     "target_subsystem_health": {
