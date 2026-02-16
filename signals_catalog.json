@@ -698,31 +698,97 @@
       }
     },
     "empire_rank": {
-      "type": "number",
+      "type": "enum",
       "title": "Empire rank",
       "ui": {
         "label": "Empire rank",
         "category": "Ranks",
         "tier": "detail"
       },
+      "values": [
+        {"value": "none", "label": "None"},
+        {"value": "outsider", "label": "Outsider"},
+        {"value": "serf", "label": "Serf"},
+        {"value": "master", "label": "Master"},
+        {"value": "squire", "label": "Squire"},
+        {"value": "knight", "label": "Knight"},
+        {"value": "lord", "label": "Lord"},
+        {"value": "baron", "label": "Baron"},
+        {"value": "viscount", "label": "Viscount"},
+        {"value": "count", "label": "Count"},
+        {"value": "earl", "label": "Earl"},
+        {"value": "marquis", "label": "Marquis"},
+        {"value": "duke", "label": "Duke"},
+        {"value": "prince", "label": "Prince"},
+        {"value": "king", "label": "King"}
+      ],
       "derive": {
-        "op": "path",
-        "path": "state.Rank.Empire",
-        "default": 0
+        "op": "first_match",
+        "cases": [
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 0}, "value": "none"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 1}, "value": "outsider"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 2}, "value": "serf"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 3}, "value": "master"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 4}, "value": "squire"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 5}, "value": "knight"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 6}, "value": "lord"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 7}, "value": "baron"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 8}, "value": "viscount"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 9}, "value": "count"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 10}, "value": "earl"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 11}, "value": "marquis"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 12}, "value": "duke"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 13}, "value": "prince"},
+          {"when": {"op": "eq", "path": "state.Rank.Empire", "value": 14}, "value": "king"}
+        ],
+        "default": "none"
       }
     },
     "federation_rank": {
-      "type": "number",
+      "type": "enum",
       "title": "Federation rank",
       "ui": {
         "label": "Federation rank",
         "category": "Ranks",
         "tier": "detail"
       },
+      "values": [
+        {"value": "none", "label": "None"},
+        {"value": "recruit", "label": "Recruit"},
+        {"value": "cadet", "label": "Cadet"},
+        {"value": "midshipman", "label": "Midshipman"},
+        {"value": "petty_officer", "label": "Petty Officer"},
+        {"value": "chief_petty_officer", "label": "Chief Petty Officer"},
+        {"value": "warrant_officer", "label": "Warrant Officer"},
+        {"value": "ensign", "label": "Ensign"},
+        {"value": "lieutenant", "label": "Lieutenant"},
+        {"value": "lieutenant_commander", "label": "Lieutenant Commander"},
+        {"value": "post_commander", "label": "Post Commander"},
+        {"value": "post_captain", "label": "Post Captain"},
+        {"value": "rear_admiral", "label": "Rear Admiral"},
+        {"value": "vice_admiral", "label": "Vice Admiral"},
+        {"value": "admiral", "label": "Admiral"}
+      ],
       "derive": {
-        "op": "path",
-        "path": "state.Rank.Federation",
-        "default": 0
+        "op": "first_match",
+        "cases": [
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 0}, "value": "none"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 1}, "value": "recruit"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 2}, "value": "cadet"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 3}, "value": "midshipman"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 4}, "value": "petty_officer"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 5}, "value": "chief_petty_officer"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 6}, "value": "warrant_officer"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 7}, "value": "ensign"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 8}, "value": "lieutenant"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 9}, "value": "lieutenant_commander"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 10}, "value": "post_commander"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 11}, "value": "post_captain"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 12}, "value": "rear_admiral"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 13}, "value": "vice_admiral"},
+          {"when": {"op": "eq", "path": "state.Rank.Federation", "value": 14}, "value": "admiral"}
+        ],
+        "default": "none"
       }
     },
     "_comment_location": "=== LOCATION & NAVIGATION ===",
@@ -1722,17 +1788,61 @@
     },
     "_comment_ship": "=== SHIP STATUS ===",
     "ship_type": {
-      "type": "string",
+      "type": "enum",
       "title": "Ship type",
       "ui": {
         "label": "Ship model",
         "category": "Ship",
         "tier": "core"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "adder", "label": "Adder"},
+        {"value": "anaconda", "label": "Anaconda"},
+        {"value": "asp", "label": "Asp Explorer"},
+        {"value": "asp_scout", "label": "Asp Scout"},
+        {"value": "belugaliner", "label": "Beluga Liner"},
+        {"value": "cobramkiii", "label": "Cobra MkIII"},
+        {"value": "cobramkiv", "label": "Cobra MkIV"},
+        {"value": "diamondback", "label": "Diamondback Scout"},
+        {"value": "diamondbackxl", "label": "Diamondback Explorer"},
+        {"value": "dolphin", "label": "Dolphin"},
+        {"value": "eagle", "label": "Eagle"},
+        {"value": "empire_courier", "label": "Imperial Courier"},
+        {"value": "empire_eagle", "label": "Imperial Eagle"},
+        {"value": "empire_fighter", "label": "Imperial Fighter"},
+        {"value": "empire_trader", "label": "Imperial Clipper"},
+        {"value": "cutter", "label": "Imperial Cutter"},
+        {"value": "federation_corvette", "label": "Federal Corvette"},
+        {"value": "federation_dropship", "label": "Federal Dropship"},
+        {"value": "federation_dropship_mkii", "label": "Federal Assault Ship"},
+        {"value": "federation_gunship", "label": "Federal Gunship"},
+        {"value": "federation_fighter", "label": "Federal Fighter"},
+        {"value": "ferdelance", "label": "Fer-de-Lance"},
+        {"value": "hauler", "label": "Hauler"},
+        {"value": "independant_trader", "label": "Keelback"},
+        {"value": "krait_mkii", "label": "Krait MkII"},
+        {"value": "krait_light", "label": "Krait Phantom"},
+        {"value": "mamba", "label": "Mamba"},
+        {"value": "orca", "label": "Orca"},
+        {"value": "python", "label": "Python"},
+        {"value": "python_nx", "label": "Python Mk II"},
+        {"value": "sidewinder", "label": "Sidewinder"},
+        {"value": "type6", "label": "Type-6 Transporter"},
+        {"value": "type7", "label": "Type-7 Transporter"},
+        {"value": "type9", "label": "Type-9 Heavy"},
+        {"value": "type9_military", "label": "Type-10 Defender"},
+        {"value": "typex", "label": "Alliance Chieftain"},
+        {"value": "typex_2", "label": "Alliance Crusader"},
+        {"value": "typex_3", "label": "Alliance Challenger"},
+        {"value": "viper", "label": "Viper MkIII"},
+        {"value": "viper_mkiv", "label": "Viper MkIV"},
+        {"value": "vulture", "label": "Vulture"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.ShipType",
-        "default": ""
+        "default": "unknown"
       }
     },
     "ship_name": {
@@ -5092,17 +5202,61 @@
       }
     },
     "target_ship_type": {
-      "type": "string",
+      "type": "enum",
       "title": "Target ship",
       "ui": {
         "label": "Target ship type",
         "category": "Target",
         "tier": "detail"
       },
+      "values": [
+        {"value": "unknown", "label": "Unknown"},
+        {"value": "adder", "label": "Adder"},
+        {"value": "anaconda", "label": "Anaconda"},
+        {"value": "asp", "label": "Asp Explorer"},
+        {"value": "asp_scout", "label": "Asp Scout"},
+        {"value": "belugaliner", "label": "Beluga Liner"},
+        {"value": "cobramkiii", "label": "Cobra MkIII"},
+        {"value": "cobramkiv", "label": "Cobra MkIV"},
+        {"value": "diamondback", "label": "Diamondback Scout"},
+        {"value": "diamondbackxl", "label": "Diamondback Explorer"},
+        {"value": "dolphin", "label": "Dolphin"},
+        {"value": "eagle", "label": "Eagle"},
+        {"value": "empire_courier", "label": "Imperial Courier"},
+        {"value": "empire_eagle", "label": "Imperial Eagle"},
+        {"value": "empire_fighter", "label": "Imperial Fighter"},
+        {"value": "empire_trader", "label": "Imperial Clipper"},
+        {"value": "cutter", "label": "Imperial Cutter"},
+        {"value": "federation_corvette", "label": "Federal Corvette"},
+        {"value": "federation_dropship", "label": "Federal Dropship"},
+        {"value": "federation_dropship_mkii", "label": "Federal Assault Ship"},
+        {"value": "federation_gunship", "label": "Federal Gunship"},
+        {"value": "federation_fighter", "label": "Federal Fighter"},
+        {"value": "ferdelance", "label": "Fer-de-Lance"},
+        {"value": "hauler", "label": "Hauler"},
+        {"value": "independant_trader", "label": "Keelback"},
+        {"value": "krait_mkii", "label": "Krait MkII"},
+        {"value": "krait_light", "label": "Krait Phantom"},
+        {"value": "mamba", "label": "Mamba"},
+        {"value": "orca", "label": "Orca"},
+        {"value": "python", "label": "Python"},
+        {"value": "python_nx", "label": "Python Mk II"},
+        {"value": "sidewinder", "label": "Sidewinder"},
+        {"value": "type6", "label": "Type-6 Transporter"},
+        {"value": "type7", "label": "Type-7 Transporter"},
+        {"value": "type9", "label": "Type-9 Heavy"},
+        {"value": "type9_military", "label": "Type-10 Defender"},
+        {"value": "typex", "label": "Alliance Chieftain"},
+        {"value": "typex_2", "label": "Alliance Crusader"},
+        {"value": "typex_3", "label": "Alliance Challenger"},
+        {"value": "viper", "label": "Viper MkIII"},
+        {"value": "viper_mkiv", "label": "Viper MkIV"},
+        {"value": "vulture", "label": "Vulture"}
+      ],
       "derive": {
         "op": "path",
         "path": "state.Target.Ship",
-        "default": ""
+        "default": "unknown"
       }
     },
     "target_scan_stage": {
