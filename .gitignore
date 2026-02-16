@@ -55,5 +55,22 @@ dev_paths.json
 htmlcov/
 .tox/
 test/fixtures/VKB-Link*
+test_results*.txt
+test_consolidation*.txt
+test_signal_consolidation.txt
+
+# Agent-generated reports and analysis
+*_agent_report.md
+*_agent_analysis.txt
+*_agent_summary.md
+*_ai_analysis.txt
+*_copilot_*.txt
+*_copilot_*.md
+agent_*.txt
+agent_*.md
+analysis_*.txt
+analysis_*.md
+debug_*.txt
+debug_*.md
 
 
