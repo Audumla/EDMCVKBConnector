@@ -1,8 +1,0 @@
-{
-  "metadata": {
-    "version": "1.0",
-    "description": "Tracked unregistered game events - these events were received but not found in signals_catalog.json",
-    "last_updated": 1771219286.6594188
-  },
-  "events": {}
-}

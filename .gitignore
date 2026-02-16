@@ -48,6 +48,8 @@ rules.json
 dev_paths.json
 *.log
 .edmc_dev_config/
+unregistered_events.json
+EVENT_HANDLING_VERIFICATION.md
 
 # Testing
 .pytest_cache/
