@@ -1,163 +1,157 @@
 # EDMCVKBConnector
 
-EDMC plugin that maps Elite Dangerous events and status state to VKB shift/subshift bitmaps over TCP.
+**Automatically control your VKB HOTAS/HOSAS shift layers based on Elite Dangerous game state.**
 
-## What This Plugin Does
+EDMCVKBConnector is a plugin for Elite Dangerous Market Connector (EDMC) that monitors your in-game status and automatically activates different shift layers on your VKB hardware. Create rules to switch button mappings based on what you're doing - docking, fighting, exploring, or anything else!
 
-- Receives EDMC notifications (`journal`, `dashboard`, `capi`, `capi_fleetcarrier`)
-- Evaluates optional rules in `rules.json`
-- Sends `VKBShiftBitmap` packets to VKB-Link
-- Reconnects automatically if VKB-Link restarts
+## Features
 
-## Compatibility
+✨ **Automatic Shift Control** - VKB shift layers activate based on game state  
+🎯 **700+ Game Signals** - Monitor almost any aspect of Elite Dangerous  
+📝 **Visual Rule Editor** - Create complex rules without writing JSON  
+🔄 **Auto-Reconnect** - Handles VKB-Link restarts gracefully  
+⚡ **Edge-Triggered** - Actions fire on state changes, not repeatedly  
+🛠️ **Highly Configurable** - Create rules as simple or complex as you need
 
-- Python: `3.9+`
-- EDMC: `5.0+` (5.13+ recommended)
-- VKB-Link: `v0.8.2+`
-- VKB firmware: `2.21.3+`
-- Verified test tool: `VKBDevCfg v0.93.96`
-- VKB software/firmware downloads: https://www.njoy32.vkb-sim.pro/home
+## Example Use Cases
 
-## Quick Start (Development)
+- **Combat Mode**: Activate Shift1 when hardpoints are deployed
+- **Docking Assist**: Enable special bindings when landing gear is down
+- **Exploration**: Switch to exploration controls in FSS/SAA modes
+- **SRV Operations**: Different controls when driving the SRV
+- **Galaxy Map**: Custom bindings when the galaxy map is open
+- **Station Services**: Auto-switch when docked at a station
 
-1. **Bootstrap** - Set up development environment (one-time):
+## Quick Start
+
+### For Users
+
+1. **Install the plugin** - See [INSTALLATION.md](INSTALLATION.md) for complete instructions
+2. **Configure VKB-Link** - Set up TCP connection (port 50995)
+3. **Create rules** - Use the built-in Rule Editor or edit `rules.json`
+4. **Launch Elite Dangerous** - Shifts activate automatically!
+
+**📖 Read the full [Installation Guide](INSTALLATION.md)**
+
+### For Developers
+
+1. **Set up development environment:**
    ```bash
    python scripts/bootstrap_dev_env.py
    ```
-   This will:
-   - Clone EDMC repository to `../EDMarketConnector`
-   - Create virtual environment at `.venv`
-   - Install all dependencies
-   - Link the plugin into EDMC plugins directory
 
-2. **Run EDMC** - Launch EDMC with isolated dev config:
+2. **Run EDMC in development mode:**
    ```bash
    python scripts/run_edmc_from_dev.py
    ```
-   This uses an isolated configuration that won't touch your installed EDMC settings.
 
-3. **Package** - Create distributable ZIP:
-   ```bash
-   python scripts/package_plugin.py
-   ```
+3. **Make changes and test** - Plugin loads directly from source
 
-See [scripts/README.md](scripts/README.md) for detailed documentation.
+**📖 Read the full [Development Guide](DEVELOPMENT.md)**
+
+## Compatibility
+
+- **Python**: 3.9 or higher
+- **EDMC**: 5.0+ (5.13+ recommended)
+- **VKB-Link**: v0.8.2 or higher
+- **VKB Firmware**: 2.21.3 or higher
+- **Elite Dangerous**: Base game, Horizons, or Odyssey
+
+## Documentation
+
+### User Guides
+- **[Installation Guide](INSTALLATION.md)** - Complete installation and setup instructions
+- **[Rule Editor Guide](docs/RULE_EDITOR_GUIDE.md)** - How to create and edit rules visually
+- **[Signals Reference](SIGNALS_CATALOG_REFERENCE.md)** - Complete list of all 700+ available signals
+- **[VKB-Link Setup](docs/REAL_SERVER_SETUP.md)** - Configuring VKB-Link for the plugin
+
+### Developer Documentation
+- **[Development Guide](DEVELOPMENT.md)** - Setting up dev environment and contributing
+- **[Architecture](docs/ARCHITECTURE.md)** - How the plugin works internally
+- **[Rules Schema](docs/RULES_SCHEMA.md)** - Technical reference for rule JSON format
+- **[Protocol Implementation](docs/PROTOCOL_IMPLEMENTATION.md)** - VKB-Link protocol details
 
 ## Configuration
 
-Settings are stored via EDMC config with `VKBConnector_` prefix.
+Basic configuration is done through EDMC settings (File > Settings > Plugins):
 
-Main keys:
-- `vkb_host` (default `127.0.0.1`)
-- `vkb_port` (default `50995`)
-- `enabled` (default `true`)
-- `debug` (default `false`)
-- `event_types` (empty list means no event-type filtering)
-- `rules_path` (optional override, otherwise `<plugin_dir>/rules.json`)
+- **VKB Host**: IP address of VKB-Link (default: `127.0.0.1`)
+- **VKB Port**: TCP port for VKB-Link (default: `50995`)
+- **Enabled**: Enable/disable the plugin
+- **Debug**: Enable detailed logging for troubleshooting
 
-### Event Type Filter
-
-- `event_types = []` -> no filtering
-- non-empty list -> only listed event names are processed
-
-### VKB-Link TCP Configuration
-
-The plugin default is `127.0.0.1:50995`.  
-VKB-Link must be configured to use the same TCP endpoint in its `ini` file:
-
+VKB-Link must be configured to match:
 ```ini
 [TCP]
 Adress=127.0.0.1
 Port=50995
 ```
 
-## Rules
+## Creating Rules
 
-Rules are read from `rules.json` and can set/clear shift tokens:
-- `vkb_set_shift`: `["Shift1", "Subshift3"]`
-- `vkb_clear_shift`: `["Shift1", "Subshift3"]`
+### Using the Rule Editor (Recommended)
 
-### Rule Editor
-
-The plugin includes a catalog-driven rule editor accessible from EDMC preferences:
-1. Open **File > Settings > Plugins**
-2. Find the **VKB Connector** section
+1. In EDMC: **File > Settings > Plugins**
+2. Find **VKB Connector** section
 3. Click **Open Rules Editor**
+4. Click **New Rule** to create your first rule
 
-The editor provides a structured interface for:
-- Configuring when conditions with catalog signals
-- Setting then/else actions (shift flags, log statements)
-- Real-time validation and JSON preview
+The editor guides you through:
+- Selecting signals to monitor
+- Choosing comparison operators
+- Setting conditions (when/if)
+- Defining actions (then/else)
 
-See [Rule Editor Guide](docs/RULE_EDITOR_GUIDE.md) for details.
+**See the [Rule Editor Guide](docs/RULE_EDITOR_GUIDE.md) for complete instructions.**
 
 ### Manual Rule Editing
 
-Full schema and examples for manual JSON editing:
-- [Rules Schema](docs/RULES_SCHEMA.md)
+Rules are stored in `rules.json` in the plugin directory:
 
-## Documentation
-
-- [Rule Editor Guide](docs/RULE_EDITOR_GUIDE.md) - User-friendly rule editor
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [VKB-Link Setup](docs/REAL_SERVER_SETUP.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Protocol Implementation](docs/PROTOCOL_IMPLEMENTATION.md)
-- [Rules Schema](docs/RULES_SCHEMA.md)
-- [Standards Compliance](docs/STANDARDS_COMPLIANCE.md)
-
-## Development
-
-See [scripts/README.md](scripts/README.md) for complete development workflow documentation.
-
-### Quick Reference
-
-**Initial setup:**
-```bash
-python scripts/bootstrap_dev_env.py
-```
-Sets up: EDMC clone, venv, dependencies, and links the plugin.
-
-**Run EDMC with isolated dev config (recommended):**
-```bash
-python scripts/run_edmc_from_dev.py
-```
-Uses a completely isolated configuration that won't touch your installed EDMC settings.
-
-**Run EDMC with your actual config (for testing with real commanders):**
-```bash
-python scripts/run_edmc_from_dev.py --use-system-config
+```json
+[
+  {
+    "id": "landing-gear",
+    "title": "Landing Gear Down",
+    "enabled": true,
+    "when": {
+      "all": [
+        {
+          "signal": "landing_gear",
+          "op": "eq",
+          "value": "deployed"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Shift1"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Shift1"]
+      }
+    ]
+  }
+]
 ```
 
-**Package for distribution:**
-```bash
-python scripts/package_plugin.py
-```
+**See the [Rules Schema](docs/RULES_SCHEMA.md) for technical details.**
 
-### Isolated Development Configuration
+## Support
 
-By default, `python scripts/run_edmc_from_dev.py` uses completely isolated EDMC configuration. This works by:
-
-1. Creating isolated config directory in `.edmc_dev_config/`
-2. Creating minimal config file: `.edmc_dev_config/config.toml`
-3. Passing `--config .edmc_dev_config/config.toml` to EDMC at launch
-4. EDMC reads all settings from that file instead of system configuration
-
-**Benefits:**
-- Your installed EDMC remains completely untouched
-- Clean environment for testing
-- Easy to reset: delete `.edmc_dev_config/` and start fresh
-- Plugin loads directly from source via symlink (no copying)
-
-### VS Code Tasks
-
-Available tasks (Terminal > Run Task):
-- **EDMC: Bootstrap Dev Environment** - Initial setup
-- **EDMC: Bootstrap + Run Tests** - Setup + test suite
-- **EDMC: Run EDMC (DEV)** - Run with isolated config
-- **EDMC: Run EDMC (DEV - System Config)** - Run with real EDMC config  
-- **EDMC: Package Plugin** - Create dist ZIP
+- **Documentation**: Check the guides in [docs/](docs/)
+- **Issues**: Report bugs on [GitHub Issues](https://github.com/Audumla/EDMCVKBConnector/issues)
+- **Installation Help**: See [INSTALLATION.md](INSTALLATION.md)
+- **Development**: See [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- Elite Dangerous Market Connector team
+- VKB Sim for their excellent hardware and VKB-Link software
+- Elite Dangerous community
