@@ -218,6 +218,52 @@ def _resolve_rules_file_path() -> str:
     return os.path.join(os.getcwd(), "rules.json")
 
 
+def _update_ini_file(ini_path: str, host: str, port: str) -> bool:
+    """
+    Update VKB-Link INI file with TCP configuration.
+    
+    Creates or updates the [TCP] section with:
+    - Adress={host}  (note: typo is deliberate per VKB-Link requirements)
+    - Port={port}
+    
+    Args:
+        ini_path: Path to the INI file
+        host: VKB-Link host address
+        port: VKB-Link port number
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        import configparser
+        
+        # Read existing INI file or create new one
+        config = configparser.ConfigParser()
+        config.optionxform = str  # Preserve case
+        
+        if os.path.exists(ini_path):
+            config.read(ini_path, encoding='utf-8')
+        
+        # Ensure [TCP] section exists
+        if not config.has_section('TCP'):
+            config.add_section('TCP')
+        
+        # Set values (note: "Adress" typo is deliberate per VKB-Link spec)
+        config.set('TCP', 'Adress', host)
+        config.set('TCP', 'Port', port)
+        
+        # Write back to file
+        with open(ini_path, 'w', encoding='utf-8') as f:
+            config.write(f)
+        
+        logger.info(f"Updated VKB-Link INI file: {ini_path} with host={host}, port={port}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to update INI file {ini_path}: {e}", exc_info=True)
+        return False
+
+
 def _load_rules_file_for_ui() -> tuple[list[dict], bool, str]:
     """
     Load rule objects for UI editing.
@@ -400,7 +446,23 @@ def _persist_prefs_from_ui() -> None:
     if shift_bitmap is not None and subshift_bitmap is not None:
         _config.set("test_shift_bitmap", int(shift_bitmap) & 0x03)
         _config.set("test_subshift_bitmap", int(subshift_bitmap) & 0x7F)
-
+    
+    # Anonymization settings
+    anonymize_var = _prefs_vars.get("anonymize_events")
+    if anonymize_var is not None:
+        _config.set("anonymize_events", bool(anonymize_var.get()))
+    
+    mock_cmdr_var = _prefs_vars.get("mock_commander_name")
+    if mock_cmdr_var is not None:
+        _config.set("mock_commander_name", mock_cmdr_var.get().strip())
+    
+    mock_ship_var = _prefs_vars.get("mock_ship_name")
+    if mock_ship_var is not None:
+        _config.set("mock_ship_name", mock_ship_var.get().strip())
+    
+    mock_ident_var = _prefs_vars.get("mock_ship_ident")
+    if mock_ident_var is not None:
+        _config.set("mock_ship_ident", mock_ident_var.get().strip())
 
 
 def _apply_test_shift_from_ui() -> None:
@@ -684,6 +746,92 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     ttk.Label(vkb_link_frame, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=(0, 2))
     ttk.Entry(vkb_link_frame, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=(0, 2))
 
+    # Connection status display
+    status_var = tk.StringVar(value="Checking connection...")
+    status_label = ttk.Label(vkb_link_frame, textvariable=status_var, foreground="gray")
+    status_label.grid(row=2, column=0, columnspan=2, sticky="w", padx=4, pady=(6, 2))
+
+    # Button to configure VKB-Link INI file (shown when not connected)
+    ini_button_frame = ttk.Frame(vkb_link_frame)
+    ini_button_frame.grid(row=3, column=0, columnspan=2, sticky="w", padx=4, pady=(2, 2))
+    
+    def _update_vkb_ini():
+        """Open file dialog to select and update vkb-link INI file."""
+        try:
+            from tkinter import filedialog, messagebox
+            
+            # Ask user to locate the VKB-Link INI file
+            ini_path = filedialog.askopenfilename(
+                title="Select VKB-Link Configuration File",
+                filetypes=[("INI files", "*.ini"), ("All files", "*.*")],
+                initialdir=os.path.expanduser("~")
+            )
+            
+            if not ini_path:
+                return
+            
+            # Get current host and port values
+            host = host_var.get().strip()
+            port = port_var.get().strip()
+            
+            # Update the INI file
+            if _update_ini_file(ini_path, host, port):
+                messagebox.showinfo(
+                    "Success",
+                    f"VKB-Link configuration updated:\n{ini_path}\n\n[TCP]\nAdress={host}\nPort={port}"
+                )
+            else:
+                messagebox.showerror(
+                    "Error",
+                    f"Failed to update VKB-Link configuration file:\n{ini_path}"
+                )
+        except Exception as e:
+            logger.error(f"Error updating VKB-Link INI: {e}", exc_info=True)
+            try:
+                from tkinter import messagebox
+                messagebox.showerror("Error", f"Failed to update INI file: {e}")
+            except:
+                pass
+    
+    ini_button = ttk.Button(ini_button_frame, text="Configure VKB-Link INI File", command=_update_vkb_ini)
+    ini_button.pack(side=tk.LEFT)
+    
+    # Initially hide the INI button (will be shown if not connected)
+    ini_button_frame.grid_remove()
+    
+    # Store references for status updates
+    _prefs_vars["status_var"] = status_var
+    _prefs_vars["status_label"] = status_label
+    _prefs_vars["ini_button_frame"] = ini_button_frame
+    
+    def _update_connection_status():
+        """Update connection status display periodically."""
+        if not frame.winfo_exists():
+            return
+        
+        try:
+            if _event_handler and _event_handler.vkb_client:
+                if _event_handler.vkb_client.connected:
+                    status_var.set("✓ Connected to VKB-Link")
+                    status_label.config(foreground="green")
+                    ini_button_frame.grid_remove()
+                else:
+                    status_var.set("✗ Not connected to VKB-Link")
+                    status_label.config(foreground="red")
+                    ini_button_frame.grid()
+            else:
+                status_var.set("Initializing...")
+                status_label.config(foreground="gray")
+                ini_button_frame.grid_remove()
+        except Exception as e:
+            logger.debug(f"Error updating connection status: {e}")
+        
+        # Schedule next update in 1 second
+        frame.after(1000, _update_connection_status)
+    
+    # Start periodic status updates
+    frame.after(500, _update_connection_status)
+
     static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=6)
     static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2)
 
@@ -704,7 +852,43 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             variable=subshift_vars[i],
             command=_apply_test_shift_from_ui,
         ).grid(row=1, column=1 + i, sticky="w", padx=2, pady=2)
-    settings_tab.rowconfigure(1, weight=1)
+
+    # Event Anonymization Settings
+    anonymize_frame = ttk.LabelFrame(settings_tab, text="Event Anonymization", padding=6)
+    anonymize_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 2))
+    anonymize_frame.columnconfigure(1, weight=1)
+    
+    anonymize_enabled = _config.get("anonymize_events", False) if _config else False
+    mock_cmdr_name = _config.get("mock_commander_name", "TestCommander") if _config else "TestCommander"
+    mock_ship = _config.get("mock_ship_name", "TestShip") if _config else "TestShip"
+    mock_ident = _config.get("mock_ship_ident", "TEST-01") if _config else "TEST-01"
+    
+    anonymize_var = tk.BooleanVar(value=anonymize_enabled)
+    mock_cmdr_var = tk.StringVar(value=str(mock_cmdr_name))
+    mock_ship_var = tk.StringVar(value=str(mock_ship))
+    mock_ident_var = tk.StringVar(value=str(mock_ident))
+    
+    _prefs_vars["anonymize_events"] = anonymize_var
+    _prefs_vars["mock_commander_name"] = mock_cmdr_var
+    _prefs_vars["mock_ship_name"] = mock_ship_var
+    _prefs_vars["mock_ship_ident"] = mock_ident_var
+    
+    ttk.Checkbutton(
+        anonymize_frame,
+        text="Enable event anonymization (replaces identifying information with mock data)",
+        variable=anonymize_var,
+    ).grid(row=0, column=0, columnspan=2, sticky="w", padx=4, pady=(2, 6))
+    
+    ttk.Label(anonymize_frame, text="Mock Commander Name:").grid(row=1, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(anonymize_frame, textvariable=mock_cmdr_var, width=24).grid(row=1, column=1, sticky="w", padx=4, pady=2)
+    
+    ttk.Label(anonymize_frame, text="Mock Ship Name:").grid(row=2, column=0, sticky="w", padx=4, pady=2)
+    ttk.Entry(anonymize_frame, textvariable=mock_ship_var, width=24).grid(row=2, column=1, sticky="w", padx=4, pady=2)
+    
+    ttk.Label(anonymize_frame, text="Mock Ship Ident:").grid(row=3, column=0, sticky="w", padx=4, pady=(2, 2))
+    ttk.Entry(anonymize_frame, textvariable=mock_ident_var, width=24).grid(row=3, column=1, sticky="w", padx=4, pady=(2, 2))
+    
+    settings_tab.rowconfigure(2, weight=1)
 
     # Rules summary panel
     rules_path_var = tk.StringVar(value="")
@@ -922,7 +1106,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     rules_frame = ttk.LabelFrame(settings_tab, text="Rules", padding=6)
-    rules_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
+    rules_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
     rules_frame.columnconfigure(0, weight=1)
     rules_frame.rowconfigure(1, weight=1)
 

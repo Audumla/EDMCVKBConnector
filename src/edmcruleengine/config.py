@@ -40,6 +40,11 @@ DEFAULTS = {
     "vkb_command_byte": 13,
     "test_shift_bitmap": 0,
     "test_subshift_bitmap": 0,
+    # Event anonymization settings
+    "anonymize_events": False,
+    "mock_commander_name": "TestCommander",
+    "mock_ship_name": "TestShip",
+    "mock_ship_ident": "TEST-01",
 }
 
 

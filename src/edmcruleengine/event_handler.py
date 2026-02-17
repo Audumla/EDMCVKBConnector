@@ -83,6 +83,14 @@ class EventHandler:
             self.plugin_dir,
             catalog=self.catalog
         )
+        
+        # Initialize event anonymizer
+        from .event_anonymizer import EventAnonymizer
+        self.anonymizer = EventAnonymizer(
+            mock_commander_name=config.get("mock_commander_name", "TestCommander"),
+            mock_ship_name=config.get("mock_ship_name", "TestShip"),
+            mock_ship_ident=config.get("mock_ship_ident", "TEST-01"),
+        )
 
     def _resolve_rules_path(self) -> Path:
         override = self.config.get("rules_path", "") or ""
@@ -230,7 +238,13 @@ class EventHandler:
             return
 
         if self.debug:
-            logger.debug(f"Event received: {event_type}")
+            # When debug logging is enabled, log anonymized events if anonymization is enabled
+            anonymize_enabled = self.config.get("anonymize_events", False)
+            if anonymize_enabled:
+                anonymized = self.anonymizer.anonymize_event(event_data)
+                logger.debug(f"Event received (anonymized): {event_type}, data: {anonymized}")
+            else:
+                logger.debug(f"Event received: {event_type}")
 
         # Track journal events with timestamps for recent operator
         if source == "journal":
@@ -278,6 +292,25 @@ class EventHandler:
         Re-apply current shift/subshift state after any socket reconnect.
         """
         self._send_shift_state_if_changed(force=True)
+
+    def get_anonymized_event(self, event_type: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get an anonymized copy of event data.
+        
+        This method can be used to get event data with commander-specific
+        and system-specific information replaced with mock data.
+        
+        Args:
+            event_type: Type of event
+            event_data: Original event data
+            
+        Returns:
+            Anonymized copy of event data
+        """
+        anonymize_enabled = self.config.get("anonymize_events", False)
+        if anonymize_enabled:
+            return self.anonymizer.anonymize_event(event_data)
+        return event_data.copy()
 
     def _track_event(self, event_name: str) -> None:
         """
