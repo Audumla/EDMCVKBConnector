@@ -176,7 +176,7 @@ class EventAnonymizer:
             Anonymized string value
         """
         # Replace Windows paths
-        value = self.windows_path_pattern.sub(r'C:\MockPath', value)
+        value = self.windows_path_pattern.sub(r'C:\\MockPath', value)
         
         # Replace Unix paths (but not URLs)
         if not value.startswith(('http://', 'https://', 'ftp://')):
