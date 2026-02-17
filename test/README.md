@@ -39,16 +39,21 @@ python test_integration.py
 
 ### 3. Test with EDMC (DEV)
 
-Create/update symlink to EDMC (DEV) plugin directory:
+The plugin is automatically linked during development setup:
 ```bash
-python ../scripts/link_plugin_to_edmc_clone.py --force
+python ../scripts/bootstrap_dev_env.py
 ```
 
-Then:
-1. Start EDMC
+Then run EDMC in development mode:
+```bash
+python ../scripts/run_edmc_from_dev.py
+```
+
+To test:
+1. Start EDMC in dev mode
 2. Open plugin preferences: Settings → VKB Connector
 3. Set VKB Host and Port (default: 127.0.0.1:50995)
-4. Check logs: Help → Open Log
+4. Check logs: File → Settings → Advanced → Show Log
 
 ## Testing Matrix
 
@@ -157,19 +162,26 @@ tests/
 
 ## Next Steps After Tests Pass
 
-1. **Link plugin to EDMC (DEV)**:
+1. **Set up dev environment** (if not already done):
    ```bash
-   python ../scripts/link_plugin_to_edmc_clone.py --force
+   python ../scripts/bootstrap_dev_env.py
    ```
 
-2. **Start EDMC** and check logs
+2. **Run EDMC in dev mode**:
+   ```bash
+   python ../scripts/run_edmc_from_dev.py
+   ```
 
-3. **Play Elite Dangerous** and monitor:
+3. **Check EDMC logs** for plugin initialization
+
+4. **Play Elite Dangerous** and monitor:
    - FSD jumps → shift state changes
    - Docking → shift state changes
    - Status/flags → rule matching
 
-4. **Monitor mock server output** for received shift state packets
+5. **Monitor mock server output** for received shift state packets
+
+For complete development workflow, see [DEVELOPMENT.md](../DEVELOPMENT.md).
 
 ## Real VKB Hardware Testing
 
