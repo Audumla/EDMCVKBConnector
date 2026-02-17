@@ -790,7 +790,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             try:
                 from tkinter import messagebox
                 messagebox.showerror("Error", f"Failed to update INI file: {e}")
-            except:
+            except Exception:
                 pass
     
     ini_button = ttk.Button(ini_button_frame, text="Configure VKB-Link INI File", command=_update_vkb_ini)

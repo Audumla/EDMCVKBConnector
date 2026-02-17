@@ -2,8 +2,6 @@
 Event handler for forwarding Elite Dangerous events to VKB hardware.
 """
 
-import json
-import logging
 import re
 import time
 from pathlib import Path
@@ -27,7 +25,7 @@ _SHIFT_TOKEN_PATTERN = re.compile(r"^(Subshift|Shift)(\d+)$")
 class EventHandler:
     """
     Handles EDMC events and forwards them to VKB hardware.
-    
+
     Manages event filtering, serialization, and transmission to VKB device.
     """
 
@@ -40,7 +38,7 @@ class EventHandler:
     ):
         """
         Initialize event handler.
-        
+
         Args:
             config: Configuration object.
             vkb_client: VKB client instance (created if not provided).
@@ -77,13 +75,13 @@ class EventHandler:
         self._last_sent_subshift = None
         self._recent_events: Dict[str, float] = {}  # event_name -> timestamp
         self._event_window_seconds = 5  # How long to track events
-        
+
         # Initialize unregistered events tracker
         self.unregistered_events_tracker = UnregisteredEventsTracker(
             self.plugin_dir,
             catalog=self.catalog
         )
-        
+
         # Initialize event anonymizer
         from .event_anonymizer import EventAnonymizer
         self.anonymizer = EventAnonymizer(
@@ -176,7 +174,7 @@ class EventHandler:
     def connect(self) -> bool:
         """
         Connect to VKB hardware and start reconnection worker.
-        
+
         Returns:
             True if initial connection successful, False otherwise.
         """
@@ -190,13 +188,13 @@ class EventHandler:
     def _refresh_vkb_endpoint(self) -> None:
         """
         Refresh VKB client endpoint from current config.
-        
+
         Called when preferences change to ensure reconnect targets
         the new host/port instead of cached values.
         """
         vkb_host = self.config.get("vkb_host", "127.0.0.1")
         vkb_port = self.config.get("vkb_port", 50995)
-        
+
         # Update VKB client endpoint if changed
         if self.vkb_client.host != vkb_host or self.vkb_client.port != vkb_port:
             logger.info(
@@ -221,7 +219,7 @@ class EventHandler:
     ) -> None:
         """
         Handle an EDMC event.
-        
+
         Args:
             event_type: Type of event (e.g., "Location", "FSDJump").
             event_data: Event data dictionary.
@@ -264,7 +262,7 @@ class EventHandler:
                     "trigger_source": source,
                     "event_name": event_type,
                 }
-                
+
                 self.rule_engine.on_notification(
                     cmdr=cmdr,
                     is_beta=is_beta,
@@ -279,7 +277,7 @@ class EventHandler:
                 logger.debug(f"Unexpected error in rule engine: {e}", exc_info=True)
         else:
             logger.debug(f"No rule engine loaded — event '{event_type}' not forwarded to VKB")
-        
+
         # Track unregistered events (events not found in the signals catalog)
         # This helps identify missing events that should be added to the catalog
         try:
@@ -296,14 +294,14 @@ class EventHandler:
     def get_anonymized_event(self, event_type: str, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get an anonymized copy of event data.
-        
+
         This method can be used to get event data with commander-specific
         and system-specific information replaced with mock data.
-        
+
         Args:
             event_type: Type of event
             event_data: Original event data
-            
+
         Returns:
             Anonymized copy of event data
         """
@@ -315,33 +313,33 @@ class EventHandler:
     def _track_event(self, event_name: str) -> None:
         """
         Track an event with current timestamp for recent operator.
-        
+
         Args:
             event_name: Name of the event to track
         """
         self._recent_events[event_name] = time.time()
-    
+
     def _prune_old_events(self) -> None:
         """
         Remove events older than the tracking window.
         """
         current_time = time.time()
         cutoff_time = current_time - self._event_window_seconds
-        
+
         # Remove old events
         events_to_remove = [
             event_name
             for event_name, timestamp in self._recent_events.items()
             if timestamp < cutoff_time
         ]
-        
+
         for event_name in events_to_remove:
             del self._recent_events[event_name]
 
     def _handle_rule_action(self, result: MatchResult) -> None:
         """
         Handle rule match result.
-        
+
         Rules use edge-triggering, so this is only called when actions
         should be executed (on state transitions).
         """
@@ -385,16 +383,16 @@ class EventHandler:
             if not isinstance(token, str):
                 logger.warning(f"[{rule_id}] Invalid shift token: {token}")
                 continue
-            
+
             # Use pre-compiled regex for better performance
             match = _SHIFT_TOKEN_PATTERN.match(token)
             if not match:
                 logger.warning(f"[{rule_id}] Unknown shift token: {token}")
                 continue
-            
+
             shift_type = match.group(1)
             idx = int(match.group(2))
-            
+
             if shift_type == "Shift":
                 # Shift codes 1-2 (Shift1 maps to bit 0, Shift2 to bit 1)
                 if idx < 1 or idx > 2:
@@ -447,49 +445,49 @@ class EventHandler:
     def set_debug(self, enabled: bool) -> None:
         """Enable or disable debug logging."""
         self.debug = enabled
-        logger.info(f"Debug logging {'enabled' if enabled else 'disabled'}")    
+        logger.info(f"Debug logging {'enabled' if enabled else 'disabled'}")
     # ==== Unregistered Events Management ====
-    
+
     def get_unregistered_events(self) -> List[Dict[str, Any]]:
         """
         Get list of all tracked unregistered events.
-        
+
         Returns:
             List of event entry dictionaries, sorted by last_seen (newest first)
         """
         return self.unregistered_events_tracker.get_unregistered_events()
-    
+
     def get_unregistered_events_count(self) -> int:
         """Get the count of tracked unregistered events."""
         return self.unregistered_events_tracker.get_events_count()
-    
+
     def refresh_unregistered_events_against_catalog(self) -> int:
         """
         Refresh unregistered events list against the current catalog.
-        
+
         Removes any events that are now found in the catalog.
-        
+
         Returns:
             Number of events removed from the tracking list
         """
         return self.unregistered_events_tracker.refresh_against_catalog()
-    
+
     def clear_unregistered_event(self, event_type: str) -> bool:
         """
         Clear a specific unregistered event from tracking.
-        
+
         Args:
             event_type: Event type to clear
-            
+
         Returns:
             True if cleared, False if not found
         """
         return self.unregistered_events_tracker.clear_event(event_type)
-    
+
     def clear_all_unregistered_events(self) -> int:
         """
         Clear all tracked unregistered events.
-        
+
         Returns:
             Number of events cleared
         """

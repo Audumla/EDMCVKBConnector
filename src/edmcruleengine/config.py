@@ -6,8 +6,7 @@ Configuration is persisted by EDMC in the system-appropriate location
 (registry on Windows, plist on macOS, etc.).
 """
 
-import logging
-from typing import Any, List, Optional
+from typing import Any
 
 from . import plugin_logger
 
