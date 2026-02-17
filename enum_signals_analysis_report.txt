@@ -1,0 +1,1154 @@
+================================================================================
+ENUM SIGNALS ANALYSIS REPORT
+================================================================================
+
+SUMMARY STATISTICS
+--------------------------------------------------------------------------------
+Total enum signals: 128
+
+  COMPLETE: 37
+  INVALID_PATH: 91
+
+
+================================================================================
+CATEGORY: INVALID_PATH
+================================================================================
+Count: 91
+
+1. signals.hud_mode
+   Category: HUD / 
+   Description: HUD mode
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.hud_mode
+     Confidence: 0.70
+
+2. signals.night_vision
+   Category: HUD / 
+   Description: Night vision
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.night_vision
+     Confidence: 0.70
+
+3. signals.transport
+   Category: Commander / 
+   Description: Current transport
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.transport
+     Confidence: 0.70
+
+4. signals.commander_ranks.empire
+   Category: Commander / Rank
+   Description: Empire rank
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.commander_ranks.empire
+     Confidence: 0.70
+
+5. signals.commander_ranks.federation
+   Category: Commander / Rank
+   Description: Federation rank
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.commander_ranks.federation
+     Confidence: 0.70
+
+6. signals.commander_promotion.combat
+   Category: Commander / Promotion
+   Description: Combat promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.Combat
+     Reasoning: Found similar signal: signals.commander_ranks.combat
+     Confidence: 0.70
+
+7. signals.commander_promotion.trade
+   Category: Commander / Promotion
+   Description: Trade promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.Trade
+     Reasoning: Found similar signal: signals.commander_ranks.trade
+     Confidence: 0.70
+
+8. signals.commander_promotion.explore
+   Category: Commander / Promotion
+   Description: Exploration promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.Explore
+     Reasoning: Found similar signal: signals.commander_ranks.explore
+     Confidence: 0.70
+
+9. signals.commander_promotion.empire
+   Category: Commander / Promotion
+   Description: Empire promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.commander_ranks.empire
+     Confidence: 0.70
+
+10. signals.commander_promotion.federation
+   Category: Commander / Promotion
+   Description: Federation promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.commander_ranks.federation
+     Confidence: 0.70
+
+11. signals.commander_promotion.cqc
+   Category: Commander / Promotion
+   Description: CQC promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.CQC
+     Reasoning: Found similar signal: signals.commander_ranks.cqc
+     Confidence: 0.70
+
+12. signals.commander_promotion.soldier
+   Category: Commander / Promotion
+   Description: Soldier promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.Soldier
+     Reasoning: Found similar signal: signals.commander_ranks.soldier
+     Confidence: 0.70
+
+13. signals.commander_promotion.exobiologist
+   Category: Commander / Promotion
+   Description: Exobiologist promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.Exobiologist
+     Reasoning: Found similar signal: signals.commander_ranks.exobiologist
+     Confidence: 0.70
+
+14. signals.commander_promotion.mercenary
+   Category: Commander / Promotion
+   Description: Mercenary promotion
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: state.Rank.Mercenary
+     Reasoning: Found similar signal: signals.commander_ranks.mercenary
+     Confidence: 0.70
+
+15. signals.docking_state
+   Category: Ship / Docking
+   Description: Docking state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.docking_state
+     Confidence: 0.70
+
+16. signals.has_lat_long
+   Category: Location / Body
+   Description: Position data available
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.has_lat_long
+     Confidence: 0.70
+
+17. signals.docking_request_state
+   Category: Ship / Docking
+   Description: Request
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.docking_request_state
+     Confidence: 0.70
+
+18. signals.body_proximity
+   Category: Location / Body
+   Description: Body proximity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.body_proximity
+     Confidence: 0.70
+
+19. signals.supercruise_state
+   Category: Travel / 
+   Description: Supercruise state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.supercruise_state
+     Confidence: 0.70
+
+20. signals.fsd_state
+   Category: Ship / 
+   Description: FSD state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.fsd_state
+     Confidence: 0.70
+
+21. signals.jump_type
+   Category: Travel / 
+   Description: Jump type
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.jump_type
+     Confidence: 0.70
+
+22. signals.mass_locked
+   Category: Ship / 
+   Description: Mass locked
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.mass_locked
+     Confidence: 0.70
+
+23. signals.flag_in_danger
+   Category: Travel / 
+   Description: In danger
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_in_danger
+     Confidence: 0.70
+
+24. signals.flag_hud_analysis_mode
+   Category: Travel / 
+   Description: Analysis mode
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_hud_analysis_mode
+     Confidence: 0.70
+
+25. signals.flag_altitude_from_avg_radius
+   Category: Travel / 
+   Description: Altitude from radius
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_altitude_from_avg_radius
+     Confidence: 0.70
+
+26. signals.jet_cone_boost_state
+   Category: Travel / 
+   Description: Jet cone boost
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.jet_cone_boost_state
+     Confidence: 0.70
+
+27. signals.landing_gear
+   Category: Ship / 
+   Description: Landing gear
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.landing_gear
+     Confidence: 0.70
+
+28. signals.flag_shields_up
+   Category: Ship / 
+   Description: Shields up
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_shields_up
+     Confidence: 0.70
+
+29. signals.flag_flight_assist_off
+   Category: Ship / 
+   Description: Flight assist disabled
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_flight_assist_off
+     Confidence: 0.70
+
+30. signals.flag_hardpoints_deployed
+   Category: Ship / 
+   Description: Hardpoints deployed
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_hardpoints_deployed
+     Confidence: 0.70
+
+31. signals.flag_in_wing
+   Category: Ship / 
+   Description: In a wing
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_in_wing
+     Confidence: 0.70
+
+32. signals.cargo_hatch
+   Category: Ship / Cargo
+   Description: Cargo hatch
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.cargo_hatch
+     Confidence: 0.70
+
+33. signals.lights
+   Category: Ship / 
+   Description: External lights
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.lights
+     Confidence: 0.70
+
+34. signals.silent_running
+   Category: Ship / 
+   Description: Silent running
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.silent_running
+     Confidence: 0.70
+
+35. signals.flight_assist
+   Category: Ship / 
+   Description: Flight assist
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flight_assist
+     Confidence: 0.70
+
+36. signals.heat_status
+   Category: Ship / 
+   Description: Heat status
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.heat_status
+     Confidence: 0.70
+
+37. signals.refuel_status
+   Category: Ship / Fuel
+   Description: Refuel status
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.refuel_status
+     Confidence: 0.70
+
+38. signals.repair_status
+   Category: Ship / Ship Health
+   Description: Repair status
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.repair_status
+     Confidence: 0.70
+
+39. signals.cockpit_status
+   Category: Ship / Ship Health
+   Description: Cockpit status
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.cockpit_status
+     Confidence: 0.70
+
+40. signals.cargo_activity
+   Category: Ship / Cargo
+   Description: Cargo activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.cargo_activity
+     Confidence: 0.70
+
+41. signals.hardpoints
+   Category: Ship / 
+   Description: Hardpoints
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.hardpoints
+     Confidence: 0.70
+
+42. signals.shield_state
+   Category: Ship / 
+   Description: Shield state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.shield_state
+     Confidence: 0.70
+
+43. signals.hull_state
+   Category: Ship / Ship Health
+   Description: Hull state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.hull_state
+     Confidence: 0.70
+
+44. signals.combat_state
+   Category: Ship / 
+   Description: Combat state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.combat_state
+     Confidence: 0.70
+
+45. signals.target_state
+   Category: Ship / Target
+   Description: Target state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.target_state
+     Confidence: 0.70
+
+46. signals.power_distribution
+   Category: Ship / PIPS
+   Description: Power distribution
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.power_distribution
+     Confidence: 0.70
+
+47. signals.srv_deployed_state
+   Category: SRV / 
+   Description: Deployment
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.srv_deployed_state
+     Confidence: 0.70
+
+48. signals.srv_handbrake
+   Category: SRV / 
+   Description: Handbrake
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.srv_handbrake
+     Confidence: 0.70
+
+49. signals.flag_srv_turret
+   Category: SRV / 
+   Description: Turret
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_srv_turret
+     Confidence: 0.70
+
+50. signals.srv_under_ship
+   Category: SRV / 
+   Description: Under ship
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.srv_under_ship
+     Confidence: 0.70
+
+51. signals.srv_drive_assist
+   Category: SRV / 
+   Description: Drive assist
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.srv_drive_assist
+     Confidence: 0.70
+
+52. signals.srv_high_beam
+   Category: SRV / 
+   Description: Lights
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.srv_high_beam
+     Confidence: 0.70
+
+53. signals.flag_on_foot
+   Category: On-Foot / 
+   Description: On foot
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_on_foot
+     Confidence: 0.70
+
+54. signals.flag_aim_down_sight
+   Category: On-Foot / 
+   Description: Aiming down sight
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_aim_down_sight
+     Confidence: 0.70
+
+55. signals.flag_low_oxygen
+   Category: On-Foot / 
+   Description: Low oxygen
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_low_oxygen
+     Confidence: 0.70
+
+56. signals.flag_low_health
+   Category: On-Foot / 
+   Description: Low health
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.flag_low_health
+     Confidence: 0.70
+
+57. signals.temperature
+   Category: On-Foot / 
+   Description: Environment temperature
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.temperature
+     Confidence: 0.70
+
+58. signals.on_foot_location
+   Category: On-Foot / 
+   Description: Where you are on foot
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.on_foot_location
+     Confidence: 0.70
+
+59. signals.aim
+   Category: On-Foot / 
+   Description: Aim
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.aim
+     Confidence: 0.70
+
+60. signals.oxygen
+   Category: Location / Body
+   Description: Oxygen
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.oxygen
+     Confidence: 0.70
+
+61. signals.health
+   Category: On-Foot / 
+   Description: Health
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.health
+     Confidence: 0.70
+
+62. signals.temperature_state
+   Category: Location / Body
+   Description: Temperature state
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.temperature_state
+     Confidence: 0.70
+
+63. signals.breathable_atmosphere
+   Category: Location / Body
+   Description: Breathable atmosphere
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.breathable_atmosphere
+     Confidence: 0.70
+
+64. signals.game_version
+   Category: Session / 
+   Description: Game version
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.game_version
+     Confidence: 0.70
+
+65. signals.system_event
+   Category: Location / System
+   Description: System event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.system_event
+     Confidence: 0.70
+
+66. signals.travel_event
+   Category: Travel / 
+   Description: Travel event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.travel_event
+     Confidence: 0.70
+
+67. signals.combat_event
+   Category: Combat / 
+   Description: Combat event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.combat_event
+     Confidence: 0.70
+
+68. signals.exploration_event
+   Category: Travel / 
+   Description: Exploration event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.exploration_event
+     Confidence: 0.70
+
+69. signals.trading_event
+   Category: Trading / 
+   Description: Trading event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.trading_event
+     Confidence: 0.70
+
+70. signals.mission_event
+   Category: Missions / 
+   Description: Mission event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.mission_event
+     Confidence: 0.70
+
+71. signals.ship_event
+   Category: Ship / 
+   Description: Ship event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.ship_event
+     Confidence: 0.70
+
+72. signals.engineering_event
+   Category: Engineering / 
+   Description: Engineering event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.engineering_event
+     Confidence: 0.70
+
+73. signals.carrier_event
+   Category: Fleet Carrier / 
+   Description: Fleet Carrier event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.carrier_event
+     Confidence: 0.70
+
+74. signals.onfoot_event
+   Category: On-Foot / 
+   Description: On-Foot event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.onfoot_event
+     Confidence: 0.70
+
+75. signals.colonisation_event
+   Category: Location / System
+   Description: Colonisation event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.colonisation_event
+     Confidence: 0.70
+
+76. signals.comms_event
+   Category: Commander / 
+   Description: Communications event
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.comms_event
+     Confidence: 0.70
+
+77. signals.ship_purchase_activity
+   Category: Ship / 
+   Description: Ship purchase activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.ship_purchase_activity
+     Confidence: 0.70
+
+78. signals.module_activity
+   Category: Ship / 
+   Description: Module activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.module_activity
+     Confidence: 0.70
+
+79. signals.srv
+   Category: SRV / 
+   Description: SRV
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.srv
+     Confidence: 0.70
+
+80. signals.engineering_activity
+   Category: Engineering / 
+   Description: Engineering activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.engineering_activity
+     Confidence: 0.70
+
+81. signals.crew_activity
+   Category: Ship / Crew
+   Description: Crew activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.crew_activity
+     Confidence: 0.70
+
+82. signals.suit
+   Category: On-Foot / 
+   Description: Suit
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.suit
+     Confidence: 0.70
+
+83. signals.weapon
+   Category: On-Foot / 
+   Description: Weapon
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.weapon
+     Confidence: 0.70
+
+84. signals.financial_activity
+   Category: Commander / 
+   Description: Financial activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.financial_activity
+     Confidence: 0.70
+
+85. signals.powerplay_activity
+   Category: Powerplay / 
+   Description: Powerplay activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.powerplay_activity
+     Confidence: 0.70
+
+86. signals.squadron_activity
+   Category: Squadron / 
+   Description: Squadron activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.squadron_activity
+     Confidence: 0.70
+
+87. signals.limpets
+   Category: Ship / 
+   Description: Limpets
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.limpets
+     Confidence: 0.70
+
+88. signals.fuel
+   Category: Ship / Fuel
+   Description: Fuel status
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.fuel
+     Confidence: 0.70
+
+89. signals.fighter
+   Category: Ship / 
+   Description: Fighter
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.fighter
+     Confidence: 0.70
+
+90. signals.transport_activity
+   Category: On-Foot / 
+   Description: Transport activity
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.transport_activity
+     Confidence: 0.70
+
+91. signals.status
+   Category: Ship / 
+   Description: Status
+   Current derive path: None
+   Derive valid: False - No path found in derive structure
+   INFERENCE:
+     Suggested path: NEEDS_MANUAL_REVIEW
+     Reasoning: Found similar signal: signals.status
+     Confidence: 0.70
+
+
+================================================================================
+CATEGORY: COMPLETE
+================================================================================
+Count: 37
+
+1. signals.gui_focus
+   Category: HUD / 
+   Description: Focused screen
+   Current derive path: dashboard.GuiFocus
+   Derive valid: True - Valid
+
+2. signals.commander_ranks.combat
+   Category: Commander / Rank
+   Description: Combat rank
+   Current derive path: state.Rank.Combat
+   Derive valid: True - Valid
+
+3. signals.commander_ranks.trade
+   Category: Commander / Rank
+   Description: Trade rank
+   Current derive path: state.Rank.Trade
+   Derive valid: True - Valid
+
+4. signals.commander_ranks.explore
+   Category: Commander / Rank
+   Description: Exploration rank
+   Current derive path: state.Rank.Explore
+   Derive valid: True - Valid
+
+5. signals.commander_ranks.cqc
+   Category: Commander / Rank
+   Description: CQC rank
+   Current derive path: state.Rank.CQC
+   Derive valid: True - Valid
+
+6. signals.commander_ranks.soldier
+   Category: Commander / Rank
+   Description: Soldier rank
+   Current derive path: state.Rank.Soldier
+   Derive valid: True - Valid
+
+7. signals.commander_ranks.exobiologist
+   Category: Commander / Rank
+   Description: Exobiologist rank
+   Current derive path: state.Rank.Exobiologist
+   Derive valid: True - Valid
+
+8. signals.commander_ranks.mercenary
+   Category: Commander / Rank
+   Description: Mercenary rank
+   Current derive path: state.Rank.Mercenary
+   Derive valid: True - Valid
+
+9. signals.ship_type
+   Category: Ship / Details
+   Description: Ship model
+   Current derive path: state.ShipType
+   Derive valid: True - Valid
+
+10. signals.ship_status
+   Category: Ship / 
+   Description: Ship legal status
+   Current derive path: state.Hot
+   Derive valid: True - Valid
+
+11. signals.pips_sys
+   Category: Ship / PIPS
+   Description: Systems
+   Current derive path: dashboard.Pips.0
+   Derive valid: True - Valid
+
+12. signals.pips_eng
+   Category: Ship / PIPS
+   Description: Engine
+   Current derive path: dashboard.Pips.1
+   Derive valid: True - Valid
+
+13. signals.pips_wep
+   Category: Ship / PIPS
+   Description: Weapon
+   Current derive path: dashboard.Pips.2
+   Derive valid: True - Valid
+
+14. signals.legal_state
+   Category: Commander / 
+   Description: Legal status
+   Current derive path: dashboard.LegalState
+   Derive valid: True - Valid
+
+15. signals.selected_weapon
+   Category: On-Foot / 
+   Description: Selected weapon
+   Current derive path: dashboard.SelectedWeapon
+   Derive valid: True - Valid
+
+16. signals.powerplay_pledged
+   Category: Powerplay / 
+   Description: Pledged to power
+   Current derive path: state.Powerplay.Power
+   Derive valid: True - Valid
+
+17. signals.powerplay_power
+   Category: Powerplay / 
+   Description: Pledged power
+   Current derive path: state.Powerplay.Power
+   Derive valid: True - Valid
+
+18. signals.in_squadron
+   Category: Squadron / 
+   Description: In a squadron
+   Current derive path: state.Squadron.Name
+   Derive valid: True - Valid
+
+19. signals.has_fleet_carrier
+   Category: Fleet Carrier / 
+   Description: Owns fleet carrier
+   Current derive path: state.FleetCarrier.Callsign
+   Derive valid: True - Valid
+
+20. signals.game_mode
+   Category: Session / 
+   Description: Game mode
+   Current derive path: state.GameMode
+   Derive valid: True - Valid
+
+21. signals.station_type
+   Category: Location / Station
+   Description: Station type
+   Current derive path: state.StationType
+   Derive valid: True - Valid
+
+22. signals.station_government
+   Category: Location / Station
+   Description: Station government
+   Current derive path: state.StationGovernment
+   Derive valid: True - Valid
+
+23. signals.station_allegiance
+   Category: Location / Station
+   Description: Station allegiance
+   Current derive path: state.StationAllegiance
+   Derive valid: True - Valid
+
+24. signals.station_economy
+   Category: Location / Station
+   Description: Station economy
+   Current derive path: state.StationEconomy
+   Derive valid: True - Valid
+
+25. signals.system_government
+   Category: Location / System
+   Description: System government
+   Current derive path: state.SystemGovernment
+   Derive valid: True - Valid
+
+26. signals.system_allegiance
+   Category: Location / System
+   Description: System allegiance
+   Current derive path: state.SystemAllegiance
+   Derive valid: True - Valid
+
+27. signals.system_economy
+   Category: Location / System
+   Description: System economy
+   Current derive path: state.SystemEconomy
+   Derive valid: True - Valid
+
+28. signals.system_security
+   Category: Location / System
+   Description: System security
+   Current derive path: state.SystemSecurity
+   Derive valid: True - Valid
+
+29. signals.has_vip_passengers
+   Category: Passengers / 
+   Description: Has VIP passengers
+   Current derive path: state.Passengers
+   Derive valid: True - Valid
+
+30. signals.has_wanted_passengers
+   Category: Passengers / 
+   Description: Has wanted passengers
+   Current derive path: state.Passengers
+   Derive valid: True - Valid
+
+31. signals.has_route
+   Category: Travel / 
+   Description: Route plotted
+   Current derive path: state.Route
+   Derive valid: True - Valid
+
+32. signals.target_locked
+   Category: Ship / Target
+   Description: Target locked
+   Current derive path: state.Target.Ship
+   Derive valid: True - Valid
+
+33. signals.target_ship_type
+   Category: Ship / Target
+   Description: Target ship type
+   Current derive path: state.Target.Ship
+   Derive valid: True - Valid
+
+34. signals.target_pilot_rank
+   Category: Ship / Target
+   Description: Target pilot rank
+   Current derive path: state.Target.PilotRank
+   Derive valid: True - Valid
+
+35. signals.target_legal_status
+   Category: Ship / Target
+   Description: Target legal status
+   Current derive path: state.Target.LegalStatus
+   Derive valid: True - Valid
+
+36. signals.target_subsystem
+   Category: Ship / Target
+   Description: Targeted subsystem
+   Current derive path: state.Target.SubSystem
+   Derive valid: True - Valid
+
+37. signals.has_npc_crew
+   Category: Ship / Crew
+   Description: Has NPC crew
+   Current derive path: state.NPCCrew
+   Derive valid: True - Valid

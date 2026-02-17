@@ -83,9 +83,13 @@ class TestEDMCIntegration:
         rules_content = {
             "rules": [{
                 "id": "test_docking",
-                "description": "Test docking detection",
-                "condition": {"signal": "docking_state", "equals": "just_docked"},
-                "actions": [{"vkb_set_shift": ["Shift1"]}]
+                "title": "Test docking detection",
+                "when": {
+                    "all": [
+                        {"signal": "docking_state", "op": "eq", "value": "just_docked"}
+                    ]
+                },
+                "then": [{"vkb_set_shift": ["Shift1"]}]
             }]
         }
         
@@ -95,7 +99,14 @@ class TestEDMCIntegration:
             json.dump(rules_content, f)
         
         try:
-            handler.config.set("rules_path", str(rules_path))
+            original_get = handler.config.get
+
+            def get_with_rules_path(key, default=None):
+                if key == "rules_path":
+                    return str(rules_path)
+                return original_get(key, default)
+
+            handler.config.get = get_with_rules_path
             handler._load_rules()
             
             # Reset VKB mock
@@ -661,6 +672,18 @@ class TestSignalResolutionWithRealData:
     
     def test_event_signals_are_generated(self, handler):
         """Test that event-type signals are properly generated."""
+        # Ensure rules load for the rule engine
+        rules_path = Path(__file__).parent.parent / "rules.json.example"
+        original_get = handler.config.get
+
+        def get_with_rules_path(key, default=None):
+            if key == "rules_path":
+                return str(rules_path)
+            return original_get(key, default)
+
+        handler.config.get = get_with_rules_path
+        handler._load_rules()
+
         # Send an event that has an event-type signal
         handler.handle_event(
             "Docked",

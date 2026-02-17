@@ -62,6 +62,16 @@
             ],
             "problemMatcher": [],
             "detail": "Launch the rule editor UI for manual testing"
+        },
+        {
+            "label": "EDMC: Signal Catalog Editor",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/signal_catalog_editor.py"
+            ],
+            "problemMatcher": [],
+            "detail": "Launch the signal catalog editor UI"
         }
     ]
 }

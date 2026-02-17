@@ -51,19 +51,19 @@
     "when": {
       "any": [
         {
-          "signal": "in_danger",
+          "signal": "flag_in_danger",
           "op": "eq",
-          "value": true
+          "value": "danger"
         },
         {
-          "signal": "low_health",
+          "signal": "flag_low_health",
           "op": "eq",
-          "value": true
+          "value": "low"
         },
         {
-          "signal": "overheating",
+          "signal": "flag_overheating",
           "op": "eq",
-          "value": true
+          "value": "overheating"
         }
       ]
     },
@@ -89,9 +89,9 @@
           "value": "combat"
         },
         {
-          "signal": "shields_up",
+          "signal": "flag_shields_up",
           "op": "eq",
-          "value": true
+          "value": "up"
         }
       ]
     },
@@ -138,7 +138,7 @@
     "when": {
       "all": [
         {
-          "signal": "vehicle",
+          "signal": "transport",
           "op": "eq",
           "value": "srv"
         }
@@ -161,9 +161,9 @@
     "when": {
       "all": [
         {
-          "signal": "in_ship",
+          "signal": "transport",
           "op": "eq",
-          "value": true
+          "value": "ship"
         }
       ],
       "any": [
@@ -175,7 +175,7 @@
         {
           "signal": "fsd_state",
           "op": "eq",
-          "value": "jumping"
+          "value": "jump_active"
         }
       ]
     },

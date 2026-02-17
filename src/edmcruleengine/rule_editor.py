@@ -651,10 +651,17 @@ class RuleEditor:
         """Build lookup tables from catalog for efficient access."""
         # Get all signals organized by category
         self.signals_by_category: Dict[str, List[Tuple[str, Dict]]] = {}
+        # Hierarchical structure: category -> items (groups or signals)
+        # Each item is either a signal (leaf) or a group (branch with children)
+        self.hierarchy_by_category: Dict[str, Dict[str, Any]] = {}
+        
         self.all_signals: Dict[str, Dict] = {}
         self.signal_display_to_id: Dict[str, str] = {}
         self.signal_id_to_display: Dict[str, str] = {}
         self.signal_id_to_simple_display: Dict[str, str] = {}  # Without category prefix
+        
+        # First pass: collect all signals and organize by category and subcategory
+        signals_by_category_and_subcategory: Dict[str, Dict[str, List[tuple]]] = {}
         
         for signal_id, signal_def in self.catalog.signals.items():
             # Skip comment entries (start with underscore and are strings)
@@ -663,10 +670,54 @@ class RuleEditor:
             
             self.all_signals[signal_id] = signal_def
             category = signal_def.get("ui", {}).get("category", "Other")
+            subcategory = signal_def.get("ui", {}).get("subcategory", "")  # Empty string if no subcategory
+            
+            # Add to flat category list
             if category not in self.signals_by_category:
                 self.signals_by_category[category] = []
             self.signals_by_category[category].append((signal_id, signal_def))
-
+            
+            # Organize by category and subcategory for hierarchy building
+            if category not in signals_by_category_and_subcategory:
+                signals_by_category_and_subcategory[category] = {}
+            if subcategory not in signals_by_category_and_subcategory[category]:
+                signals_by_category_and_subcategory[category][subcategory] = []
+            signals_by_category_and_subcategory[category][subcategory].append((signal_id, signal_def))
+        
+        # Second pass: build hierarchy from subcategory organization
+        for category, subcategory_dict in signals_by_category_and_subcategory.items():
+            if category not in self.hierarchy_by_category:
+                self.hierarchy_by_category[category] = {}
+            
+            for subcategory, signals_list in subcategory_dict.items():
+                if subcategory:
+                    # This is a group (has subcategory) - create a group item
+                    group_key = f"_group_{subcategory.replace(' ', '_').lower()}"
+                    if group_key not in self.hierarchy_by_category[category]:
+                        self.hierarchy_by_category[category][group_key] = {
+                            "is_group": True,
+                            "group_id": group_key,
+                            "group_label": subcategory,
+                            "children": {}
+                        }
+                    
+                    # Add signals to this group
+                    for signal_id, signal_def in signals_list:
+                        child_key = signal_id.split(".")[-1]  # Use last part of signal_id as key
+                        self.hierarchy_by_category[category][group_key]["children"][child_key] = {
+                            "signal_id": signal_id,
+                            "signal_def": signal_def
+                        }
+                else:
+                    # No subcategory - add as direct signal items
+                    for signal_id, signal_def in signals_list:
+                        item_key = signal_id.split(".")[-1]  # Use last part of signal_id as key
+                        self.hierarchy_by_category[category][item_key] = {
+                            "is_signal": True,
+                            "signal_id": signal_id,
+                            "signal_def": signal_def
+                        }
+        
         self._build_signal_display_maps()
         
         # Get operators
@@ -867,13 +918,18 @@ class RuleEditor:
         
         # Category dropdown (first step)
         category_var = tk.StringVar(value="")
-        category_combo = ttk.Combobox(row_frame, textvariable=category_var, state="readonly", width=12)
+        category_combo = ttk.Combobox(row_frame, textvariable=category_var, state="readonly", width=15)
         category_combo.pack(side=tk.LEFT, padx=1)
         
-        # Signal dropdown (second step, populated based on category)
-        signal_var = tk.StringVar(value=condition.get("signal", "") if condition else "")
-        signal_combo = ttk.Combobox(row_frame, textvariable=signal_var, state="readonly", width=18)
-        signal_combo.pack(side=tk.LEFT, padx=1)
+        # Item dropdown (second step - shows groups and signals)
+        item_var = tk.StringVar(value="")
+        item_combo = ttk.Combobox(row_frame, textvariable=item_var, state="readonly", width=22)
+        item_combo.pack(side=tk.LEFT, padx=1)
+        
+        # Child dropdown (optional third step - only shown if item is a group)
+        child_var = tk.StringVar(value="")
+        child_combo = ttk.Combobox(row_frame, textvariable=child_var, state="readonly", width=18)
+        # Don't pack initially - will be inserted dynamically after item when needed
         
         # Operator dropdown
         op_var = tk.StringVar(value=condition.get("op", "") if condition else "")
@@ -917,8 +973,10 @@ class RuleEditor:
             "group": group,
             "category_var": category_var,
             "category_combo": category_combo,
-            "signal_var": signal_var,
-            "signal_combo": signal_combo,
+            "item_var": item_var,
+            "item_combo": item_combo,
+            "child_var": child_var,
+            "child_combo": child_combo,
             "op_var": op_var,
             "op_combo": op_combo,
             "value_var": value_var,
@@ -928,6 +986,8 @@ class RuleEditor:
             "value_kind": None,
             "value_selected_label": None,
             "signal_id": None,
+            "selected_item_key": None,  # Track which item (group/signal) is selected
+            "is_group": False,  # Track if selected item is a group
             "unknown_signal": False,
             "unknown_operator": False,
             "unknown_value": False,
@@ -946,21 +1006,39 @@ class RuleEditor:
         # Setup category change handler
         def on_category_change(event=None):
             selected_category = category_var.get()
-            self._populate_signal_dropdown_for_category(signal_combo, selected_category)
-            signal_var.set("")
+            child_var.set("")
             cond_data["signal_id"] = None
+            cond_data["selected_item_key"] = None
+            cond_data["is_group"] = False
+            
+            # Populate items (groups and signals) for this category
+            self._populate_items_for_category(item_combo, selected_category, cond_data)
+            item_var.set("")
             self._update_condition_value_widget(cond_data, None, None)
             self._mark_changed()
         
         category_combo.bind("<<ComboboxSelected>>", on_category_change)
         
-        # Setup signal change handler
-        def on_signal_change(event=None):
-            self._on_signal_changed_in_category_dropdown(cond_data)
+        # Setup item change handler
+        def on_item_change(event=None):
+            selected_category = category_var.get()
+            selected_item = item_var.get()
+            
+            # Check if selected item is a group or signal
+            self._handle_item_selection(cond_data, selected_category, selected_item)
             self._mark_changed()
-            self._set_condition_error(cond_data, "")
         
-        signal_combo.bind("<<ComboboxSelected>>", on_signal_change)
+        item_combo.bind("<<ComboboxSelected>>", on_item_change)
+        
+        # Setup child change handler (for groups)
+        def on_child_change(event=None):
+            selected_child = child_var.get()
+            
+            # Identify the signal from the group + child selection
+            self._handle_child_selection(cond_data, selected_child)
+            self._mark_changed()
+        
+        child_combo.bind("<<ComboboxSelected>>", on_child_change)
 
         # Setup operator change handler
         def on_operator_change(event=None):
@@ -995,8 +1073,8 @@ class RuleEditor:
         combo["values"] = sorted(categories, key=str.casefold)
         
         # Pre-select category if loading existing condition
-        if cond_data["signal_var"].get() and cond_data["signal_var"].get() in self.signal_display_to_id:
-            signal_id = self.signal_display_to_id[cond_data["signal_var"].get()]
+        if cond_data.get("signal_id"):
+            signal_id = cond_data["signal_id"]
             signal_def = self.all_signals.get(signal_id)
             if signal_def:
                 category = signal_def.get("ui", {}).get("category", "Other")
@@ -1032,15 +1110,134 @@ class RuleEditor:
 
         combo["values"] = sorted(signals, key=str.casefold)
     
+    def _populate_items_for_category(self, combo: ttk.Combobox, category: str, cond_data: Dict):
+        """Populate item dropdown with groups and signals for a category."""
+        items = []
+        show_detail = self.show_detail_tier.get()
+        
+        if category not in self.hierarchy_by_category:
+            combo["values"] = []
+            return
+        
+        # Get all items (groups and signals) for this category
+        for item_key, item_data in self.hierarchy_by_category[category].items():
+            if item_data.get("is_group"):
+                # This is a group - show the group label
+                group_label = item_data.get("group_label", item_key.replace("_", " ").title())
+                items.append((item_key, group_label, True))  # (key, display, is_group)
+            elif item_data.get("is_signal"):
+                # This is a direct signal - check tier visibility
+                signal_def = item_data.get("signal_def", {})
+                tier = signal_def.get("ui", {}).get("tier", "core")
+                if tier == "core" or show_detail:
+                    signal_id = item_data.get("signal_id")
+                    simple_display = self.signal_id_to_simple_display.get(signal_id, item_key)
+                    items.append((item_key, simple_display, False))  # (key, display, is_group)
+        
+        # Sort by display name and populate combo
+        items.sort(key=lambda x: x[1].casefold())
+        combo["values"] = [display for key, display, is_group in items]
+        
+        # Store mapping for lookups
+        cond_data["item_key_to_display"] = {key: display for key, display, is_group in items}
+        cond_data["item_display_to_key"] = {display: key for key, display, is_group in items}
+        cond_data["item_is_group"] = {key: is_group for key, display, is_group in items}
+    
+    def _handle_item_selection(self, cond_data: Dict, category: str, item_display: str):
+        """Handle item selection - show child dropdown if group, or finalize signal if leaf."""
+        if not item_display or category not in self.hierarchy_by_category:
+            cond_data["child_combo"].pack_forget()
+            cond_data["child_var"].set("")
+            cond_data["signal_id"] = None
+            cond_data["is_group"] = False
+            cond_data["selected_item_key"] = None
+            self._update_condition_value_widget(cond_data, None, None)
+            return
+        
+        # Map display back to key
+        item_key = cond_data.get("item_display_to_key", {}).get(item_display)
+        if not item_key:
+            return
+        
+        cond_data["selected_item_key"] = item_key
+        item_data = self.hierarchy_by_category[category].get(item_key, {})
+        
+        if item_data.get("is_group"):
+            # This is a group - show child dropdown
+            cond_data["is_group"] = True
+            cond_data["signal_id"] = None
+            self._populate_children_for_group(cond_data, category, item_key)
+            self._update_condition_value_widget(cond_data, None, None)
+        else:
+            # This is a direct signal - hide child dropdown and proceed
+            cond_data["is_group"] = False
+            cond_data["child_combo"].pack_forget()
+            cond_data["child_var"].set("")
+            signal_id = item_data.get("signal_id")
+            cond_data["signal_id"] = signal_id
+            self._on_condition_signal_changed(cond_data)
+    
+    def _populate_children_for_group(self, cond_data: Dict, category: str, item_key: str):
+        """Populate child dropdown with children of the selected group."""
+        child_combo = cond_data["child_combo"]
+        item_combo = cond_data["item_combo"]
+        op_combo = cond_data["op_combo"]
+        show_detail = self.show_detail_tier.get()
+        
+        children = []
+        
+        item_data = self.hierarchy_by_category[category].get(item_key, {})
+        if not item_data.get("is_group"):
+            child_combo.pack_forget()
+            return
+        
+        # Get children of this group
+        children_dict = item_data.get("children", {})
+        for child_key, child_data in children_dict.items():
+            signal_def = child_data.get("signal_def", {})
+            tier = signal_def.get("ui", {}).get("tier", "core")
+            if tier == "core" or show_detail:
+                signal_id = child_data.get("signal_id")
+                simple_display = self.signal_id_to_simple_display.get(signal_id, child_key)
+                children.append((child_key, simple_display, signal_id))
+        
+        if children:
+            # Sort and populate
+            children.sort(key=lambda x: x[1].casefold())
+            child_combo["values"] = [display for child_key, display, signal_id in children]
+            # Store mapping
+            cond_data["child_display_to_signal_id"] = {display: signal_id for child_key, display, signal_id in children}
+            # Show child dropdown between item and operator
+            child_combo.pack(side=tk.LEFT, padx=1, before=op_combo)
+        else:
+            child_combo.pack_forget()
+    
+    def _handle_child_selection(self, cond_data: Dict, child_display: str):
+        """Handle child selection - identify the final signal."""
+        if not child_display:
+            cond_data["signal_id"] = None
+            self._update_condition_value_widget(cond_data, None, None)
+            return
+        
+        # Map child display to signal_id
+        signal_id = cond_data.get("child_display_to_signal_id", {}).get(child_display)
+        if signal_id:
+            cond_data["signal_id"] = signal_id
+            self._on_condition_signal_changed(cond_data)
+    
     def _on_tier_changed(self):
         """Handle tier filter toggle."""
-        # Repopulate all category and signal dropdowns
+        # Repopulate all category and item dropdowns
         for cond_data in self.all_conditions + self.any_conditions:
             self._populate_category_dropdown(cond_data["category_combo"], cond_data)
             category = cond_data["category_var"].get()
             if category:
-                self._populate_signal_dropdown_for_category(cond_data["signal_combo"], category)
-            self._ensure_combo_value(cond_data["signal_combo"], cond_data["signal_var"].get())
+                self._populate_items_for_category(cond_data["item_combo"], category, cond_data)
+                # Re-handle item selection if one was selected
+                item_display = cond_data["item_var"].get()
+                if item_display:
+                    self._handle_item_selection(cond_data, category, item_display)
+            self._ensure_combo_value(cond_data["item_combo"], cond_data["item_var"].get())
 
     def _ensure_combo_value(self, combo: ttk.Combobox, value: str):
         """Ensure the combobox list includes the provided value."""
@@ -1051,26 +1248,8 @@ class RuleEditor:
             values.insert(0, value)
             combo["values"] = values
     
-    def _on_signal_changed_in_category_dropdown(self, cond_data: Dict):
-        """Handle signal selection - need to map simple display to signal_id."""
-        simple_display = cond_data["signal_var"].get()
-        if not simple_display:
-            cond_data["signal_id"] = None
-            return
-        
-        # Find the signal_id by looking up which signal has this simple display
-        category = cond_data["category_var"].get()
-        if category in self.signals_by_category:
-            for signal_id, signal_def in self.signals_by_category[category]:
-                simple = self.signal_id_to_simple_display.get(signal_id, signal_id)
-                if simple == simple_display:
-                    cond_data["signal_id"] = signal_id
-                    self._on_condition_signal_changed(cond_data)
-                    return
-    
     def _on_condition_signal_changed(self, cond_data: Dict, initial_condition: Optional[Dict] = None):
         """Handle signal selection change in a condition."""
-        signal_text = cond_data["signal_var"].get()
         cond_data["unknown_signal"] = False
         cond_data["unknown_operator"] = False
         cond_data["unknown_value"] = False
@@ -1078,28 +1257,13 @@ class RuleEditor:
         # Preserve signal_id if already set (e.g., when loading from rule)
         signal_id = cond_data.get("signal_id")
 
-        if not signal_text:
+        if not signal_id:
             cond_data["signal_id"] = None
             self._update_condition_value_widget(cond_data, None, None)
             return
-
-        # Try to find signal_id from the signal text
-        if not signal_id:
-            if signal_text in self.signal_display_to_id:
-                signal_id = self.signal_display_to_id[signal_text]
-                cond_data["signal_id"] = signal_id
-                signal_def = self.all_signals.get(signal_id)
-            elif signal_text.startswith("Unknown signal:"):
-                signal_id = signal_text.split("Unknown signal:", 1)[1].strip()
-                cond_data["signal_id"] = signal_id
-                cond_data["unknown_signal"] = True
-                signal_def = None
-            else:
-                self._update_condition_value_widget(cond_data, None, None)
-                return
-        else:
-            # signal_id is already known, get its definition
-            signal_def = self.all_signals.get(signal_id)
+        
+        # signal_id is already known (set by item/child selection), get its definition
+        signal_def = self.all_signals.get(signal_id)
 
         if signal_def:
             signal_type = signal_def.get("type", "bool")
@@ -1167,7 +1331,7 @@ class RuleEditor:
         cond_data["value_kind"] = None
         
         if not signal_def or cond_data.get("unknown_signal") or cond_data.get("unknown_operator"):
-            entry = ttk.Entry(cond_data["value_widget_frame"], textvariable=cond_data["value_var"], width=20)
+            entry = ttk.Entry(cond_data["value_widget_frame"], textvariable=cond_data["value_var"], width=15)
             entry.pack(fill=tk.X, expand=True)
             cond_data["value_widget"] = entry
             cond_data["value_kind"] = "text"
@@ -1183,7 +1347,7 @@ class RuleEditor:
                 textvariable=cond_data["value_var"],
                 values=["true", "false"],
                 state="readonly",
-                width=10
+                width=8
             )
             value_combo.pack(fill=tk.X, expand=True)
             cond_data["value_widget"] = value_combo
@@ -1216,7 +1380,7 @@ class RuleEditor:
                     textvariable=section_var,
                     values=section_names,
                     state="readonly",
-                    width=28
+                    width=20
                 )
                 section_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
                 cond_data["enum_section_var"] = section_var
@@ -1300,7 +1464,7 @@ class RuleEditor:
                     textvariable=section_var,
                     values=section_names,
                     state="readonly",
-                    width=28
+                    width=20
                 )
                 section_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
                 cond_data["enum_section_var"] = section_var
@@ -1310,7 +1474,7 @@ class RuleEditor:
                     textvariable=cond_data["value_var"],
                     values=[],
                     state="readonly",
-                    width=30
+                    width=22
                 )
                 value_combo.pack(fill=tk.X, expand=True, pady=(2, 0))
                 cond_data["value_widget"] = value_combo
@@ -1332,7 +1496,7 @@ class RuleEditor:
                     textvariable=cond_data["value_var"],
                     values=sorted(value_labels, key=str.casefold),
                     state="readonly",
-                    width=20
+                    width=15
                 )
                 value_combo.pack(fill=tk.X, expand=True)
                 cond_data["value_widget"] = value_combo
@@ -1344,7 +1508,7 @@ class RuleEditor:
 
         else:
             # Handle numeric, string, and other types with a text entry
-            entry = ttk.Entry(cond_data["value_widget_frame"], textvariable=cond_data["value_var"], width=20)
+            entry = ttk.Entry(cond_data["value_widget_frame"], textvariable=cond_data["value_var"], width=15)
             entry.pack(fill=tk.X, expand=True)
             cond_data["value_widget"] = entry
             cond_data["value_kind"] = "text"
@@ -1502,21 +1666,46 @@ class RuleEditor:
         if signal_id:
             signal_def = self.all_signals.get(signal_id)
             if signal_def:
-                # Set category first, then populate signals for that category
+                # Set category first
                 category = signal_def.get("ui", {}).get("category", "Other")
                 cond_data["category_var"].set(category)
-                self._populate_signal_dropdown_for_category(cond_data["signal_combo"], category)
                 
-                # Use simple_display (without category prefix) for the signal dropdown
-                simple_display = self.signal_id_to_simple_display.get(signal_id, signal_id)
-                cond_data["signal_var"].set(simple_display)
-                cond_data["signal_id"] = signal_id
+                # Populate items for this category
+                self._populate_items_for_category(cond_data["item_combo"], category, cond_data)
+                
+                # Find which item (group or signal) contains this signal_id
+                item_key, child_key = self._find_item_for_signal(category, signal_id)
+                
+                if item_key:
+                    # Get the display name for this item
+                    item_display = cond_data.get("item_key_to_display", {}).get(item_key, item_key)
+                    cond_data["item_var"].set(item_display)
+                    cond_data["selected_item_key"] = item_key
+                    
+                    if child_key:
+                        # This signal is in a group - set up the child dropdown
+                        cond_data["is_group"] = True
+                        self._populate_children_for_group(cond_data, category, item_key)
+                        # Set the child
+                        child_display = self.signal_id_to_simple_display.get(signal_id, child_key)
+                        cond_data["child_var"].set(child_display)
+                    else:
+                        # This is a direct signal
+                        cond_data["is_group"] = False
+                        cond_data["child_combo"].pack_forget()
+                    
+                    cond_data["signal_id"] = signal_id
+                else:
+                    # Couldn't find in hierarchy - show as unknown
+                    simple_display = self.signal_id_to_simple_display.get(signal_id, signal_id)
+                    cond_data["item_var"].set(simple_display)
+                    cond_data["signal_id"] = signal_id
             else:
                 unknown_display = f"Unknown signal: {signal_id}"
                 cond_data["unknown_signal"] = True
                 cond_data["signal_id"] = signal_id
-                self._ensure_combo_value(cond_data["signal_combo"], unknown_display)
-                cond_data["signal_var"].set(unknown_display)
+                self._ensure_combo_value(cond_data["item_combo"], unknown_display)
+                cond_data["item_var"].set(unknown_display)
 
         self._on_condition_signal_changed(cond_data, initial_condition=condition)
 
@@ -1534,6 +1723,29 @@ class RuleEditor:
         self._on_condition_operator_changed(cond_data, initial_condition=condition)
         self._set_condition_value(cond_data, condition.get("value"))
         self._update_when_hint()
+    
+    def _find_item_for_signal(self, category: str, signal_id: str) -> tuple:
+        """Find which item (and optionally child) contains the given signal_id.
+        
+        Returns:
+            (item_key, child_key) where child_key is None if it's a direct signal
+        """
+        if category not in self.hierarchy_by_category:
+            return (None, None)
+        
+        for item_key, item_data in self.hierarchy_by_category[category].items():
+            if item_data.get("is_signal"):
+                # Check if this direct signal matches
+                if item_data.get("signal_id") == signal_id:
+                    return (item_key, None)
+            elif item_data.get("is_group"):
+                # Check children of this group
+                children = item_data.get("children", {})
+                for child_key, child_data in children.items():
+                    if child_data.get("signal_id") == signal_id:
+                        return (item_key, child_key)
+        
+        return (None, None)
 
     def _set_condition_error(self, cond_data: Dict, message: str):
         """Set inline error message for a condition row."""
@@ -1771,10 +1983,10 @@ class RuleEditor:
         # Validate conditions
         for cond_data in self.all_conditions + self.any_conditions:
             row_errors = []
-            signal = cond_data["signal_var"].get()
+            signal_id = cond_data.get("signal_id")
             op = cond_data["op_var"].get()
 
-            if not signal:
+            if not signal_id:
                 row_errors.append("Select a signal")
             elif cond_data.get("unknown_signal"):
                 row_errors.append("Unknown signal")

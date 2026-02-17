@@ -1,0 +1,826 @@
+{
+  "high_confidence_fixes": [],
+  "medium_confidence_fixes": [
+    {
+      "signal_path": "signals.hud_mode",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.hud_mode",
+      "confidence": 0.7,
+      "category": "HUD",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.night_vision",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.night_vision",
+      "confidence": 0.7,
+      "category": "HUD",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.transport",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.transport",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.commander_ranks.empire",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.commander_ranks.empire",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Rank"
+    },
+    {
+      "signal_path": "signals.commander_ranks.federation",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.commander_ranks.federation",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Rank"
+    },
+    {
+      "signal_path": "signals.commander_promotion.combat",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.Combat",
+      "reasoning": "Found similar signal: signals.commander_ranks.combat",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.trade",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.Trade",
+      "reasoning": "Found similar signal: signals.commander_ranks.trade",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.explore",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.Explore",
+      "reasoning": "Found similar signal: signals.commander_ranks.explore",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.empire",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.commander_ranks.empire",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.federation",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.commander_ranks.federation",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.cqc",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.CQC",
+      "reasoning": "Found similar signal: signals.commander_ranks.cqc",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.soldier",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.Soldier",
+      "reasoning": "Found similar signal: signals.commander_ranks.soldier",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.exobiologist",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.Exobiologist",
+      "reasoning": "Found similar signal: signals.commander_ranks.exobiologist",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.commander_promotion.mercenary",
+      "current_derive_path": null,
+      "suggested_derive_path": "state.Rank.Mercenary",
+      "reasoning": "Found similar signal: signals.commander_ranks.mercenary",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": "Promotion"
+    },
+    {
+      "signal_path": "signals.docking_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.docking_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Docking"
+    },
+    {
+      "signal_path": "signals.has_lat_long",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.has_lat_long",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "Body"
+    },
+    {
+      "signal_path": "signals.docking_request_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.docking_request_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Docking"
+    },
+    {
+      "signal_path": "signals.body_proximity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.body_proximity",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "Body"
+    },
+    {
+      "signal_path": "signals.supercruise_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.supercruise_state",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.fsd_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.fsd_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.jump_type",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.jump_type",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.mass_locked",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.mass_locked",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_in_danger",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_in_danger",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_hud_analysis_mode",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_hud_analysis_mode",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_altitude_from_avg_radius",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_altitude_from_avg_radius",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.jet_cone_boost_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.jet_cone_boost_state",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.landing_gear",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.landing_gear",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_shields_up",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_shields_up",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_flight_assist_off",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_flight_assist_off",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_hardpoints_deployed",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_hardpoints_deployed",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_in_wing",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_in_wing",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.cargo_hatch",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.cargo_hatch",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Cargo"
+    },
+    {
+      "signal_path": "signals.lights",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.lights",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.silent_running",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.silent_running",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flight_assist",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flight_assist",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.heat_status",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.heat_status",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.refuel_status",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.refuel_status",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Fuel"
+    },
+    {
+      "signal_path": "signals.repair_status",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.repair_status",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Ship Health"
+    },
+    {
+      "signal_path": "signals.cockpit_status",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.cockpit_status",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Ship Health"
+    },
+    {
+      "signal_path": "signals.cargo_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.cargo_activity",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Cargo"
+    },
+    {
+      "signal_path": "signals.hardpoints",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.hardpoints",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.shield_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.shield_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.hull_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.hull_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Ship Health"
+    },
+    {
+      "signal_path": "signals.combat_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.combat_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.target_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.target_state",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Target"
+    },
+    {
+      "signal_path": "signals.power_distribution",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.power_distribution",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "PIPS"
+    },
+    {
+      "signal_path": "signals.srv_deployed_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.srv_deployed_state",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.srv_handbrake",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.srv_handbrake",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_srv_turret",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_srv_turret",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.srv_under_ship",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.srv_under_ship",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.srv_drive_assist",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.srv_drive_assist",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.srv_high_beam",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.srv_high_beam",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_on_foot",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_on_foot",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_aim_down_sight",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_aim_down_sight",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_low_oxygen",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_low_oxygen",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.flag_low_health",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.flag_low_health",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.temperature",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.temperature",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.on_foot_location",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.on_foot_location",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.aim",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.aim",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.oxygen",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.oxygen",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "Body"
+    },
+    {
+      "signal_path": "signals.health",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.health",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.temperature_state",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.temperature_state",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "Body"
+    },
+    {
+      "signal_path": "signals.breathable_atmosphere",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.breathable_atmosphere",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "Body"
+    },
+    {
+      "signal_path": "signals.game_version",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.game_version",
+      "confidence": 0.7,
+      "category": "Session",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.system_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.system_event",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "System"
+    },
+    {
+      "signal_path": "signals.travel_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.travel_event",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.combat_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.combat_event",
+      "confidence": 0.7,
+      "category": "Combat",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.exploration_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.exploration_event",
+      "confidence": 0.7,
+      "category": "Travel",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.trading_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.trading_event",
+      "confidence": 0.7,
+      "category": "Trading",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.mission_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.mission_event",
+      "confidence": 0.7,
+      "category": "Missions",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.ship_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.ship_event",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.engineering_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.engineering_event",
+      "confidence": 0.7,
+      "category": "Engineering",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.carrier_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.carrier_event",
+      "confidence": 0.7,
+      "category": "Fleet Carrier",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.onfoot_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.onfoot_event",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.colonisation_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.colonisation_event",
+      "confidence": 0.7,
+      "category": "Location",
+      "subcategory": "System"
+    },
+    {
+      "signal_path": "signals.comms_event",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.comms_event",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.ship_purchase_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.ship_purchase_activity",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.module_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.module_activity",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.srv",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.srv",
+      "confidence": 0.7,
+      "category": "SRV",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.engineering_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.engineering_activity",
+      "confidence": 0.7,
+      "category": "Engineering",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.crew_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.crew_activity",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Crew"
+    },
+    {
+      "signal_path": "signals.suit",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.suit",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.weapon",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.weapon",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.financial_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.financial_activity",
+      "confidence": 0.7,
+      "category": "Commander",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.powerplay_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.powerplay_activity",
+      "confidence": 0.7,
+      "category": "Powerplay",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.squadron_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.squadron_activity",
+      "confidence": 0.7,
+      "category": "Squadron",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.limpets",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.limpets",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.fuel",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.fuel",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": "Fuel"
+    },
+    {
+      "signal_path": "signals.fighter",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.fighter",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.transport_activity",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.transport_activity",
+      "confidence": 0.7,
+      "category": "On-Foot",
+      "subcategory": ""
+    },
+    {
+      "signal_path": "signals.status",
+      "current_derive_path": null,
+      "suggested_derive_path": "",
+      "reasoning": "Found similar signal: signals.status",
+      "confidence": 0.7,
+      "category": "Ship",
+      "subcategory": ""
+    }
+  ],
+  "needs_manual_review": [],
+  "merge_metadata_signals": []
+}

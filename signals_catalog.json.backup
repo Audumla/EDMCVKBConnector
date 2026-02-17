@@ -399,16 +399,12 @@
           "label": "On foot"
         },
         {
-          "value": "in_taxi",
-          "label": "In Taxi"
+          "value": "taxi",
+          "label": "Taxi"
         },
         {
           "value": "in_multicrew",
           "label": "In Multicrew"
-        },
-        {
-          "value": "in_wing",
-          "label": "In Wing"
         },
         {
           "value": "unknown",
@@ -2331,189 +2327,43 @@
           ],
           "default": null
         }
-      },
-      "empire": {
-        "type": "enum",
-        "title": "Empire promotion",
-        "ui": {
-          "label": "Empire promotion",
-          "category": "Commander",
-          "subcategory": "Promotion",
-          "tier": "detail"
-        },
-        "values": [
-          {
-            "value": 0,
-            "label": "None"
-          },
-          {
-            "value": 1,
-            "label": "Outsider"
-          },
-          {
-            "value": 2,
-            "label": "Serf"
-          },
-          {
-            "value": 3,
-            "label": "Master"
-          },
-          {
-            "value": 4,
-            "label": "Squire"
-          },
-          {
-            "value": 5,
-            "label": "Knight"
-          },
-          {
-            "value": 6,
-            "label": "Lord"
-          },
-          {
-            "value": 7,
-            "label": "Baron"
-          },
-          {
-            "value": 8,
-            "label": "Viscount"
-          },
-          {
-            "value": 9,
-            "label": "Count"
-          },
-          {
-            "value": 10,
-            "label": "Earl"
-          },
-          {
-            "value": 11,
-            "label": "Marquis"
-          },
-          {
-            "value": 12,
-            "label": "Duke"
-          },
-          {
-            "value": 13,
-            "label": "Prince"
-          },
-          {
-            "value": 14,
-            "label": "King"
-          }
-        ],
-        "derive": {
-          "op": "first_match",
-          "cases": [
-            {
-              "when": {
-                "op": "recent",
-                "event_name": "Promotion",
-                "within_seconds": 5
-              },
-              "value": {
-                "op": "path",
-                "path": "Empire",
-                "default": null
-              }
-            }
-          ],
-          "default": null
-        }
-      },
-      "federation": {
-        "type": "enum",
-        "title": "Federation promotion",
-        "ui": {
-          "label": "Federation promotion",
-          "category": "Commander",
-          "subcategory": "Promotion",
-          "tier": "detail"
-        },
-        "values": [
-          {
-            "value": 0,
-            "label": "None"
-          },
-          {
-            "value": 1,
-            "label": "Recruit"
-          },
-          {
-            "value": 2,
-            "label": "Cadet"
-          },
-          {
-            "value": 3,
-            "label": "Midshipman"
-          },
-          {
-            "value": 4,
-            "label": "Petty Officer"
-          },
-          {
-            "value": 5,
-            "label": "Chief Petty Officer"
-          },
-          {
-            "value": 6,
-            "label": "Warrant Officer"
-          },
-          {
-            "value": 7,
-            "label": "Ensign"
-          },
-          {
-            "value": 8,
-            "label": "Lieutenant"
-          },
-          {
-            "value": 9,
-            "label": "Lieutenant Commander"
-          },
-          {
-            "value": 10,
-            "label": "Post Commander"
-          },
-          {
-            "value": 11,
-            "label": "Post Captain"
-          },
-          {
-            "value": 12,
-            "label": "Rear Admiral"
-          },
-          {
-            "value": 13,
-            "label": "Vice Admiral"
-          },
-          {
-            "value": 14,
-            "label": "Admiral"
-          }
-        ],
-        "derive": {
-          "op": "first_match",
-          "cases": [
-            {
-              "when": {
-                "op": "recent",
-                "event_name": "Promotion",
-                "within_seconds": 5
-              },
-              "value": {
-                "op": "path",
-                "path": "Federation",
-                "default": null
-              }
-            }
-          ],
-          "default": null
-        }
       }
     },
     "_comment_commander_activity": "=== COMMANDER ACTIVITY & EVENTS ===",
+    "commander_activity_social": {
+      "type": "enum",
+      "title": "Social activity",
+      "ui": {
+        "label": "Social activity",
+        "category": "Commander",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "friends",
+          "label": "Friends list",
+          "recent_event": "Friends"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "Friends",
+              "within_seconds": 300
+            },
+            "value": "friends"
+          }
+        ],
+        "default": "none"
+      }
+    },
     "_comment_location": "=== LOCATION & NAVIGATION ===",
     "system_name": {
       "type": "string",
@@ -2979,14 +2829,6 @@
           },
           {
             "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 4
-            },
-            "value": "orbital_cruise"
-          },
-          {
-            "when": {
               "op": "recent",
               "event_name": "LeaveBody",
               "within_seconds": 5
@@ -3116,22 +2958,6 @@
             "when": {
               "op": "flag",
               "field_ref": "ship_flags",
-              "bit": 4
-            },
-            "value": "supercruise"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Glide",
-              "within_seconds": 30
-            },
-            "value": "gliding"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
               "bit": 17
             },
             "value": "charging"
@@ -3179,19 +3005,9 @@
             "when": {
               "op": "recent",
               "event_name": "StartJump",
-              "within_seconds": 10,
-              "field": "JumpType",
-              "value": "Hyperspace"
+              "within_seconds": 10
             },
             "value": "hyperspace"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SupercruiseEntry",
-              "within_seconds": 5
-            },
-            "value": "supercruise"
           }
         ],
         "default": "none"
@@ -3706,16 +3522,7 @@
         "category": "Ship",
         "tier": "advanced"
       },
-      "values": [
-        {
-          "value": "retracted",
-          "label": "Retracted"
-        },
-        {
-          "value": "deployed",
-          "label": "Deployed"
-        }
-      ],
+      "values": [],
       "derive": {
         "op": "map",
         "from": {
@@ -3991,8 +3798,7 @@
       "ui": {
         "label": "Repair status",
         "category": "Ship",
-        "tier": "detail",
-        "subcategory": "Ship Health"
+        "tier": "detail"
       },
       "values": [
         {
@@ -4052,8 +3858,7 @@
       "ui": {
         "label": "Cockpit status",
         "category": "Ship",
-        "tier": "detail",
-        "subcategory": "Ship Health"
+        "tier": "detail"
       },
       "values": [
         {
@@ -4182,7 +3987,7 @@
         "label": "Hull value",
         "category": "Ship",
         "tier": "detail",
-        "subcategory": "Ship Health"
+        "subcategory": "Hull"
       },
       "derive": {
         "op": "path",
@@ -4227,7 +4032,7 @@
         "label": "Hull health %",
         "category": "Ship",
         "tier": "core",
-        "subcategory": "Ship Health"
+        "subcategory": "Hull"
       },
       "derive": {
         "op": "path",
@@ -4464,7 +4269,7 @@
         "label": "Hull state",
         "category": "Ship",
         "tier": "core",
-        "subcategory": "Ship Health"
+        "subcategory": "Hull"
       },
       "values": [
         {
@@ -4527,7 +4332,7 @@
       "title": "Combat",
       "ui": {
         "label": "Combat state",
-        "category": "Ship",
+        "category": "Combat",
         "tier": "core"
       },
       "values": [
@@ -4549,11 +4354,6 @@
           "value": "destroyed",
           "label": "Destroyed",
           "recent_event": "Died"
-        },
-        {
-          "value": "got_bounty",
-          "label": "Bounty awarded",
-          "recent_event": "Bounty"
         }
       ],
       "derive": {
@@ -4627,21 +4427,9 @@
             "when": {
               "op": "recent",
               "event_name": "ShipTargetted",
-              "within_seconds": 2,
-              "field": "TargetLocked",
-              "value": true
+              "within_seconds": 2
             },
             "value": "locked"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipTargetted",
-              "within_seconds": 2,
-              "field": "TargetLocked",
-              "value": false
-            },
-            "value": "lost"
           }
         ],
         "default": "none"
@@ -4965,6 +4753,38 @@
         "op": "path",
         "path": "dashboard.LegalState",
         "default": "Clean"
+      }
+    },
+    "bounty_activity": {
+      "type": "enum",
+      "title": "Bounty activity",
+      "ui": {
+        "label": "Bounty activity",
+        "category": "Commander",
+        "tier": "detail"
+      },
+      "values": [],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "PayBounties",
+              "within_seconds": 5
+            },
+            "value": "paid_bounties"
+          },
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "PayFines",
+              "within_seconds": 5
+            },
+            "value": "paid_fines"
+          }
+        ],
+        "default": "none"
       }
     },
     "_comment_srv": "=== SRV ===",
@@ -8417,26 +8237,6 @@
           "value": "commit_crime",
           "label": "Crime committed",
           "recent_event": "CommitCrime"
-        },
-        {
-          "value": "bounty",
-          "label": "Bounty awarded",
-          "recent_event": "Bounty"
-        },
-        {
-          "value": "cap_ship_bond",
-          "label": "Capital ship bond",
-          "recent_event": "CapShipBond"
-        },
-        {
-          "value": "cockpit_breached",
-          "label": "Cockpit breached",
-          "recent_event": "CockpitBreached"
-        },
-        {
-          "value": "faction_kill_bond",
-          "label": "Combat zone bond",
-          "recent_event": "FactionKillBond"
         }
       ],
       "derive": {
@@ -8645,23 +8445,38 @@
           "label": "None"
         },
         {
-          "value": "buy_exploration_data",
-          "label": "Bought system data",
-          "recent_event": "BuyExplorationData"
+          "value": "body_scanned",
+          "label": "Body scanned",
+          "recent_event": "Scan"
         },
         {
-          "value": "multi_sell_exploration_data",
-          "label": "Sold multiple systems",
-          "recent_event": "MultiSellExplorationData"
+          "value": "fss_scan",
+          "label": "FSS scan",
+          "recent_event": "FSSDiscoveryScan"
         },
         {
-          "value": "sell_organic_data",
-          "label": "Sold organic data",
-          "recent_event": "SellOrganicData"
+          "value": "signal_found",
+          "label": "Signal found",
+          "recent_event": "FSSSignalDiscovered"
         },
         {
-          "value": "sell_exploration_data",
-          "label": "Sold exploration data",
+          "value": "all_bodies_found",
+          "label": "All bodies found",
+          "recent_event": "FSSAllBodiesFound"
+        },
+        {
+          "value": "saa_complete",
+          "label": "SAA complete",
+          "recent_event": "SAAScanComplete"
+        },
+        {
+          "value": "organic_scanned",
+          "label": "Organic scanned",
+          "recent_event": "ScanOrganic"
+        },
+        {
+          "value": "sold_data",
+          "label": "Sold data",
           "recent_event": "SellExplorationData"
         }
       ],
@@ -8855,21 +8670,6 @@
           "value": "market",
           "label": "Market accessed",
           "recent_event": "Market"
-        },
-        {
-          "value": "buy_trade_data",
-          "label": "Trade data purchased",
-          "recent_event": "BuyTradeData"
-        },
-        {
-          "value": "market_buy",
-          "label": "Commodity purchased",
-          "recent_event": "MarketBuy"
-        },
-        {
-          "value": "market_sell",
-          "label": "Commodity sold",
-          "recent_event": "MarketSell"
         }
       ],
       "derive": {
@@ -9146,9 +8946,24 @@
           "recent_event": "ModuleSwap"
         },
         {
+          "value": "repair_all",
+          "label": "Full repair",
+          "recent_event": "RepairAll"
+        },
+        {
           "value": "buy_ammo",
           "label": "Ammunition purchased",
           "recent_event": "BuyAmmo"
+        },
+        {
+          "value": "refuel_partial",
+          "label": "Partial refuel",
+          "recent_event": "RefuelPartial"
+        },
+        {
+          "value": "repair",
+          "label": "Module repaired",
+          "recent_event": "Repair"
         },
         {
           "value": "restock_vehicle",
@@ -9226,6 +9041,11 @@
           "recent_event": "Shutdown"
         },
         {
+          "value": "reboot_repair",
+          "label": "Emergency reboot",
+          "recent_event": "RebootRepair"
+        },
+        {
           "value": "heat_warning",
           "label": "Overheating warning",
           "recent_event": "HeatWarning"
@@ -9269,26 +9089,6 @@
           "value": "weapon_loadout",
           "label": "Weapon loadout",
           "recent_event": "WeaponLoadout"
-        },
-        {
-          "value": "reboot_repair",
-          "label": "Emergency reboot",
-          "recent_event": "RebootRepair"
-        },
-        {
-          "value": "refuel_partial",
-          "label": "Partial refuel",
-          "recent_event": "RefuelPartial"
-        },
-        {
-          "value": "repair",
-          "label": "Module repair",
-          "recent_event": "Repair"
-        },
-        {
-          "value": "repair_all",
-          "label": "Full repair",
-          "recent_event": "RepairAll"
         }
       ],
       "derive": {
@@ -10357,15 +10157,6 @@
           "value": "music",
           "label": "Music changed",
           "recent_event": "Music"
-        },
-        {
-          "value": "friends",
-          "label": "Friends list",
-          "recent_event": "Friends"
-        },
-        {
-          "value": "none",
-          "label": "None"
         }
       ],
       "derive": {
@@ -10394,14 +10185,6 @@
               "within_seconds": 300
             },
             "value": "music"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Friends",
-              "within_seconds": 300
-            },
-            "value": "friends"
           }
         ],
         "default": "none"
@@ -11041,6 +10824,26 @@
         },
         {
           "value": "paid_fines",
+          "label": "Paid fines"
+        },
+        {
+          "value": "paid_bounties",
+          "label": "Paid bounties"
+        },
+        {
+          "value": "redeemed_voucher",
+          "label": "Redeemed voucher"
+        },
+        {
+          "value": "paid_legacy_fines",
+          "label": "Paid legacy fines"
+        },
+        {
+          "value": "cleared_impound",
+          "label": "Cleared impound"
+        },
+        {
+          "value": "paid_fines",
           "label": "Paid fines",
           "recent_event": "PayFines"
         },
@@ -11050,19 +10853,74 @@
           "recent_event": "PayBounties"
         },
         {
-          "value": "redeemed_voucher",
-          "label": "Redeemed voucher",
-          "recent_event": "RedeemVoucher"
+          "value": "bounty",
+          "label": "Bounty awarded",
+          "recent_event": "Bounty"
         },
         {
-          "value": "paid_legacy_fines",
-          "label": "Paid legacy fines",
-          "recent_event": "PayLegacyFines"
+          "value": "cap_ship_bond",
+          "label": "Capital ship reward",
+          "recent_event": "CapShipBond"
         },
         {
-          "value": "cleared_impound",
-          "label": "Cleared impound",
-          "recent_event": "ClearImpound"
+          "value": "faction_kill_bond",
+          "label": "Combat zone reward",
+          "recent_event": "FactionKillBond"
+        },
+        {
+          "value": "got_bounty",
+          "label": "Got bounty",
+          "recent_event": "Bounty"
+        },
+        {
+          "value": "buy_exploration_data",
+          "label": "Bought system data",
+          "recent_event": "BuyExplorationData"
+        },
+        {
+          "value": "multi_sell_exploration_data",
+          "label": "Sold multiple systems",
+          "recent_event": "MultiSellExplorationData"
+        },
+        {
+          "value": "sell_organic_data",
+          "label": "Sold organic scan data",
+          "recent_event": "SellOrganicData"
+        },
+        {
+          "value": "sell_exploration_data",
+          "label": "Sold exploration data",
+          "recent_event": "SellExplorationData"
+        },
+        {
+          "value": "bought",
+          "label": "Bought commodity",
+          "recent_event": "MarketBuy"
+        },
+        {
+          "value": "sold",
+          "label": "Sold commodity",
+          "recent_event": "MarketSell"
+        },
+        {
+          "value": "mining",
+          "label": "Mining",
+          "recent_event": "MiningRefined"
+        },
+        {
+          "value": "buy_trade_data",
+          "label": "Trade data purchased",
+          "recent_event": "BuyTradeData"
+        },
+        {
+          "value": "market_sell",
+          "label": "Sold commodity",
+          "recent_event": "MarketSell"
+        },
+        {
+          "value": "market_buy",
+          "label": "Bought commodity",
+          "recent_event": "MarketBuy"
         }
       ],
       "derive": {
@@ -11487,8 +11345,7 @@
         },
         {
           "value": "partial_refuel",
-          "label": "Partial refuel",
-          "recent_event": "RefuelPartial"
+          "label": "Partial refuel"
         },
         {
           "value": "reservoir_filled",
@@ -11724,14 +11581,6 @@
               "within_seconds": 5
             },
             "value": "under_attack"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Interdicted",
-              "within_seconds": 30
-            },
-            "value": "being_interdicted"
           },
           {
             "when": {

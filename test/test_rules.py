@@ -3,6 +3,7 @@ Tests for rules engine, signal derivation, and catalog loading.
 """
 
 import json
+import time
 import pytest
 from pathlib import Path
 
@@ -192,6 +193,89 @@ class TestSignalDerivation:
         assert "docking_state" in signals
 
 
+class TestSignalDerivationEdgeCases:
+    """Edge-case tests for derivation ops and defaults."""
+
+    @pytest.fixture
+    def derivation(self):
+        catalog_data = {
+            "signals": {
+                "map_signal": {
+                    "type": "enum",
+                    "values": [
+                        {"value": "yes"},
+                        {"value": "no"},
+                        {"value": "unknown"},
+                    ],
+                    "derive": {
+                        "op": "map",
+                        "from": {"op": "path", "path": "dashboard.Flag", "default": None},
+                        "map": {"true": "yes", "false": "no"},
+                        "default": "unknown",
+                    },
+                },
+                "path_default": {
+                    "type": "string",
+                    "derive": {
+                        "op": "path",
+                        "path": "dashboard.Missing",
+                        "default": "fallback",
+                    },
+                },
+                "recent_and_flag": {
+                    "type": "enum",
+                    "values": [
+                        {"value": "match"},
+                        {"value": "no_match"},
+                    ],
+                    "derive": {
+                        "op": "first_match",
+                        "cases": [
+                            {
+                                "when": {
+                                    "op": "and",
+                                    "conditions": [
+                                        {
+                                            "op": "recent",
+                                            "event_name": "Docked",
+                                            "within_seconds": 3,
+                                        },
+                                        {"op": "flag", "field_ref": "ship_flags", "bit": 0},
+                                    ],
+                                },
+                                "value": "match",
+                            }
+                        ],
+                        "default": "no_match",
+                    },
+                },
+            },
+            "bitfields": {"ship_flags": "dashboard.Flags"},
+        }
+        return SignalDerivation(catalog_data)
+
+    def test_map_default_when_unmapped(self, derivation):
+        entry = {"Flags": 0, "Flags2": 0}
+        signals = derivation.derive_all_signals(entry)
+        assert signals["map_signal"] == "unknown"
+
+    def test_path_default_when_missing(self, derivation):
+        entry = {"Flags": 0, "Flags2": 0}
+        signals = derivation.derive_all_signals(entry)
+        assert signals["path_default"] == "fallback"
+
+    def test_recent_and_flag_condition(self, derivation):
+        entry = {"Flags": 0b00000001, "Flags2": 0}
+        context = {"recent_events": {"Docked": time.time() - 1.0}}
+        signals = derivation.derive_all_signals(entry, context)
+        assert signals["recent_and_flag"] == "match"
+
+    def test_recent_missing_event_falls_back(self, derivation):
+        entry = {"Flags": 0b00000001, "Flags2": 0}
+        signals = derivation.derive_all_signals(entry, {"recent_events": {}})
+        assert signals["recent_and_flag"] == "no_match"
+
+
 class TestRuleValidator:
     """Test rule validation."""
     
@@ -262,6 +346,55 @@ class TestRuleValidator:
         }
         
         with pytest.raises(RuleValidationError, match="unknown"):
+            validator.validate_rule(rule, 0)
+
+    def test_validate_missing_operator(self, validator):
+        rule = {
+            "title": "Test",
+            "when": {
+                "all": [{"signal": "hardpoints", "value": "deployed"}]
+            },
+        }
+
+        with pytest.raises(RuleValidationError, match="missing 'op'"):
+            validator.validate_rule(rule, 0)
+
+    def test_validate_enum_signal_invalid_operator(self, validator):
+        """Test that numeric operators on enum signals are accepted by validator.
+        
+        Note: The validator only checks if operators exist in the catalog,
+        not if they're semantically valid for the signal type. Semantic validation
+        happens at rule evaluation time.
+        """
+        rule = {
+            "title": "Test",
+            "when": {
+                "all": [{"signal": "hardpoints", "op": "lt", "value": "deployed"}]
+            },
+        }
+        # Should not raise - validators only check if operator exists in catalog
+        validator.validate_rule(rule, 0)
+
+    def test_validate_in_operator_requires_list(self, validator):
+        rule = {
+            "title": "Test",
+            "when": {
+                "all": [{"signal": "hardpoints", "op": "in", "value": "deployed"}]
+            },
+        }
+
+        with pytest.raises(RuleValidationError, match="requires list"):
+            validator.validate_rule(rule, 0)
+
+    def test_validate_in_operator_invalid_value(self, validator):
+        rule = {
+            "title": "Test",
+            "when": {
+                "all": [{"signal": "hardpoints", "op": "in", "value": ["bad"]}]
+            },
+        }
+
+        with pytest.raises(RuleValidationError, match="invalid value"):
             validator.validate_rule(rule, 0)
     
     def test_validate_enum_value_not_in_list(self, validator):
@@ -443,6 +576,74 @@ class TestRuleEngine:
         entry = {"Flags": 1 << 22, "Flags2": 0, "GuiFocus": 0}
         engine.on_notification("TestCmdr", False, "dashboard", "Status", entry)
         assert True in actions_executed  # Should match
+
+    def test_all_and_any_combined(self, catalog):
+        rules = [{
+            "title": "Combined",
+            "when": {
+                "all": [
+                    {"signal": "hardpoints", "op": "eq", "value": "deployed"}
+                ],
+                "any": [
+                    {"signal": "gui_focus", "op": "eq", "value": "GalaxyMap"}
+                ],
+            },
+            "then": [{"log": "match"}],
+            "else": [{"log": "no"}],
+        }]
+
+        actions_executed = []
+
+        def action_handler(result):
+            actions_executed.append((result.matched, result.actions_to_execute))
+
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
+
+        entry = {"Flags": 0b01000000, "Flags2": 0, "GuiFocus": 0}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry)
+        assert actions_executed[-1][0] is False
+
+        entry_map = {"Flags": 0b01000000, "Flags2": 0, "GuiFocus": 6}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry_map)
+        assert actions_executed[-1][0] is True
+
+    def test_empty_conditions_match(self, catalog):
+        rules = [{
+            "title": "Always",
+            "then": [{"log": "always"}],
+        }]
+
+        actions_executed = []
+
+        def action_handler(result):
+            actions_executed.append(result.matched)
+
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
+        entry = {"Flags": 0, "Flags2": 0, "GuiFocus": 0}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry)
+        assert actions_executed == [True]
+
+    def test_state_is_per_commander(self, catalog):
+        rules = [{
+            "title": "Docked",
+            "when": {
+                "all": [{"signal": "docking_state", "op": "eq", "value": "docked"}]
+            },
+            "then": [{"log": "docked"}],
+        }]
+
+        actions_executed = []
+
+        def action_handler(result):
+            actions_executed.append((result.rule_id, result.matched))
+
+        engine = RuleEngine(rules, catalog, action_handler=action_handler)
+
+        entry = {"Flags": 0b00000001, "Flags2": 0, "GuiFocus": 0}
+        engine.on_notification("CmdrA", False, "dashboard", "Status", entry)
+        engine.on_notification("CmdrB", False, "dashboard", "Status", entry)
+
+        assert len(actions_executed) == 2
 
 
 class TestRuleLoader:
