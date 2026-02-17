@@ -38,44 +38,44 @@ EDMCVKBConnector/
 
 ## Installation
 
-### For EDMC (DEV) Workflow
+### For Users
 
-1. Ensure EDMC (DEV) repository exists at `../EDMarketConnector`
-2. Link this plugin into EDMC (DEV):
+Users should follow the complete [INSTALLATION.md](../INSTALLATION.md) guide which covers:
+- Prerequisites and compatibility
+- Downloading and installing the plugin
+- Configuring VKB-Link
+- Creating rules
+
+### For Developers
+
+Developers should follow the [DEVELOPMENT.md](../DEVELOPMENT.md) guide which covers:
+- Setting up the development environment
+- Running EDMC in development mode
+- Making changes and testing
+- Packaging for distribution
+
+Quick start for development:
+1. **Bootstrap** - Set up development environment:
    ```bash
-   python scripts/link_plugin_to_edmc_clone.py --force
+   python scripts/bootstrap_dev_env.py
    ```
-3. Run EDMC (DEV):
+
+2. **Run EDMC** - Launch EDMC with isolated dev config:
    ```bash
-   python scripts/run_edmc_from_clone.py
+   python scripts/run_edmc_from_dev.py
    ```
-4. Configure in EDMC preferences (VKB host/port) and optionally create `rules.json`
+
+3. **Package** - Create distributable ZIP:
+   ```bash
+   python scripts/package_plugin.py
+   ```
 
 Compatibility baseline:
-- VKB-Link `v0.8.2+`
-- VKB firmware `2.21.3+`
-- VKB software/firmware source: https://www.njoy32.vkb-sim.pro/home
-
-### For Developers (From Source)
-
-The repository includes a `src/` directory for development organization. When deploying:
-
-1. **Option A**: Install in editable mode in EDMC plugins directory:
-   ```bash
-   cd <EDMC Plugins>
-   git clone https://github.com/Audumla/EDMCVKBConnector.git
-   cd EDMCVKBConnector
-   pip install -e .
-   ```
-
-2. **Option B**: Copy the deployment structure manually:
-   ```bash
-   # Copy only the necessary files
-   cp -r src/edmcruleengine <EDMC Plugins>/EDMCVKBConnector/
-   cp load.py <EDMC Plugins>/EDMCVKBConnector/
-   cp README.md <EDMC Plugins>/EDMCVKBConnector/
-   cp rules.json.example <EDMC Plugins>/EDMCVKBConnector/
-   ```
+- Python: `3.9+`
+- EDMC: `5.0+` (5.13+ recommended)
+- VKB-Link: `v0.8.2+`
+- VKB firmware: `2.21.3+`
+- VKB software/firmware: https://www.njoy32.vkb-sim.pro/home
 
 ## EDMC Plugin Entry Point
 
@@ -129,7 +129,15 @@ This works because:
 
 ## Building a Release
 
-To create a release archive for users:
+Use the provided packaging script:
+
+```bash
+python scripts/package_plugin.py
+```
+
+This creates `dist/EDMCVKBConnector-<version>.zip` with the correct structure for distribution.
+
+To manually create a release archive:
 
 ```bash
 # Create deployment package
@@ -138,17 +146,19 @@ mkdir -p build/EDMCVKBConnector
 # Copy necessary files
 cp -r src/edmcruleengine build/EDMCVKBConnector/
 cp load.py build/EDMCVKBConnector/
+cp PLUGIN_REGISTRY.py build/EDMCVKBConnector/
 cp README.md build/EDMCVKBConnector/
 cp LICENSE build/EDMCVKBConnector/
 cp rules.json.example build/EDMCVKBConnector/
-cp pyproject.toml build/EDMCVKBConnector/
+cp config.json.example build/EDMCVKBConnector/
+cp signals_catalog.json build/EDMCVKBConnector/
 
 # Create archive
 cd build
-zip -r EDMCVKBConnector-0.1.0.zip EDMCVKBConnector/
+zip -r EDMCVKBConnector-X.Y.Z.zip EDMCVKBConnector/
 
 # Calculate SHA256 for registry
-sha256sum EDMCVKBConnector-0.1.0.zip
+sha256sum EDMCVKBConnector-X.Y.Z.zip
 
 # Upload to GitHub releases
 ```
@@ -158,12 +168,12 @@ sha256sum EDMCVKBConnector-0.1.0.zip
 1. **Verify File Structure**:
    ```bash
    ls -la <EDMC Plugins>/EDMCVKBConnector/
-   # Should see: load.py, edmcruleengine/, README.md, etc.
+   # Should see: load.py, edmcruleengine/, PLUGIN_REGISTRY.py, README.md, etc.
    ```
 
-2. **Check EDMC (DEV) Output**:
-   - If launched via `python scripts/run_edmc_from_clone.py`, monitor terminal output.
-   - If launched another way from EDMC (DEV), review the runtime logs configured by that run mode.
+2. **Check EDMC Output**:
+   - Open EDMC log: File > Settings > Advanced > Show Log
+   - Look for VKB Connector messages
 
 3. **Look for Plugin Message**:
    ```
@@ -175,7 +185,7 @@ sha256sum EDMCVKBConnector-0.1.0.zip
    - Start Elite Dangerous
    - Perform in-game actions (jump systems, dock, etc.)
    - Check VKB hardware responds
-   - Enable debug mode in EDMC config for more logging
+   - Enable debug mode in EDMC settings for more logging
 
 ## Troubleshooting Deployment
 
@@ -209,4 +219,7 @@ The plugin is completely self-contained and leaves no residual files.
 
 ---
 
-For more information, see the main [README.md](../README.md) or [STANDARDS_COMPLIANCE.md](STANDARDS_COMPLIANCE.md).
+For more information, see:
+- [INSTALLATION.md](../INSTALLATION.md) - User installation guide
+- [DEVELOPMENT.md](../DEVELOPMENT.md) - Development guide
+- [README.md](../README.md) - Project overview

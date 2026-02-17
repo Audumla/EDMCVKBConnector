@@ -302,3 +302,10 @@ scripts/
 - Plugin linking uses symlinks on Unix/Mac and junctions on Windows
 - All scripts support `dev_paths.json` for custom configuration
 - Scripts are designed to be idempotent (safe to run multiple times)
+
+## Additional Resources
+
+For complete development documentation, see:
+- [DEVELOPMENT.md](../DEVELOPMENT.md) - Full development guide
+- [INSTALLATION.md](../INSTALLATION.md) - User installation guide
+- [README.md](../README.md) - Project overview

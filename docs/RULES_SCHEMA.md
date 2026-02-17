@@ -319,3 +319,10 @@ The catalog:
 5. **Test edge triggering**: Verify actions fire only on transitions
 6. **Document with log actions**: `{"log": "Rule fired"}` helps debugging
 
+## Additional Resources
+
+- **[Signals Catalog Reference](../SIGNALS_CATALOG_REFERENCE.md)** - Complete list of all 195+ signals with descriptions, types, and Elite Dangerous sources
+- **[Rule Editor Guide](RULE_EDITOR_GUIDE.md)** - Visual rule editor user guide
+- **[INSTALLATION.md](../INSTALLATION.md)** - Installation and setup instructions
+- **[README.md](../README.md)** - Project overview
+
