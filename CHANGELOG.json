@@ -101,5 +101,22 @@
       "CHANGELOG.json retains only unreleased entries, keeping agent read cost O(1) per release cycle not O(history)",
       "release-please.yml updated to pass --archive and commit CHANGELOG.archive.json alongside CHANGELOG.json"
     ]
+  },
+  {
+    "id": "CHG-007",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": [
+      "Build / Packaging",
+      "Documentation Update"
+    ],
+    "summary": "Added log_change.py script so agents run one command to record changes instead of editing files manually",
+    "details": [
+      "Created scripts/log_change.py: auto-increments CHG-NNN, appends to CHANGELOG.json, prepends row and section to CHANGELOG.md",
+      "Accepts --agent, --tags, --summary, --details, --date, --dry-run flags",
+      "Validates tags against approved vocabulary; rejects unknown values",
+      "Updated CLAUDE.md, AGENTS.md, copilot-instructions.md: replace manual editing instructions with single script call"
+    ]
   }
 ]

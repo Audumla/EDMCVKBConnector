@@ -9,6 +9,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-007 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Added log_change.py script so agents run one command to record changes instead of editing files manually |
 | CHG-006 | 2026-02-19 | copilot | Build / Packaging | Added `CHANGELOG.archive.json` to keep `CHANGELOG.json` small for agent reads |
 | CHG-005 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Adopted `unreleased` version sentinel so changelog entries always track the next release, not the last |
 | CHG-004 | 2026-02-19 | copilot | Build / Packaging, New Feature | Added release notes generation script and wired it into the release workflow and ZIP packaging |
@@ -19,6 +20,18 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-007 — 2026-02-19 · copilot · unreleased
+
+**Tags:** Build / Packaging, Documentation Update
+
+**Summary:** Added log_change.py script so agents run one command to record changes instead of editing files manually
+
+**Changes:**
+- Created scripts/log_change.py: auto-increments CHG-NNN, appends to CHANGELOG.json, prepends row and section to CHANGELOG.md
+- Accepts --agent, --tags, --summary, --details, --date, --dry-run flags
+- Validates tags against approved vocabulary; rejects unknown values
+- Updated CLAUDE.md, AGENTS.md, copilot-instructions.md: replace manual editing instructions with single script call
 
 ### CHG-006 — 2026-02-19 · copilot · unreleased
 

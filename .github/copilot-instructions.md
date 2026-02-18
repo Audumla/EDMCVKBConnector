@@ -43,37 +43,19 @@ Read `CHANGELOG.json` (repo root) to understand what every agent has already don
 
 Before declaring the task done, you MUST record what was changed. Do not skip this step. Do not wait for the user to ask. Updating the changelog is the final step of every task.
 
-Update two files:
+Run this script — it handles all file updates automatically:
 
-### 1. `CHANGELOG.json` (repo root)
-
-Append a new JSON object to the array:
-
-```json
-{
-  "id": "CHG-NNN",
-  "plugin_version": "unreleased",
-  "date": "<YYYY-MM-DD>",
-  "agent": "copilot",
-  "summary_tags": ["<tag1>", "<tag2>"],
-  "summary": "<one sentence>",
-  "details": [
-    "<bullet 1>",
-    "<bullet 2>"
-  ]
-}
+```bash
+python scripts/log_change.py \
+    --agent copilot \
+    --tags "<Tag1>" "<Tag2>" \
+    --summary "One-sentence description" \
+    --details "Bullet one" "Bullet two" "Bullet three"
 ```
 
-Increment `NNN` from the last entry in the file (e.g. if last is CHG-003, use CHG-004).
+The script auto-increments the CHG-NNN id, appends to `CHANGELOG.json`, and prepends the row and detail section to `CHANGELOG.md`. Do not edit those files manually.
 
-`plugin_version` must always be `"unreleased"`. It will be stamped with the real version number automatically when a release is cut. Do not read `version.py` for this field.
-
-### 2. `CHANGELOG.md`
-
-- Insert a new row at the **top** of the summary table (below the header).
-- Insert a new `### CHG-NNN` detail section **above** the first existing detail section.
-
-### Approved Summary Tags
+### Approved `--tags` values
 
 Use one or more of these exact strings:
 
