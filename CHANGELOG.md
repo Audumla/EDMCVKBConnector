@@ -9,6 +9,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-006 | 2026-02-19 | copilot | Build / Packaging | Added `CHANGELOG.archive.json` to keep `CHANGELOG.json` small for agent reads |
 | CHG-005 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Adopted `unreleased` version sentinel so changelog entries always track the next release, not the last |
 | CHG-004 | 2026-02-19 | copilot | Build / Packaging, New Feature | Added release notes generation script and wired it into the release workflow and ZIP packaging |
 | CHG-003 | 2026-02-19 | copilot | Documentation Update | Strengthened changelog policy: recording is now required after every task, not at end of session |
@@ -18,6 +19,17 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-006 — 2026-02-19 · copilot · unreleased
+
+**Tags:** Build / Packaging
+
+**Summary:** Added `CHANGELOG.archive.json` to keep `CHANGELOG.json` small for agent reads
+
+**Changes:**
+- `generate_release_notes.py --stamp --archive` moves stamped entries to `CHANGELOG.archive.json` after release
+- `CHANGELOG.json` retains only `"unreleased"` entries — agent read cost stays constant per release cycle, not growing with history
+- `release-please.yml` updated to pass `--archive` and commit `CHANGELOG.archive.json` alongside `CHANGELOG.json`
 
 ### CHG-005 — 2026-02-19 · copilot · unreleased
 

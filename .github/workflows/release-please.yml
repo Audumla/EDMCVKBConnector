@@ -38,6 +38,7 @@ jobs:
         run: |
           python scripts/generate_release_notes.py \
             --stamp ${{ steps.release.outputs.version }} \
+            --archive \
             --output dist/RELEASE_NOTES.md
 
       - name: Commit stamped changelog
@@ -45,7 +46,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.json
+          git add CHANGELOG.json CHANGELOG.archive.json
           git diff --cached --quiet || git commit -m "chore: stamp CHANGELOG.json entries as v${{ steps.release.outputs.version }} [skip ci]"
           git push
 

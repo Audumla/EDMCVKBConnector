@@ -86,5 +86,20 @@
       "Added commit-stamped-changelog step to workflow so stamps persist in the repo after each release",
       "Backfilled all existing CHANGELOG.json entries (CHG-001 to CHG-004) from 0.2.0 to unreleased"
     ]
+  },
+  {
+    "id": "CHG-006",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": [
+      "Build / Packaging"
+    ],
+    "summary": "Added CHANGELOG.archive.json to keep CHANGELOG.json small for agent reads",
+    "details": [
+      "generate_release_notes.py --stamp --archive moves stamped entries to CHANGELOG.archive.json after release",
+      "CHANGELOG.json retains only unreleased entries, keeping agent read cost O(1) per release cycle not O(history)",
+      "release-please.yml updated to pass --archive and commit CHANGELOG.archive.json alongside CHANGELOG.json"
+    ]
   }
 ]

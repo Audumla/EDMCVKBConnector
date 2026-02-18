@@ -52,6 +52,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG_PATH = PROJECT_ROOT / "CHANGELOG.json"
+CHANGELOG_ARCHIVE_PATH = PROJECT_ROOT / "CHANGELOG.archive.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "dist" / "RELEASE_NOTES.md"
 
 # Display order for approved summary tags
@@ -192,6 +193,23 @@ def stamp_changelog(entries: list[dict], version: str) -> int:
     return count
 
 
+def archive_stamped(entries: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Split entries into (unreleased, stamped). Append stamped to archive file."""
+    unreleased = [e for e in entries if e.get("plugin_version") == "unreleased"]
+    stamped = [e for e in entries if e.get("plugin_version") != "unreleased"]
+
+    if stamped:
+        existing: list[dict] = []
+        if CHANGELOG_ARCHIVE_PATH.exists():
+            with open(CHANGELOG_ARCHIVE_PATH, encoding="utf-8") as f:
+                existing = json.load(f)
+        with open(CHANGELOG_ARCHIVE_PATH, "w", encoding="utf-8") as f:
+            json.dump(existing + stamped, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+
+    return unreleased, stamped
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate release notes from CHANGELOG.json")
 
@@ -212,6 +230,10 @@ def main() -> None:
         help="Include all changelog entries regardless of version",
     )
 
+    parser.add_argument(
+        "--archive", action="store_true",
+        help="With --stamp: move stamped entries to CHANGELOG.archive.json, leaving only 'unreleased' in CHANGELOG.json",
+    )
     parser.add_argument(
         "--since", metavar="VERSION",
         help="With --version: include entries > SINCE up to --version",
@@ -263,8 +285,13 @@ def main() -> None:
     # Stamp CHANGELOG.json only when explicitly requested
     if args.stamp and filtered:
         n = stamp_changelog(entries, args.stamp)
-        save_changelog(entries)
-        print(f"Stamped {n} entries in CHANGELOG.json as v{args.stamp}")
+        if args.archive:
+            remaining, archived = archive_stamped(entries)
+            save_changelog(remaining)
+            print(f"Stamped {n} entries as v{args.stamp}, archived {len(archived)} to CHANGELOG.archive.json")
+        else:
+            save_changelog(entries)
+            print(f"Stamped {n} entries in CHANGELOG.json as v{args.stamp}")
 
 
 if __name__ == "__main__":
