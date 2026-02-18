@@ -39,9 +39,11 @@ Do not write Copilot-generated reports or temp files anywhere else in this repos
 
 Read `CHANGELOG.json` (repo root) to understand what every agent has already done. Use it to avoid duplicating work and to understand the current state of the codebase.
 
-### At the END of every session
+### After completing ANY task that modifies files
 
-Record what was done by updating two files:
+Before declaring the task done, you MUST record what was changed. Do not skip this step. Do not wait for the user to ask. Updating the changelog is the final step of every task.
+
+Update two files:
 
 ### 1. `CHANGELOG.json` (repo root)
 

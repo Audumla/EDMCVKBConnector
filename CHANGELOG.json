@@ -30,5 +30,18 @@
       "Per-agent runtime scratch dirs (agent_artifacts/claude|codex|copilot/) remain gitignored",
       "Updated agent_artifacts/README.md to reflect new structure"
     ]
+  },
+  {
+    "id": "CHG-003",
+    "plugin_version": "0.2.0",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": ["Documentation Update"],
+    "summary": "Strengthened changelog policy: recording is now required after every task, not at end of session",
+    "details": [
+      "Changed trigger from 'end of session' to 'after completing any task that modifies files'",
+      "Added explicit instruction: do not skip, do not wait for the user to ask",
+      "Updated CLAUDE.md, AGENTS.md, and .github/copilot-instructions.md with new wording"
+    ]
   }
 ]
