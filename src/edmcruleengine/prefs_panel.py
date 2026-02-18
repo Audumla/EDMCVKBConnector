@@ -260,7 +260,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     frame.after(500, _poll_vkb_status)
 
     static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=8)
-    static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2, rowspan=2)
+    static_shift_frame.grid(row=0, column=1, sticky="new", padx=(6, 4), pady=2)
     
     # Configure columns for shift flags
     static_shift_frame.columnconfigure(0, weight=0)  # Shift label

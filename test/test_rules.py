@@ -261,7 +261,7 @@ class TestSignalDerivationEdgeCases:
     def test_path_default_when_missing(self, derivation):
         entry = {"Flags": 0, "Flags2": 0}
         signals = derivation.derive_all_signals(entry)
-        assert signals["path_default"] == "fallback"
+        assert signals["path_default"] == "unknown"
 
     def test_recent_and_flag_condition(self, derivation):
         entry = {"Flags": 0b00000001, "Flags2": 0}
@@ -642,6 +642,213 @@ class TestRuleEngine:
         engine.on_notification("CmdrB", False, "dashboard", "Status", entry)
 
         assert len(actions_executed) == 2
+
+
+class TestUnknownDataPolicy:
+    """
+    Regression tests: missing event data must always produce 'unknown', and
+    rules that reference a signal with value 'unknown' must never fire.
+
+    These tests guard against re-introducing any behaviour where a 'default'
+    value in a derive spec is honoured for absent data, or where 'unknown'
+    accidentally satisfies a rule condition.
+    """
+
+    # -----------------------------------------------------------------------
+    # Shared minimal catalog used by derivation-layer tests
+    # -----------------------------------------------------------------------
+
+    @pytest.fixture
+    def mini_catalog(self):
+        return SignalDerivation({
+            "signals": {
+                "path_signal": {
+                    "type": "string",
+                    "derive": {
+                        "op": "path",
+                        "path": "dashboard.MissingField",
+                    },
+                },
+                "path_signal_with_spec_default": {
+                    "type": "string",
+                    "derive": {
+                        "op": "path",
+                        "path": "dashboard.AlsoMissing",
+                        "default": "spec_default_value",   # must be ignored
+                    },
+                },
+                "flag_signal": {
+                    "type": "enum",
+                    "values": [{"value": "on"}, {"value": "off"}],
+                    "derive": {
+                        "op": "flag",
+                        "field_ref": "test_flags",
+                        "bit": 31,        # bit never set in test entries
+                        "true_value": "on",
+                        "false_value": "off",
+                    },
+                },
+                "map_signal": {
+                    "type": "enum",
+                    "values": [
+                        {"value": "yes"},
+                        {"value": "no"},
+                        {"value": "unknown"},
+                    ],
+                    "derive": {
+                        "op": "map",
+                        "from": {"op": "path", "path": "dashboard.MissingField"},
+                        "map": {"A": "yes", "B": "no"},
+                        "default": "unknown",    # default in spec – still must not override absent input
+                    },
+                },
+                "first_match_signal": {
+                    "type": "enum",
+                    "values": [{"value": "found"}, {"value": "not_found"}],
+                    "derive": {
+                        "op": "first_match",
+                        "cases": [
+                            {
+                                "when": {"op": "flag", "field_ref": "test_flags", "bit": 31},
+                                "value": "found",
+                            }
+                        ],
+                        "default": "not_found",
+                    },
+                },
+                "enum_invalid_value": {
+                    "type": "enum",
+                    "values": [{"value": "alpha"}, {"value": "beta"}],
+                    "derive": {
+                        "op": "path",
+                        "path": "dashboard.RankField",
+                    },
+                },
+            },
+            "bitfields": {"test_flags": "dashboard.Flags"},
+        })
+
+    # -----------------------------------------------------------------------
+    # Layer 1 – derivation: missing input → "unknown"
+    # -----------------------------------------------------------------------
+
+    def test_path_missing_field_returns_unknown(self, mini_catalog):
+        """A path that resolves to nothing must return 'unknown', not a default."""
+        entry = {"Flags": 0, "Flags2": 0}
+        signals = mini_catalog.derive_all_signals(entry)
+        assert signals["path_signal"] == "unknown"
+
+    def test_path_missing_field_ignores_spec_default(self, mini_catalog):
+        """derive_spec 'default' must not substitute for genuinely absent data."""
+        entry = {"Flags": 0, "Flags2": 0}
+        signals = mini_catalog.derive_all_signals(entry)
+        assert signals["path_signal_with_spec_default"] == "unknown", (
+            "spec-level 'default' must not be used when the source field is absent"
+        )
+
+    def test_map_missing_source_returns_unknown(self, mini_catalog):
+        """A map whose source path is absent must return 'unknown'."""
+        entry = {"Flags": 0, "Flags2": 0}
+        signals = mini_catalog.derive_all_signals(entry)
+        assert signals["map_signal"] == "unknown"
+
+    def test_enum_value_not_in_allowed_list_returns_unknown(self, mini_catalog):
+        """A raw value not in the signal's allowed enum list must return 'unknown'."""
+        # RankField present but not a valid enum value
+        entry = {"Flags": 0, "Flags2": 0, "RankField": "gamma"}
+        signals = mini_catalog.derive_all_signals(entry)
+        assert signals["enum_invalid_value"] == "unknown", (
+            "an out-of-range enum value must not be coerced to any valid value"
+        )
+
+    def test_present_data_is_not_unknown(self, mini_catalog):
+        """Sanity check: when data is present the signal resolves normally."""
+        entry = {"Flags": 0, "Flags2": 0, "RankField": "alpha"}
+        signals = mini_catalog.derive_all_signals(entry)
+        assert signals["enum_invalid_value"] == "alpha"
+
+    # -----------------------------------------------------------------------
+    # Layer 2 – rule engine: 'unknown' signal never satisfies a condition
+    # -----------------------------------------------------------------------
+
+    @pytest.fixture
+    def catalog(self):
+        return SignalsCatalog.from_file(
+            Path(__file__).parent.parent / "signals_catalog.json"
+        )
+
+    def _make_engine(self, catalog, signal, op, value):
+        """Helper: single-rule engine that logs matched/unmatched firings."""
+        rules = [{
+            "title": "ShouldNotFire",
+            "when": {"all": [{"signal": signal, "op": op, "value": value}]},
+            "then": [{"log": "fired"}],
+        }]
+        fired = []
+
+        def handler(result):
+            if result.matched:
+                fired.append(result)
+
+        engine = RuleEngine(rules, catalog, action_handler=handler)
+        return engine, fired
+
+    def test_unknown_eq_does_not_match(self, catalog):
+        """eq condition on a signal that derives to 'unknown' must not fire."""
+        engine, fired = self._make_engine(catalog, "gui_focus", "eq", "NoFocus")
+        # Flags=0 with no GuiFocus key → gui_focus derives to 'unknown'
+        entry = {"Flags": 0, "Flags2": 0}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry)
+        assert fired == [], "rule must not fire when signal is 'unknown'"
+
+    def test_unknown_ne_does_not_match(self, catalog):
+        """ne condition on an unknown signal must not fire (not even 'ne unknown')."""
+        engine, fired = self._make_engine(catalog, "gui_focus", "ne", "GalaxyMap")
+        entry = {"Flags": 0, "Flags2": 0}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry)
+        assert fired == [], "rule must not fire when signal is 'unknown'"
+
+    def test_unknown_in_does_not_match(self, catalog):
+        """in condition on an unknown signal must not fire."""
+        rules = [{
+            "title": "ShouldNotFire",
+            "when": {"all": [{"signal": "gui_focus", "op": "in",
+                               "value": ["NoFocus", "GalaxyMap"]}]},
+            "then": [{"log": "fired"}],
+        }]
+        fired = []
+        engine = RuleEngine(rules, catalog, action_handler=lambda r: fired.append(r) if r.matched else None)
+        entry = {"Flags": 0, "Flags2": 0}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry)
+        assert fired == [], "rule must not fire when signal is 'unknown'"
+
+    def test_rule_fires_once_data_arrives(self, catalog):
+        """Rule must not fire while data is absent, then fire correctly once present."""
+        engine, fired = self._make_engine(catalog, "gui_focus", "eq", "GalaxyMap")
+
+        # First event: GuiFocus missing → gui_focus == 'unknown' → no match
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0})
+        assert fired == [], "must not fire on unknown"
+
+        # Second event: GuiFocus present and matches → should fire
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0, "GuiFocus": 6})
+        assert len(fired) == 1, "must fire once real matching data arrives"
+
+    def test_rule_does_not_fire_on_unknown_after_match(self, catalog):
+        """After a match, reverting to unknown must not re-trigger the rule."""
+        engine, fired = self._make_engine(catalog, "gui_focus", "eq", "GalaxyMap")
+
+        # Match
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0, "GuiFocus": 6})
+        assert len(fired) == 1
+
+        # Data absent again – must not fire a second time (no state change to trigger on)
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0})
+        assert len(fired) == 1, "reverting to unknown must not re-trigger"
 
 
 class TestRuleLoader:

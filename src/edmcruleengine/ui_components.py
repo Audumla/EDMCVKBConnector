@@ -4,6 +4,7 @@ Shared tkinter UI components and button styles for EDMC VKB Connector.
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from typing import Any, Callable, Optional
 
@@ -131,7 +132,7 @@ class IconButton(tk.Canvas):
     """
 
     PALETTES = {
-        "edit": {"bg": "#3498db", "fg": "white", "hover": "#2980b9"},
+        "edit": {"bg": "#3498db", "fg": "white", "hover": "#2980b9", "eraser": "#f39c12"},
         "delete": {"bg": "#e74c3c", "fg": "white", "hover": "#c0392b"},
         "add": {"bg": "#27ae60", "fg": "white", "hover": "#1e8449"},
         "up": {"bg": "#3498db", "fg": "white", "hover": "#2980b9"},
@@ -176,9 +177,45 @@ class IconButton(tk.Canvas):
         p = 5
 
         if self._icon_type == "edit":
-            # Pencil: shaft + tip
-            self.create_line(p + 1, s - p, s - p, p + 1, fill=fg, width=2)
-            self.create_polygon(s - p, p + 1, s - p + 2, p - 1, s - p - 1, p - 2, fill=fg, outline="")
+            # Pencil icon: angled body, triangular tip, eraser end
+            angle = math.radians(45)
+            cos_a, sin_a = math.cos(angle), math.sin(angle)
+            half_w = 2.0          # half-width of the pencil shaft
+            shaft_len = s - p * 2 - 3
+            # Centre the pencil diagonally across the canvas
+            cx, cy = s / 2, s / 2
+            # Unit vectors along and across the pencil axis (bottom-left to top-right)
+            ax, ay = cos_a, -sin_a   # along axis
+            nx, ny = sin_a,  cos_a   # normal (perpendicular)
+            # Four corners of shaft rectangle
+            tip_end   = shaft_len * 0.35
+            eraser_end = shaft_len * 0.5
+            def pt(along, across):
+                return (cx + ax * along + nx * across,
+                        cy + ay * along + ny * across)
+            # Eraser end (flat cap)
+            e1 = pt(-eraser_end,  half_w)
+            e2 = pt(-eraser_end, -half_w)
+            # Shaft corners near tip
+            s1 = pt( tip_end,  half_w)
+            s2 = pt( tip_end, -half_w)
+            # Pencil tip point
+            tip = pt(tip_end + half_w + 2, 0)
+            # Draw shaft
+            self.create_polygon(e1[0], e1[1], e2[0], e2[1],
+                                s2[0], s2[1], s1[0], s1[1],
+                                fill=fg, outline="")
+            # Draw tip triangle
+            self.create_polygon(s1[0], s1[1], s2[0], s2[1],
+                                tip[0], tip[1],
+                                fill=fg, outline="")
+            # Eraser band (contrasting rect across the flat end)
+            e3 = pt(-eraser_end + 3,  half_w)
+            e4 = pt(-eraser_end + 3, -half_w)
+            eraser_color = self._palette.get("eraser", "#e88")
+            self.create_polygon(e1[0], e1[1], e2[0], e2[1],
+                                e4[0], e4[1], e3[0], e3[1],
+                                fill=eraser_color, outline="")
         elif self._icon_type == "delete":
             self.create_line(p, p, s - p, s - p, fill=fg, width=2)
             self.create_line(s - p, p, p, s - p, fill=fg, width=2)

@@ -101,20 +101,14 @@ class SignalDerivation:
         value = self._execute_derive_op(derive_spec, entry, context)
         
         if value is None or value == "unknown":
-            default = derive_spec.get("default")
-            return default if default is not None else "unknown"
+            return "unknown"
         if signal_type == "bool":
             return bool(value)
         elif signal_type == "enum":
-            # Validate enum value
+            # Validate enum value; unknown if not a recognised value
             allowed_values = [v.get("value") for v in signal_def.get("values", [])]
             if value not in allowed_values:
-                # Use default if specified
-                default = derive_spec.get("default")
-                if default and default in allowed_values:
-                    return default
-                # Otherwise use first value
-                return allowed_values[0] if allowed_values else "unknown"
+                return "unknown"
             return value
         
         return value
