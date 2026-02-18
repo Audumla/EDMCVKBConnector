@@ -331,6 +331,7 @@ class TestEventHandlerURI:
         """Test that EventHandler tracks unknown events."""
         config = Config()
         handler = EventHandler(config, plugin_dir=str(temp_dir))
+        handler.track_unregistered_events = True
         
         # Mock VKB client to prevent connection
         handler.vkb_client.send_event = Mock(return_value=True)
@@ -380,6 +381,7 @@ class TestEventHandlerURI:
         """Test EventHandler provides public methods for tracker access."""
         config = Config()
         handler = EventHandler(config, plugin_dir=str(temp_dir))
+        handler.track_unregistered_events = True
         
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=False)

@@ -179,7 +179,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         """Open file dialog to locate VKB-Link INI and write TCP section."""
         nonlocal vkb_ini_path_saved
         from tkinter import filedialog
-        import configparser
 
         initial_dir = ""
         if vkb_ini_path_saved:
@@ -196,17 +195,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             return
 
         try:
-            cp = configparser.ConfigParser()
-            cp.read(ini_path, encoding="utf-8")
-
-            if "TCP" not in cp:
-                cp.add_section("TCP")
-            cp.set("TCP", "Adress", host_var.get())
-            cp.set("TCP", "Port", port_var.get())
-
-            with open(ini_path, "w", encoding="utf-8") as f:
-                cp.write(f)
-
+            _write_ini(ini_path, host_var.get(), port_var.get())
             vkb_ini_path_saved = ini_path
             if _config:
                 _config.set("vkb_ini_path", ini_path)
@@ -217,6 +206,33 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             vkb_status_var.set(f"INI error: {e}")
             vkb_status_label.configure(foreground="#e74c3c")
             logger.error(f"Failed to update VKB-Link INI: {e}")
+
+    def _write_ini(ini_path: str, host: str, port: str) -> None:
+        """Write Host/Port into the [TCP] section of an existing INI file."""
+        import configparser
+        cp = configparser.ConfigParser()
+        cp.read(ini_path, encoding="utf-8")
+        if "TCP" not in cp:
+            cp.add_section("TCP")
+        cp.set("TCP", "Adress", host)
+        cp.set("TCP", "Port", port)
+        with open(ini_path, "w", encoding="utf-8") as f:
+            cp.write(f)
+
+    def _auto_update_vkb_ini(*_args) -> None:
+        """Silently re-write the saved INI file when host or port changes."""
+        if not vkb_ini_path_saved:
+            return
+        try:
+            _write_ini(vkb_ini_path_saved, host_var.get(), port_var.get())
+            vkb_status_var.set(f"INI auto-updated: {Path(vkb_ini_path_saved).name}")
+            vkb_status_label.configure(foreground="#27ae60")
+            logger.info(f"Auto-updated VKB-Link INI: {vkb_ini_path_saved}")
+        except Exception as e:
+            logger.warning(f"Failed to auto-update VKB-Link INI: {e}")
+
+    host_var.trace_add("write", _auto_update_vkb_ini)
+    port_var.trace_add("write", _auto_update_vkb_ini)
 
     ini_btn = create_colored_button(
         vkb_link_frame,

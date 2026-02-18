@@ -31,6 +31,7 @@ python scripts/package_plugin.py
 4. `SignalDerivation` derives catalog signals from incoming payloads.
 5. `RuleEngine` evaluates rules and emits edge-triggered actions.
 6. VKB actions are encoded as `VKBShiftBitmap` packets and sent through `VKBClient`.
+7. Optionally, events not present in the catalog are recorded by `UnregisteredEventsTracker` (controlled by the **Capture missed events** checkbox in the **Events** tab; off by default).
 
 ## Testing
 Run targeted tests:
@@ -54,7 +55,7 @@ python -m pytest
 
 ## Documentation Set
 - `README.md`: quick start and documentation map.
-- `docs/RULE_EDITOR_TUTORIAL.md`: detailed rule editor walkthrough.
-- `docs/RULES_GUIDE.md`: rule model and syntax reference.
+- `docs/RULE_EDITOR_TUTORIAL.md`: UI guide for creating and managing rules through the plugin settings panel.
+- `docs/RULES_GUIDE.md`: complete `rules.json` file format reference (fields, operators, actions, validation).
 - `docs/SIGNALS_REFERENCE.md`: complete signal catalog reference (sources/triggers/samples).
 - `docs/EDMC_EVENTS_CATALOG.md`: raw event catalog used for validation and reference.

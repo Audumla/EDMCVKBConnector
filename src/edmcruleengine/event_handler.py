@@ -27,8 +27,16 @@ _SHIFT_TOKEN_PATTERN = re.compile(r"^(Subshift|Shift)(\d+)$")
 class EventHandler:
     """
     Handles EDMC events and forwards them to VKB hardware.
-    
-    Manages event filtering, serialization, and transmission to VKB device.
+
+    Manages event filtering, signal derivation, rule evaluation, and
+    transmission of VKBShiftBitmap packets to VKB-Link.
+
+    Key attributes
+    --------------
+    track_unregistered_events : bool
+        When True, events not found in the signals catalog are recorded by
+        ``UnregisteredEventsTracker`` for later review.  Defaults to False.
+        Toggled from the plugin preferences **Events** tab.
     """
 
     def __init__(
