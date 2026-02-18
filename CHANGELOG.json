@@ -43,5 +43,19 @@
       "Added explicit instruction: do not skip, do not wait for the user to ask",
       "Updated CLAUDE.md, AGENTS.md, and .github/copilot-instructions.md with new wording"
     ]
+  },
+  {
+    "id": "CHG-004",
+    "plugin_version": "0.2.0",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": ["Build / Packaging", "New Feature"],
+    "summary": "Added release notes generation script and wired it into the release workflow and ZIP packaging",
+    "details": [
+      "Created scripts/generate_release_notes.py: reads CHANGELOG.json, filters by version, groups by summary tag, outputs RELEASE_NOTES.md",
+      "Supports --version, --since, --all, --output, --stdout flags for flexible local and CI use",
+      "Updated package_plugin.py to include dist/RELEASE_NOTES.md in the distributable ZIP when present",
+      "Updated .github/workflows/release-please.yml to generate release notes before packaging and use them as the GitHub release body"
+    ]
   }
 ]

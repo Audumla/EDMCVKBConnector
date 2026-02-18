@@ -9,6 +9,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-004 | 2026-02-19 | copilot | Build / Packaging, New Feature | Added release notes generation script and wired it into the release workflow and ZIP packaging |
 | CHG-003 | 2026-02-19 | copilot | Documentation Update | Strengthened changelog policy: recording is now required after every task, not at end of session |
 | CHG-002 | 2026-02-19 | copilot | Documentation Update, Configuration Cleanup | Established cross-agent changelog infrastructure committed to the repository |
 | CHG-001 | 2026-02-19 | copilot | Configuration Cleanup, Code Refactoring | Moved bundled data files to `data/` subdirectory and centralised path references |
@@ -16,6 +17,18 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-004 — 2026-02-19 · copilot · plugin v0.2.0
+
+**Tags:** Build / Packaging, New Feature
+
+**Summary:** Added release notes generation script and wired it into the release workflow and ZIP packaging
+
+**Changes:**
+- Created `scripts/generate_release_notes.py`: reads `CHANGELOG.json`, filters by version, groups by summary tag, outputs `RELEASE_NOTES.md`
+- Supports `--version`, `--since`, `--all`, `--output`, `--stdout` flags for flexible local and CI use
+- Updated `package_plugin.py` to include `dist/RELEASE_NOTES.md` in the distributable ZIP when present
+- Updated `.github/workflows/release-please.yml` to generate release notes before packaging and use them as the GitHub release body
 
 ### CHG-003 — 2026-02-19 · copilot · plugin v0.2.0
 

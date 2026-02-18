@@ -91,6 +91,13 @@ def package() -> Path:
                 print(f"  + {PLUGIN_NAME}/rules.json (from rules.json.example)")
                 count += 1
 
+        # Include release notes if they have been generated
+        release_notes = DIST_DIR / "RELEASE_NOTES.md"
+        if release_notes.exists():
+            zf.write(release_notes, f"{PLUGIN_NAME}/RELEASE_NOTES.md")
+            print(f"  + {PLUGIN_NAME}/RELEASE_NOTES.md")
+            count += 1
+
     print(f"\nPackaged {count} files -> {zip_path} ({zip_path.stat().st_size:,} bytes)")
     return zip_path
 

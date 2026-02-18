@@ -33,6 +33,13 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Generate release notes
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: |
+          python scripts/generate_release_notes.py \
+            --version ${{ steps.release.outputs.version }} \
+            --output dist/RELEASE_NOTES.md
+
       - name: Build plugin zip
         if: ${{ steps.release.outputs.release_created == 'true' }}
         run: python scripts/package_plugin.py
@@ -43,5 +50,6 @@ jobs:
         with:
           tag_name: ${{ steps.release.outputs.tag_name }}
           files: dist/EDMCVKBConnector-${{ steps.release.outputs.version }}.zip
+          body_path: dist/RELEASE_NOTES.md
           fail_on_unmatched_files: true
           prerelease: ${{ contains(steps.release.outputs.version, '-alpha') || contains(steps.release.outputs.version, '-beta') || contains(steps.release.outputs.version, '-rc') }}
