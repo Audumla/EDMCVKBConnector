@@ -97,6 +97,10 @@ class UnregisteredEventsTracker:
             self.unregistered_events.pop(event_type, None)
             return
         
+        # Check if event only contains timestamp fields - skip if it does
+        if self._is_timestamp_only(event_data):
+            return
+        
         # Event not in catalog, track it
         if event_type not in self.unregistered_events:
             entry = {
@@ -119,6 +123,31 @@ class UnregisteredEventsTracker:
         
         # Persist to file
         self._save_to_file()
+    
+    def _is_timestamp_only(self, event_data: Dict[str, Any]) -> bool:
+        """
+        Check if event data contains only timestamp fields.
+        
+        Args:
+            event_data: Event data dictionary
+            
+        Returns:
+            True if all non-empty fields are timestamp-related, False otherwise
+        """
+        if not isinstance(event_data, dict) or not event_data:
+            return True
+        
+        # Keywords that indicate timestamp fields
+        timestamp_keywords = ['time', 'timestamp', 'date', 'epoch']
+        
+        for key in event_data.keys():
+            key_lower = str(key).lower()
+            # If any field is NOT a timestamp field, return False
+            if not any(kw in key_lower for kw in timestamp_keywords):
+                return False
+        
+        # All fields are timestamp-related
+        return True
     
     def _is_event_known(self, event_type: str) -> bool:
         """

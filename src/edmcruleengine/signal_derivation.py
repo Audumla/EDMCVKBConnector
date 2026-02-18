@@ -90,13 +90,13 @@ class SignalDerivation:
     ) -> Any:
         """
         Derive a single signal value.
-        
+
         Args:
             signal_name: Signal name
             signal_def: Signal definition from catalog
             entry: Raw dashboard/status entry
             context: Additional context (recent_events, trigger_source, etc.)
-            
+
         Returns:
             Derived signal value
         """
@@ -104,6 +104,10 @@ class SignalDerivation:
             context = {}
         derive_spec = signal_def.get("derive", {})
         signal_type = signal_def.get("type")
+
+        # Skip container signals (no derive key or derive op is None)
+        if not derive_spec or derive_spec.get("op") is None:
+            return None
         
         value = self._execute_derive_op(derive_spec, entry, context)
         
@@ -162,6 +166,20 @@ class SignalDerivation:
             return self._derive_and(derive_spec, entry, context)
         elif op == "or":
             return self._derive_or(derive_spec, entry, context)
+        elif op == "count":
+            return self._derive_count(derive_spec, entry)
+        elif op == "exists":
+            return self._derive_exists(derive_spec, entry)
+        elif op == "sum":
+            return self._derive_sum(derive_spec, entry, context)
+        elif op == "any":
+            return self._derive_any(derive_spec, entry)
+        elif op == "not":
+            return self._derive_not(derive_spec, entry, context)
+        elif op in {"eq", "ne", "lt", "lte", "gt", "gte"}:
+            return self._derive_compare(derive_spec, entry, context)
+        elif op == "match":
+            return self._check_match(derive_spec, entry, context)
         else:
             raise ValueError(f"Unknown derivation op: {op}")
     
@@ -321,9 +339,113 @@ class SignalDerivation:
             return self._derive_and(condition_spec, entry, context)
         elif op == "or":
             return self._derive_or(condition_spec, entry, context)
+        elif op == "not":
+            return self._derive_not(condition_spec, entry, context)
+        elif op == "match":
+            return self._check_match(condition_spec, entry, context)
+        elif op in {"eq", "ne", "lt", "lte", "gt", "gte"}:
+            return self._derive_compare(condition_spec, entry, context)
         
         # Could add more condition types here
         return False
+
+    def _resolve_operand(
+        self,
+        operand: Any,
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """
+        Resolve an operand that may be a literal or nested derive spec.
+
+        Args:
+            operand: Literal value or derive spec dict
+            entry: Raw data entry
+            context: Additional context
+
+        Returns:
+            Resolved operand value
+        """
+        if context is None:
+            context = {}
+
+        if isinstance(operand, dict) and "op" in operand:
+            op = operand.get("op")
+            if op in {"eq", "ne", "lt", "lte", "gt", "gte", "not", "match"}:
+                return self._check_condition(operand, entry, context)
+            return self._execute_derive_op(operand, entry, context)
+
+        return operand
+
+    def _derive_compare(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Compare two values using a comparison operator.
+
+        Supports both forms:
+        - {"op":"eq","left":{...},"right":...}
+        - {"op":"eq","path":"state.Rank.Empire","value":3}
+        """
+        if context is None:
+            context = {}
+
+        op = spec.get("op")
+        left_spec = spec.get("left")
+        right_spec = spec.get("right")
+
+        # Backward-compatible shorthand used in catalog conditions
+        if left_spec is None and "path" in spec:
+            left_spec = {"op": "path", "path": spec.get("path")}
+        if right_spec is None and "value" in spec:
+            right_spec = spec.get("value")
+
+        left = self._resolve_operand(left_spec, entry, context)
+        right = self._resolve_operand(right_spec, entry, context)
+
+        try:
+            if op == "eq":
+                return left == right
+            if op == "ne":
+                return left != right
+            if op == "lt":
+                return left < right
+            if op == "lte":
+                return left <= right
+            if op == "gt":
+                return left > right
+            if op == "gte":
+                return left >= right
+        except TypeError:
+            return False
+
+        return False
+
+    def _derive_not(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Negate a condition.
+
+        Args:
+            spec: {"op":"not","condition":{...}}
+            entry: Raw data entry
+            context: Additional context
+
+        Returns:
+            Logical negation of the child condition
+        """
+        if context is None:
+            context = {}
+
+        condition = spec.get("condition", {})
+        return not self._check_condition(condition, entry, context)
     
     def _derive_event(
         self,
@@ -423,6 +545,41 @@ class SignalDerivation:
         
         return False
     
+    def _check_match(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        Check if an event property matches a specific value.
+        
+        Args:
+            spec: { "op": "match", "event_property": "IsPlayer", "value": true }
+                  or { "op": "match", "event_name": "Interdicted", "event_property": "IsPlayer", "value": true }
+            entry: Raw data entry (contains event properties and '__edmc_event_type')
+            context: Additional context (optional, unused for match)
+            
+        Returns:
+            True if event property matches value (or if event_name matches if specified)
+        """
+        # Optional: check if this is the right event type
+        expected_event = spec.get("event_name")
+        if expected_event:
+            current_event = entry.get("event") or entry.get("__edmc_event_type")
+            if current_event != expected_event:
+                return False
+        
+        # Extract the property and compare
+        property_name = spec.get("event_property", spec.get("field"))
+        expected_value = spec.get("value")
+        
+        if not property_name:
+            return False
+        
+        actual_value = entry.get(property_name)
+        return actual_value == expected_value
+    
     def _extract_path(self, data: Any, path: str) -> Any:
         """
         Extract value from nested dict using dot notation.
@@ -447,3 +604,105 @@ class SignalDerivation:
             else:
                 return None
         return current
+
+    def _derive_count(self, spec: Dict[str, Any], entry: Dict[str, Any]) -> int:
+        """
+        Count elements in a list or dict at path.
+
+        Args:
+            spec: { "op": "count", "path": "state.Raw", "default": 0 }
+            entry: Raw data entry
+
+        Returns:
+            Count of elements or default if path doesn't exist
+        """
+        path = spec.get("path", "")
+        default = spec.get("default", 0)
+
+        value = self._extract_path(entry, path)
+        if value is None:
+            return default
+
+        if isinstance(value, (list, dict)):
+            return len(value)
+
+        return default
+
+    def _derive_exists(self, spec: Dict[str, Any], entry: Dict[str, Any]) -> bool:
+        """
+        Check if a value exists at path.
+
+        Args:
+            spec: { "op": "exists", "path": "state.Powerplay.Power" }
+            entry: Raw data entry
+
+        Returns:
+            True if path exists and is not empty, False otherwise
+        """
+        path = spec.get("path", "")
+        value = self._extract_path(entry, path)
+
+        if value is None or value == "":
+            return False
+
+        return True
+
+    def _derive_sum(
+        self,
+        spec: Dict[str, Any],
+        entry: Dict[str, Any],
+        context: Dict[str, Any]
+    ) -> int:
+        """
+        Sum multiple derived values.
+
+        Args:
+            spec: { "op": "sum", "values": [{"op": "count", ...}, ...], "default": 0 }
+            entry: Raw data entry
+            context: Additional context
+
+        Returns:
+            Sum of all derived values
+        """
+        values_specs = spec.get("values", [])
+        default = spec.get("default", 0)
+
+        total = 0
+        for value_spec in values_specs:
+            try:
+                value = self._execute_derive_op(value_spec, entry, context)
+                total += int(value) if value is not None else 0
+            except (ValueError, TypeError):
+                continue
+
+        return total if total > 0 else default
+
+    def _derive_any(self, spec: Dict[str, Any], entry: Dict[str, Any]) -> bool:
+        """
+        Check if any element in array has property matching value.
+
+        Args:
+            spec: { "op": "any", "path": "state.Passengers", "property": "VIP", "value": true, "default": false }
+            entry: Raw data entry
+
+        Returns:
+            True if any element matches, False otherwise
+        """
+        path = spec.get("path", "")
+        property_name = spec.get("property")
+        match_value = spec.get("value", True)  # Default: check if property is truthy
+        default = spec.get("default", False)
+
+        array = self._extract_path(entry, path)
+        if not isinstance(array, list):
+            return default
+
+        for item in array:
+            if isinstance(item, dict):
+                if property_name:
+                    if item.get(property_name) == match_value:
+                        return True
+            elif item == match_value:
+                return True
+
+        return default

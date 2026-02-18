@@ -45,8 +45,8 @@ def test_cascading_dropdown_structure():
     has_subcats = any(key for key in commander_sigs.keys() if key)
     assert has_subcats, "Commander category should have signals with subcategories"
     
-    # Check specific subcategories exist
-    expected_subcats = {"Rank", "Rank Progress", "Faction Progress"}
+    # Check specific subcategories exist (updated to match current catalog)
+    expected_subcats = {"Rank", "Reputation", "Promotion"}
     actual_subcats = set(key for key in commander_sigs.keys() if key)
     assert expected_subcats.issubset(actual_subcats), f"Expected subcategories {expected_subcats}, got {actual_subcats}"
     

@@ -51,17 +51,12 @@
     "when": {
       "any": [
         {
-          "signal": "flag_in_danger",
-          "op": "eq",
-          "value": "danger"
-        },
-        {
-          "signal": "flag_low_health",
+          "signal": "oxygen",
           "op": "eq",
           "value": "low"
         },
         {
-          "signal": "flag_overheating",
+          "signal": "heat_status",
           "op": "eq",
           "value": "overheating"
         }
@@ -89,7 +84,7 @@
           "value": "combat"
         },
         {
-          "signal": "flag_shields_up",
+          "signal": "shield_state",
           "op": "eq",
           "value": "up"
         }
@@ -138,9 +133,9 @@
     "when": {
       "all": [
         {
-          "signal": "transport",
+          "signal": "srv_deployed_state",
           "op": "eq",
-          "value": "srv"
+          "value": "deployed"
         }
       ]
     },
@@ -161,19 +156,19 @@
     "when": {
       "all": [
         {
-          "signal": "transport",
+          "signal": "srv_deployed_state",
           "op": "eq",
-          "value": "ship"
+          "value": "stowed"
         }
       ],
       "any": [
         {
-          "signal": "fsd_state",
+          "signal": "fsd_status",
           "op": "eq",
           "value": "charging"
         },
         {
-          "signal": "fsd_state",
+          "signal": "fsd_status",
           "op": "eq",
           "value": "jump_active"
         }

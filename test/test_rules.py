@@ -142,13 +142,12 @@ class TestSignalDerivation:
     def test_derive_enum_signal_from_flag(self, derivation):
         """Test deriving enum signal from flag."""
         entry = {"Flags": 0b01000000, "Flags2": 0}  # Bit 6 = hardpoints
-        
+
         signals = derivation.derive_all_signals(entry)
-        
+
         # When bit 6 is set, hardpoints are deployed
         assert signals["hardpoints"] == "deployed"
-        # Check individual flag signals exist
-        assert "flag_hardpoints_deployed" in signals
+        # Note: flag_hardpoints_deployed was removed, hardpoints is now an enum signal
     
     def test_derive_enum_signal_from_path(self, derivation):
         """Test deriving enum signal from path."""
@@ -552,8 +551,7 @@ class TestRuleEngine:
             "title": "Emergency",
             "when": {
                 "any": [
-                    {"signal": "flag_in_danger", "op": "eq", "value": "danger"},
-                    {"signal": "flag_overheating", "op": "eq", "value": "overheating"}
+                    {"signal": "heat_status", "op": "eq", "value": "overheating"}
                 ]
             },
             "then": [{"log": "emergency"}]
@@ -571,9 +569,9 @@ class TestRuleEngine:
         entry = {"Flags": 0, "Flags2": 0, "GuiFocus": 0}
         engine.on_notification("TestCmdr", False, "dashboard", "Status", entry)
         # First eval fires else, so we get one action
-        
-        # One condition true (in_danger = bit 22)
-        entry = {"Flags": 1 << 22, "Flags2": 0, "GuiFocus": 0}
+
+        # One condition true (overheating = bit 20)
+        entry = {"Flags": 1 << 20, "Flags2": 0, "GuiFocus": 0}
         engine.on_notification("TestCmdr", False, "dashboard", "Status", entry)
         assert True in actions_executed  # Should match
 

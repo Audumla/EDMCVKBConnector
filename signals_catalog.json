@@ -331,8 +331,9 @@
       "title": "Night vision",
       "ui": {
         "label": "Night vision",
-        "category": "HUD",
-        "tier": "core"
+        "category": "Ship",
+        "tier": "core",
+        "subcategory": "Controls"
       },
       "values": [
         {
@@ -363,7 +364,7 @@
       "type": "string",
       "title": "Commander",
       "ui": {
-        "label": "Commander name",
+        "label": "Name",
         "category": "Commander",
         "tier": "core"
       },
@@ -371,111 +372,6 @@
         "op": "path",
         "path": "state.Commander",
         "default": ""
-      }
-    },
-    "transport": {
-      "type": "enum",
-      "title": "Transport",
-      "ui": {
-        "label": "Current transport",
-        "category": "Commander",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "ship",
-          "label": "Ship"
-        },
-        {
-          "value": "srv",
-          "label": "SRV"
-        },
-        {
-          "value": "fighter",
-          "label": "Fighter"
-        },
-        {
-          "value": "on_foot",
-          "label": "On foot"
-        },
-        {
-          "value": "in_taxi",
-          "label": "In Taxi"
-        },
-        {
-          "value": "in_multicrew",
-          "label": "In Multicrew"
-        },
-        {
-          "value": "in_wing",
-          "label": "In Wing"
-        },
-        {
-          "value": "unknown",
-          "label": "Unknown"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 0
-            },
-            "value": "on_foot"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 1
-            },
-            "value": "in_taxi"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 2
-            },
-            "value": "in_multicrew"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 7
-            },
-            "value": "in_wing"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 26
-            },
-            "value": "srv"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 25
-            },
-            "value": "fighter"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 24
-            },
-            "value": "ship"
-          }
-        ],
-        "default": "unknown"
       }
     },
     "credits": {
@@ -1797,103 +1693,82 @@
         },
         "values": [
           {
-            "value": "none",
+            "value": 0,
             "label": "None"
           },
           {
-            "value": "outsider",
+            "value": 1,
             "label": "Outsider"
           },
           {
-            "value": "serf",
+            "value": 2,
             "label": "Serf"
           },
           {
-            "value": "master",
+            "value": 3,
             "label": "Master"
           },
           {
-            "value": "squire",
+            "value": 4,
             "label": "Squire"
           },
           {
-            "value": "knight",
+            "value": 5,
             "label": "Knight"
           },
           {
-            "value": "lord",
+            "value": 6,
             "label": "Lord"
           },
           {
-            "value": "baron",
+            "value": 7,
             "label": "Baron"
           },
           {
-            "value": "viscount",
+            "value": 8,
             "label": "Viscount"
           },
           {
-            "value": "count",
+            "value": 9,
             "label": "Count"
           },
           {
-            "value": "earl",
+            "value": 10,
             "label": "Earl"
           },
           {
-            "value": "marquis",
+            "value": 11,
             "label": "Marquis"
           },
           {
-            "value": "duke",
+            "value": 12,
             "label": "Duke"
           },
           {
-            "value": "prince",
+            "value": 13,
             "label": "Prince"
           },
           {
-            "value": "king",
+            "value": 14,
             "label": "King"
           }
         ],
         "derive": {
-          "op": "map",
-          "from": {
-            "op": "first_match",
-            "cases": [
-              {
-                "when": {
-                  "op": "recent",
-                  "event_name": "Promotion",
-                  "within_seconds": 5
-                },
-                "value": {
-                  "op": "path",
-                  "path": "Empire",
-                  "default": null
-                }
+          "op": "first_match",
+          "cases": [
+            {
+              "when": {
+                "op": "recent",
+                "event_name": "Promotion",
+                "within_seconds": 5
+              },
+              "value": {
+                "op": "path",
+                "path": "Empire",
+                "default": null
               }
-            ],
-            "default": null
-          },
-          "map": {
-            "0": "none",
-            "1": "outsider",
-            "2": "serf",
-            "3": "master",
-            "4": "squire",
-            "5": "knight",
-            "6": "lord",
-            "7": "baron",
-            "8": "viscount",
-            "9": "count",
-            "10": "earl",
-            "11": "marquis",
-            "12": "duke",
-            "13": "prince",
-            "14": "king"
-          },
+            }
+          ],
           "default": null
         }
       },
@@ -1908,103 +1783,82 @@
         },
         "values": [
           {
-            "value": "none",
+            "value": 0,
             "label": "None"
           },
           {
-            "value": "recruit",
+            "value": 1,
             "label": "Recruit"
           },
           {
-            "value": "cadet",
+            "value": 2,
             "label": "Cadet"
           },
           {
-            "value": "midshipman",
+            "value": 3,
             "label": "Midshipman"
           },
           {
-            "value": "petty_officer",
+            "value": 4,
             "label": "Petty Officer"
           },
           {
-            "value": "chief_petty_officer",
+            "value": 5,
             "label": "Chief Petty Officer"
           },
           {
-            "value": "warrant_officer",
+            "value": 6,
             "label": "Warrant Officer"
           },
           {
-            "value": "ensign",
+            "value": 7,
             "label": "Ensign"
           },
           {
-            "value": "lieutenant",
+            "value": 8,
             "label": "Lieutenant"
           },
           {
-            "value": "lieutenant_commander",
+            "value": 9,
             "label": "Lieutenant Commander"
           },
           {
-            "value": "post_commander",
+            "value": 10,
             "label": "Post Commander"
           },
           {
-            "value": "post_captain",
+            "value": 11,
             "label": "Post Captain"
           },
           {
-            "value": "rear_admiral",
+            "value": 12,
             "label": "Rear Admiral"
           },
           {
-            "value": "vice_admiral",
+            "value": 13,
             "label": "Vice Admiral"
           },
           {
-            "value": "admiral",
+            "value": 14,
             "label": "Admiral"
           }
         ],
         "derive": {
-          "op": "map",
-          "from": {
-            "op": "first_match",
-            "cases": [
-              {
-                "when": {
-                  "op": "recent",
-                  "event_name": "Promotion",
-                  "within_seconds": 5
-                },
-                "value": {
-                  "op": "path",
-                  "path": "Federation",
-                  "default": null
-                }
+          "op": "first_match",
+          "cases": [
+            {
+              "when": {
+                "op": "recent",
+                "event_name": "Promotion",
+                "within_seconds": 5
+              },
+              "value": {
+                "op": "path",
+                "path": "Federation",
+                "default": null
               }
-            ],
-            "default": null
-          },
-          "map": {
-            "0": "none",
-            "1": "recruit",
-            "2": "cadet",
-            "3": "midshipman",
-            "4": "petty_officer",
-            "5": "chief_petty_officer",
-            "6": "warrant_officer",
-            "7": "ensign",
-            "8": "lieutenant",
-            "9": "lieutenant_commander",
-            "10": "post_commander",
-            "11": "post_captain",
-            "12": "rear_admiral",
-            "13": "vice_admiral",
-            "14": "admiral"
-          },
+            }
+          ],
           "default": null
         }
       },
@@ -2331,186 +2185,6 @@
           ],
           "default": null
         }
-      },
-      "empire": {
-        "type": "enum",
-        "title": "Empire promotion",
-        "ui": {
-          "label": "Empire promotion",
-          "category": "Commander",
-          "subcategory": "Promotion",
-          "tier": "detail"
-        },
-        "values": [
-          {
-            "value": 0,
-            "label": "None"
-          },
-          {
-            "value": 1,
-            "label": "Outsider"
-          },
-          {
-            "value": 2,
-            "label": "Serf"
-          },
-          {
-            "value": 3,
-            "label": "Master"
-          },
-          {
-            "value": 4,
-            "label": "Squire"
-          },
-          {
-            "value": 5,
-            "label": "Knight"
-          },
-          {
-            "value": 6,
-            "label": "Lord"
-          },
-          {
-            "value": 7,
-            "label": "Baron"
-          },
-          {
-            "value": 8,
-            "label": "Viscount"
-          },
-          {
-            "value": 9,
-            "label": "Count"
-          },
-          {
-            "value": 10,
-            "label": "Earl"
-          },
-          {
-            "value": 11,
-            "label": "Marquis"
-          },
-          {
-            "value": 12,
-            "label": "Duke"
-          },
-          {
-            "value": 13,
-            "label": "Prince"
-          },
-          {
-            "value": 14,
-            "label": "King"
-          }
-        ],
-        "derive": {
-          "op": "first_match",
-          "cases": [
-            {
-              "when": {
-                "op": "recent",
-                "event_name": "Promotion",
-                "within_seconds": 5
-              },
-              "value": {
-                "op": "path",
-                "path": "Empire",
-                "default": null
-              }
-            }
-          ],
-          "default": null
-        }
-      },
-      "federation": {
-        "type": "enum",
-        "title": "Federation promotion",
-        "ui": {
-          "label": "Federation promotion",
-          "category": "Commander",
-          "subcategory": "Promotion",
-          "tier": "detail"
-        },
-        "values": [
-          {
-            "value": 0,
-            "label": "None"
-          },
-          {
-            "value": 1,
-            "label": "Recruit"
-          },
-          {
-            "value": 2,
-            "label": "Cadet"
-          },
-          {
-            "value": 3,
-            "label": "Midshipman"
-          },
-          {
-            "value": 4,
-            "label": "Petty Officer"
-          },
-          {
-            "value": 5,
-            "label": "Chief Petty Officer"
-          },
-          {
-            "value": 6,
-            "label": "Warrant Officer"
-          },
-          {
-            "value": 7,
-            "label": "Ensign"
-          },
-          {
-            "value": 8,
-            "label": "Lieutenant"
-          },
-          {
-            "value": 9,
-            "label": "Lieutenant Commander"
-          },
-          {
-            "value": 10,
-            "label": "Post Commander"
-          },
-          {
-            "value": 11,
-            "label": "Post Captain"
-          },
-          {
-            "value": 12,
-            "label": "Rear Admiral"
-          },
-          {
-            "value": 13,
-            "label": "Vice Admiral"
-          },
-          {
-            "value": 14,
-            "label": "Admiral"
-          }
-        ],
-        "derive": {
-          "op": "first_match",
-          "cases": [
-            {
-              "when": {
-                "op": "recent",
-                "event_name": "Promotion",
-                "within_seconds": 5
-              },
-              "value": {
-                "op": "path",
-                "path": "Federation",
-                "default": null
-              }
-            }
-          ],
-          "default": null
-        }
       }
     },
     "_comment_commander_activity": "=== COMMANDER ACTIVITY & EVENTS ===",
@@ -2597,7 +2271,7 @@
       "type": "enum",
       "title": "Docking",
       "ui": {
-        "label": "Docking state",
+        "label": "Events",
         "category": "Ship",
         "tier": "core",
         "subcategory": "Docking"
@@ -2998,301 +2672,6 @@
       }
     },
     "_comment_travel": "=== TRAVEL & FSD ===",
-    "supercruise_state": {
-      "type": "enum",
-      "title": "Supercruise",
-      "ui": {
-        "label": "Supercruise state",
-        "category": "Travel",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "off",
-          "label": "Normal space"
-        },
-        {
-          "value": "on",
-          "label": "Supercruise"
-        },
-        {
-          "value": "entering",
-          "label": "Entering",
-          "recent_event": "SupercruiseEntry"
-        },
-        {
-          "value": "exiting",
-          "label": "Exiting",
-          "recent_event": "SupercruiseExit"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "and",
-              "conditions": [
-                {
-                  "op": "recent",
-                  "event_name": "SupercruiseEntry",
-                  "within_seconds": 3
-                },
-                {
-                  "op": "flag",
-                  "field_ref": "ship_flags",
-                  "bit": 4
-                }
-              ]
-            },
-            "value": "entering"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SupercruiseExit",
-              "within_seconds": 3
-            },
-            "value": "exiting"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 4
-            },
-            "value": "on"
-          }
-        ],
-        "default": "off"
-      }
-    },
-    "fsd_state": {
-      "type": "enum",
-      "title": "FSD state",
-      "ui": {
-        "label": "FSD state",
-        "category": "Ship",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "idle",
-          "label": "Idle"
-        },
-        {
-          "value": "charging",
-          "label": "Charging"
-        },
-        {
-          "value": "cooldown",
-          "label": "Cooldown"
-        },
-        {
-          "value": "jump_active",
-          "label": "Jump active"
-        },
-        {
-          "value": "supercruise",
-          "label": "Supercruise"
-        },
-        {
-          "value": "gliding",
-          "label": "Gliding"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 30
-            },
-            "value": "jump_active"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 4
-            },
-            "value": "supercruise"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Glide",
-              "within_seconds": 30
-            },
-            "value": "gliding"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 17
-            },
-            "value": "charging"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "ship_flags",
-              "bit": 18
-            },
-            "value": "cooldown"
-          }
-        ],
-        "default": "idle"
-      }
-    },
-    "jump_type": {
-      "type": "enum",
-      "title": "Jump type",
-      "ui": {
-        "label": "Jump type",
-        "category": "Travel",
-        "tier": "detail"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "hyperspace",
-          "label": "Hyperspace",
-          "recent_event": "StartJump"
-        },
-        {
-          "value": "supercruise",
-          "label": "Supercruise",
-          "recent_event": "StartJump"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "StartJump",
-              "within_seconds": 10,
-              "field": "JumpType",
-              "value": "Hyperspace"
-            },
-            "value": "hyperspace"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SupercruiseEntry",
-              "within_seconds": 5
-            },
-            "value": "supercruise"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "mass_locked": {
-      "type": "enum",
-      "title": "Mass locked",
-      "ui": {
-        "label": "Mass locked",
-        "category": "Ship",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "no",
-          "label": "No"
-        },
-        {
-          "value": "yes",
-          "label": "Yes"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 16
-        },
-        "map": {
-          "false": "no",
-          "true": "yes"
-        },
-        "default": "no"
-      }
-    },
-    "flag_in_danger": {
-      "type": "enum",
-      "title": "In danger (flag)",
-      "ui": {
-        "label": "In danger",
-        "category": "Travel",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "safe",
-          "label": "Safe"
-        },
-        {
-          "value": "danger",
-          "label": "Danger"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 22
-        },
-        "map": {
-          "false": "safe",
-          "true": "danger"
-        },
-        "default": "safe"
-      }
-    },
-    "flag_hud_analysis_mode": {
-      "type": "enum",
-      "title": "HUD analysis mode (flag)",
-      "ui": {
-        "label": "Analysis mode",
-        "category": "Travel",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "no",
-          "label": "No"
-        },
-        {
-          "value": "yes",
-          "label": "Yes"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 27
-        },
-        "map": {
-          "false": "no",
-          "true": "yes"
-        },
-        "default": "no"
-      }
-    },
     "flag_altitude_from_avg_radius": {
       "type": "enum",
       "title": "Altitude mode (flag)",
@@ -3337,53 +2716,6 @@
         "op": "path",
         "path": "dashboard.Destination.System",
         "default": ""
-      }
-    },
-    "jet_cone_boost_state": {
-      "type": "enum",
-      "title": "Jet cone boost",
-      "ui": {
-        "label": "Jet cone boost",
-        "category": "Travel",
-        "tier": "detail"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "boosted",
-          "label": "Boosted",
-          "recent_event": "JetConeBoost"
-        },
-        {
-          "value": "damaged",
-          "label": "Damaged",
-          "recent_event": "JetConeDamage"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "JetConeDamage",
-              "within_seconds": 5
-            },
-            "value": "damaged"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "JetConeBoost",
-              "within_seconds": 10
-            },
-            "value": "boosted"
-          }
-        ],
-        "default": "none"
       }
     },
     "_comment_ship": "=== SHIP STATUS ===",
@@ -3608,7 +2940,8 @@
       "ui": {
         "label": "Landing gear",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Controls"
       },
       "values": [
         {
@@ -3634,134 +2967,6 @@
         "default": "retracted"
       }
     },
-    "flag_shields_up": {
-      "type": "enum",
-      "title": "Shields up (flag)",
-      "ui": {
-        "label": "Shields up",
-        "category": "Ship",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "down",
-          "label": "Down"
-        },
-        {
-          "value": "up",
-          "label": "Up"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 3
-        },
-        "map": {
-          "false": "down",
-          "true": "up"
-        },
-        "default": "down"
-      }
-    },
-    "flag_flight_assist_off": {
-      "type": "enum",
-      "title": "Flight assist off (flag)",
-      "ui": {
-        "label": "Flight assist disabled",
-        "category": "Ship",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "on",
-          "label": "On"
-        },
-        {
-          "value": "off",
-          "label": "Off"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 5
-        },
-        "map": {
-          "false": "on",
-          "true": "off"
-        },
-        "default": "on"
-      }
-    },
-    "flag_hardpoints_deployed": {
-      "type": "enum",
-      "title": "Hardpoints deployed (flag)",
-      "ui": {
-        "label": "Hardpoints deployed",
-        "category": "Ship",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "retracted",
-          "label": "Retracted"
-        },
-        {
-          "value": "deployed",
-          "label": "Deployed"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 6
-        },
-        "map": {
-          "false": "retracted",
-          "true": "deployed"
-        },
-        "default": "retracted"
-      }
-    },
-    "flag_in_wing": {
-      "type": "enum",
-      "title": "In wing (flag)",
-      "ui": {
-        "label": "In a wing",
-        "category": "Ship",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "no",
-          "label": "No"
-        },
-        {
-          "value": "yes",
-          "label": "Yes"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 7
-        },
-        "map": {
-          "false": "no",
-          "true": "yes"
-        },
-        "default": "no"
-      }
-    },
     "cargo_hatch": {
       "type": "enum",
       "title": "Cargo hatch",
@@ -3769,7 +2974,7 @@
         "label": "Cargo hatch",
         "category": "Ship",
         "tier": "core",
-        "subcategory": "Cargo"
+        "subcategory": "Controls"
       },
       "values": [
         {
@@ -3795,45 +3000,14 @@
         "default": "retracted"
       }
     },
-    "lights": {
-      "type": "enum",
-      "title": "Lights",
-      "ui": {
-        "label": "External lights",
-        "category": "Ship",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "off",
-          "label": "Off"
-        },
-        {
-          "value": "on",
-          "label": "On"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "ship_flags",
-          "bit": 8
-        },
-        "map": {
-          "false": "off",
-          "true": "on"
-        },
-        "default": "off"
-      }
-    },
     "silent_running": {
       "type": "enum",
       "title": "Silent running",
       "ui": {
         "label": "Silent running",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Controls"
       },
       "values": [
         {
@@ -3863,9 +3037,10 @@
       "type": "enum",
       "title": "Flight assist",
       "ui": {
-        "label": "Flight assist",
+        "label": "Flight Assist",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Controls"
       },
       "values": [
         {
@@ -3897,7 +3072,8 @@
       "ui": {
         "label": "Heat status",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Health"
       },
       "values": [
         {
@@ -3992,7 +3168,7 @@
         "label": "Repair status",
         "category": "Ship",
         "tier": "detail",
-        "subcategory": "Ship Health"
+        "subcategory": "Health"
       },
       "values": [
         {
@@ -4013,6 +3189,11 @@
           "value": "rebooting",
           "label": "Rebooting",
           "recent_event": "RebootRepair"
+        },
+        {
+          "value": "afmu_repairs",
+          "label": "AFMU repairing",
+          "recent_event": "AfmuRepairs"
         }
       ],
       "derive": {
@@ -4053,7 +3234,7 @@
         "label": "Cockpit status",
         "category": "Ship",
         "tier": "detail",
-        "subcategory": "Ship Health"
+        "subcategory": "Health"
       },
       "values": [
         {
@@ -4115,7 +3296,7 @@
       "type": "number",
       "title": "Cargo",
       "ui": {
-        "label": "Cargo count",
+        "label": "Count",
         "category": "Ship",
         "tier": "core",
         "subcategory": "Cargo"
@@ -4130,7 +3311,7 @@
       "type": "enum",
       "title": "Cargo activity",
       "ui": {
-        "label": "Cargo activity",
+        "label": "Activity",
         "category": "Ship",
         "tier": "detail",
         "subcategory": "Cargo"
@@ -4182,7 +3363,7 @@
         "label": "Hull value",
         "category": "Ship",
         "tier": "detail",
-        "subcategory": "Ship Health"
+        "subcategory": "Health"
       },
       "derive": {
         "op": "path",
@@ -4227,7 +3408,7 @@
         "label": "Hull health %",
         "category": "Ship",
         "tier": "core",
-        "subcategory": "Ship Health"
+        "subcategory": "Health"
       },
       "derive": {
         "op": "path",
@@ -4299,7 +3480,7 @@
       "type": "number",
       "title": "Cargo capacity",
       "ui": {
-        "label": "Cargo capacity",
+        "label": "Capacity",
         "category": "Ship",
         "tier": "detail",
         "subcategory": "Cargo"
@@ -4314,9 +3495,10 @@
       "type": "enum",
       "title": "Ship status",
       "ui": {
-        "label": "Ship legal status",
+        "label": "Legal Status",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Details"
       },
       "values": [
         {
@@ -4349,7 +3531,8 @@
       "ui": {
         "label": "Hardpoints",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Controls"
       },
       "values": [
         {
@@ -4381,7 +3564,8 @@
       "ui": {
         "label": "Shield state",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Health"
       },
       "values": [
         {
@@ -4464,7 +3648,7 @@
         "label": "Hull state",
         "category": "Ship",
         "tier": "core",
-        "subcategory": "Ship Health"
+        "subcategory": "Health"
       },
       "values": [
         {
@@ -4522,79 +3706,6 @@
         "default": "ok"
       }
     },
-    "combat_state": {
-      "type": "enum",
-      "title": "Combat",
-      "ui": {
-        "label": "Combat state",
-        "category": "Ship",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "peaceful",
-          "label": "Peaceful"
-        },
-        {
-          "value": "under_attack",
-          "label": "Under attack",
-          "recent_event": "UnderAttack"
-        },
-        {
-          "value": "killed_target",
-          "label": "Killed target",
-          "recent_event": "PVPKill"
-        },
-        {
-          "value": "destroyed",
-          "label": "Destroyed",
-          "recent_event": "Died"
-        },
-        {
-          "value": "got_bounty",
-          "label": "Bounty awarded",
-          "recent_event": "Bounty"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Died",
-              "within_seconds": 10
-            },
-            "value": "destroyed"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "UnderAttack",
-              "within_seconds": 5
-            },
-            "value": "under_attack"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Bounty",
-              "within_seconds": 5
-            },
-            "value": "got_bounty"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "PVPKill",
-              "within_seconds": 5
-            },
-            "value": "killed_target"
-          }
-        ],
-        "default": "peaceful"
-      }
-    },
     "target_state": {
       "type": "enum",
       "title": "Target",
@@ -4618,6 +3729,11 @@
           "value": "lost",
           "label": "Lost",
           "recent_event": "ShipTargetted"
+        },
+        {
+          "value": "killed_target",
+          "label": "Killed target",
+          "recent_event": "PVPKill"
         }
       ],
       "derive": {
@@ -4625,20 +3741,18 @@
         "cases": [
           {
             "when": {
-              "op": "recent",
+              "op": "match",
               "event_name": "ShipTargetted",
-              "within_seconds": 2,
-              "field": "TargetLocked",
+              "event_property": "TargetLocked",
               "value": true
             },
             "value": "locked"
           },
           {
             "when": {
-              "op": "recent",
+              "op": "match",
               "event_name": "ShipTargetted",
-              "within_seconds": 2,
-              "field": "TargetLocked",
+              "event_property": "TargetLocked",
               "value": false
             },
             "value": "lost"
@@ -4653,7 +3767,8 @@
       "ui": {
         "label": "Fire group",
         "category": "Ship",
-        "tier": "detail"
+        "tier": "detail",
+        "subcategory": "Controls"
       },
       "derive": {
         "op": "path",
@@ -4959,6 +4074,16 @@
         {
           "value": "Warrant",
           "label": "Warrant"
+        },
+        {
+          "value": "commit_crime",
+          "label": "Crime committed",
+          "recent_event": "CommitCrime"
+        },
+        {
+          "value": "crime_victim",
+          "label": "Crime victim",
+          "recent_event": "CrimeVictim"
         }
       ],
       "derive": {
@@ -5198,38 +4323,6 @@
       }
     },
     "_comment_foot": "=== ON-FOOT (ODYSSEY) ===",
-    "flag_on_foot": {
-      "type": "enum",
-      "title": "On foot (flag)",
-      "ui": {
-        "label": "On foot",
-        "category": "On-Foot",
-        "tier": "advanced"
-      },
-      "values": [
-        {
-          "value": "no",
-          "label": "No"
-        },
-        {
-          "value": "yes",
-          "label": "Yes"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "foot_flags",
-          "bit": 0
-        },
-        "map": {
-          "false": "no",
-          "true": "yes"
-        },
-        "default": "no"
-      }
-    },
     "flag_aim_down_sight": {
       "type": "enum",
       "title": "Aim down sight (flag)",
@@ -5326,80 +4419,11 @@
         "default": "normal"
       }
     },
-    "temperature": {
-      "type": "enum",
-      "title": "Temperature",
-      "ui": {
-        "label": "Environment temperature",
-        "category": "On-Foot",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "very_cold",
-          "label": "Very cold"
-        },
-        {
-          "value": "cold",
-          "label": "Cold"
-        },
-        {
-          "value": "normal",
-          "label": "Normal"
-        },
-        {
-          "value": "hot",
-          "label": "Hot"
-        },
-        {
-          "value": "very_hot",
-          "label": "Very hot"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 10
-            },
-            "value": "very_cold"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 8
-            },
-            "value": "cold"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 11
-            },
-            "value": "very_hot"
-          },
-          {
-            "when": {
-              "op": "flag",
-              "field_ref": "foot_flags",
-              "bit": 9
-            },
-            "value": "hot"
-          }
-        ],
-        "default": "normal"
-      }
-    },
     "on_foot_location": {
       "type": "enum",
       "title": "On-foot location",
       "ui": {
-        "label": "Where you are on foot",
+        "label": "Location",
         "category": "On-Foot",
         "tier": "core"
       },
@@ -5541,38 +4565,6 @@
         "default": "ok"
       }
     },
-    "health": {
-      "type": "enum",
-      "title": "Health",
-      "ui": {
-        "label": "Health",
-        "category": "On-Foot",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "ok",
-          "label": "OK"
-        },
-        {
-          "value": "low",
-          "label": "Low"
-        }
-      ],
-      "derive": {
-        "op": "map",
-        "from": {
-          "op": "flag",
-          "field_ref": "foot_flags",
-          "bit": 7
-        },
-        "map": {
-          "false": "ok",
-          "true": "low"
-        },
-        "default": "ok"
-      }
-    },
     "temperature_state": {
       "type": "enum",
       "title": "Temperature",
@@ -5619,7 +4611,7 @@
             "when": {
               "op": "flag",
               "field_ref": "foot_flags",
-              "bit": 9
+              "bit": 11
             },
             "value": "very_hot"
           },
@@ -6261,26 +5253,17 @@
         {
           "value": "Group",
           "label": "Private Group"
+        },
+        {
+          "value": "shutdown",
+          "label": "Game Shutdown",
+          "recent_event": "Shutdown"
         }
       ],
       "derive": {
         "op": "path",
         "path": "state.GameMode",
         "default": "Open"
-      }
-    },
-    "group_name": {
-      "type": "string",
-      "title": "Group name",
-      "ui": {
-        "label": "Private group name",
-        "category": "Session",
-        "tier": "detail"
-      },
-      "derive": {
-        "op": "path",
-        "path": "state.Group",
-        "default": ""
       }
     },
     "game_version": {
@@ -7075,8 +6058,9 @@
       "title": "Passengers",
       "ui": {
         "label": "Passenger count",
-        "category": "Passengers",
-        "tier": "core"
+        "category": "Ship",
+        "tier": "core",
+        "subcategory": "Passengers"
       },
       "derive": {
         "op": "count",
@@ -7089,8 +6073,9 @@
       "title": "VIP passengers",
       "ui": {
         "label": "Has VIP passengers",
-        "category": "Passengers",
-        "tier": "detail"
+        "category": "Ship",
+        "tier": "detail",
+        "subcategory": "Passengers"
       },
       "values": [
         {
@@ -7122,8 +6107,9 @@
       "title": "Wanted passengers",
       "ui": {
         "label": "Has wanted passengers",
-        "category": "Passengers",
-        "tier": "detail"
+        "category": "Ship",
+        "tier": "detail",
+        "subcategory": "Passengers"
       },
       "values": [
         {
@@ -7214,7 +6200,7 @@
       "type": "string",
       "title": "FSD target",
       "ui": {
-        "label": "FSD target system",
+        "label": "Target System",
         "category": "Travel",
         "tier": "core"
       },
@@ -7228,7 +6214,7 @@
       "type": "number",
       "title": "Remaining jumps",
       "ui": {
-        "label": "Jumps to FSD target",
+        "label": "Jumps to target",
         "category": "Travel",
         "tier": "detail"
       },
@@ -7859,16 +6845,6 @@
           "value": "shutdown",
           "label": "Game shutdown",
           "recent_event": "Shutdown"
-        },
-        {
-          "value": "squadron_loaded",
-          "label": "Squadron loaded",
-          "recent_event": "Squadron"
-        },
-        {
-          "value": "loadouts_loaded",
-          "label": "Loadouts loaded",
-          "recent_event": "Loadouts"
         }
       ],
       "derive": {
@@ -8009,558 +6985,6 @@
               "within_seconds": 300
             },
             "value": "shutdown"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Squadron",
-              "within_seconds": 300
-            },
-            "value": "squadron_loaded"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Loadouts",
-              "within_seconds": 300
-            },
-            "value": "loadouts_loaded"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "travel_event": {
-      "type": "enum",
-      "title": "Travel Event",
-      "ui": {
-        "label": "Travel event",
-        "category": "Travel",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "location",
-          "label": "Location at startup",
-          "recent_event": "Location"
-        },
-        {
-          "value": "f_s_d_jump",
-          "label": "Jumped to new system",
-          "recent_event": "FSDJump"
-        },
-        {
-          "value": "docked",
-          "label": "Docked at station",
-          "recent_event": "Docked"
-        },
-        {
-          "value": "undocked",
-          "label": "Undocked from station",
-          "recent_event": "Undocked"
-        },
-        {
-          "value": "liftoff",
-          "label": "Took off from surface",
-          "recent_event": "Liftoff"
-        },
-        {
-          "value": "touchdown",
-          "label": "Landed on surface",
-          "recent_event": "Touchdown"
-        },
-        {
-          "value": "supercruise_entry",
-          "label": "Entered supercruise",
-          "recent_event": "SupercruiseEntry"
-        },
-        {
-          "value": "supercruise_exit",
-          "label": "Exited supercruise",
-          "recent_event": "SupercruiseExit"
-        },
-        {
-          "value": "approach_body",
-          "label": "Approached body",
-          "recent_event": "ApproachBody"
-        },
-        {
-          "value": "leave_body",
-          "label": "Left body orbit",
-          "recent_event": "LeaveBody"
-        },
-        {
-          "value": "docking_requested",
-          "label": "Docking requested",
-          "recent_event": "DockingRequested"
-        },
-        {
-          "value": "docking_granted",
-          "label": "Docking granted",
-          "recent_event": "DockingGranted"
-        },
-        {
-          "value": "docking_denied",
-          "label": "Docking denied",
-          "recent_event": "DockingDenied"
-        },
-        {
-          "value": "docking_cancelled",
-          "label": "Docking cancelled",
-          "recent_event": "DockingCancelled"
-        },
-        {
-          "value": "docking_timeout",
-          "label": "Docking timed out",
-          "recent_event": "DockingTimeout"
-        },
-        {
-          "value": "supercruise_destination_drop",
-          "label": "Dropped at destination",
-          "recent_event": "SupercruiseDestinationDrop"
-        },
-        {
-          "value": "f_s_d_target",
-          "label": "FSD target selected",
-          "recent_event": "FSDTarget"
-        },
-        {
-          "value": "nav_route",
-          "label": "Route plotted",
-          "recent_event": "NavRoute"
-        },
-        {
-          "value": "start_jump",
-          "label": "FSD charging",
-          "recent_event": "StartJump"
-        },
-        {
-          "value": "jet_cone_boost",
-          "label": "FSD boost",
-          "recent_event": "JetConeBoost"
-        },
-        {
-          "value": "u_s_s_drop",
-          "label": "USS dropped at",
-          "recent_event": "USSDrop"
-        },
-        {
-          "value": "jet_cone_damage",
-          "label": "Jet cone damage",
-          "recent_event": "JetConeDamage"
-        },
-        {
-          "value": "nav_route_clear",
-          "label": "Route cleared",
-          "recent_event": "NavRouteClear"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Location",
-              "within_seconds": 300
-            },
-            "value": "location"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "FSDJump",
-              "within_seconds": 300
-            },
-            "value": "f_s_d_jump"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Docked",
-              "within_seconds": 300
-            },
-            "value": "docked"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Undocked",
-              "within_seconds": 300
-            },
-            "value": "undocked"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Liftoff",
-              "within_seconds": 300
-            },
-            "value": "liftoff"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Touchdown",
-              "within_seconds": 300
-            },
-            "value": "touchdown"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SupercruiseEntry",
-              "within_seconds": 300
-            },
-            "value": "supercruise_entry"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SupercruiseExit",
-              "within_seconds": 300
-            },
-            "value": "supercruise_exit"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ApproachBody",
-              "within_seconds": 300
-            },
-            "value": "approach_body"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "LeaveBody",
-              "within_seconds": 300
-            },
-            "value": "leave_body"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DockingRequested",
-              "within_seconds": 300
-            },
-            "value": "docking_requested"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DockingGranted",
-              "within_seconds": 300
-            },
-            "value": "docking_granted"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DockingDenied",
-              "within_seconds": 300
-            },
-            "value": "docking_denied"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DockingCancelled",
-              "within_seconds": 300
-            },
-            "value": "docking_cancelled"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DockingTimeout",
-              "within_seconds": 300
-            },
-            "value": "docking_timeout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SupercruiseDestinationDrop",
-              "within_seconds": 300
-            },
-            "value": "supercruise_destination_drop"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "FSDTarget",
-              "within_seconds": 300
-            },
-            "value": "f_s_d_target"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "NavRoute",
-              "within_seconds": 300
-            },
-            "value": "nav_route"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "StartJump",
-              "within_seconds": 300
-            },
-            "value": "start_jump"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "JetConeBoost",
-              "within_seconds": 300
-            },
-            "value": "jet_cone_boost"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "USSDrop",
-              "within_seconds": 300
-            },
-            "value": "u_s_s_drop"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "JetConeDamage",
-              "within_seconds": 300
-            },
-            "value": "jet_cone_damage"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "NavRouteClear",
-              "within_seconds": 300
-            },
-            "value": "nav_route_clear"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "combat_event": {
-      "type": "enum",
-      "title": "Combat Event",
-      "ui": {
-        "label": "Combat event",
-        "category": "Combat",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "died",
-          "label": "Ship destroyed",
-          "recent_event": "Died"
-        },
-        {
-          "value": "interdicted",
-          "label": "Was interdicted",
-          "recent_event": "Interdicted"
-        },
-        {
-          "value": "interdiction",
-          "label": "Interdicted target",
-          "recent_event": "Interdiction"
-        },
-        {
-          "value": "p_v_p_kill",
-          "label": "Killed player",
-          "recent_event": "PVPKill"
-        },
-        {
-          "value": "under_attack",
-          "label": "Under attack",
-          "recent_event": "UnderAttack"
-        },
-        {
-          "value": "escape_interdiction",
-          "label": "Escaped interdiction",
-          "recent_event": "EscapeInterdiction"
-        },
-        {
-          "value": "ship_targetted",
-          "label": "Target locked/unlocked",
-          "recent_event": "ShipTargetted"
-        },
-        {
-          "value": "crime_victim",
-          "label": "Crime victim",
-          "recent_event": "CrimeVictim"
-        },
-        {
-          "value": "resurrect",
-          "label": "Resurrected",
-          "recent_event": "Resurrect"
-        },
-        {
-          "value": "self_destruct",
-          "label": "Self destruct",
-          "recent_event": "SelfDestruct"
-        },
-        {
-          "value": "commit_crime",
-          "label": "Crime committed",
-          "recent_event": "CommitCrime"
-        },
-        {
-          "value": "bounty",
-          "label": "Bounty awarded",
-          "recent_event": "Bounty"
-        },
-        {
-          "value": "cap_ship_bond",
-          "label": "Capital ship bond",
-          "recent_event": "CapShipBond"
-        },
-        {
-          "value": "cockpit_breached",
-          "label": "Cockpit breached",
-          "recent_event": "CockpitBreached"
-        },
-        {
-          "value": "faction_kill_bond",
-          "label": "Combat zone bond",
-          "recent_event": "FactionKillBond"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Bounty",
-              "within_seconds": 300
-            },
-            "value": "bounty"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Died",
-              "within_seconds": 300
-            },
-            "value": "died"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Interdicted",
-              "within_seconds": 300
-            },
-            "value": "interdicted"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Interdiction",
-              "within_seconds": 300
-            },
-            "value": "interdiction"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "PVPKill",
-              "within_seconds": 300
-            },
-            "value": "p_v_p_kill"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "UnderAttack",
-              "within_seconds": 300
-            },
-            "value": "under_attack"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CapShipBond",
-              "within_seconds": 300
-            },
-            "value": "cap_ship_bond"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "FactionKillBond",
-              "within_seconds": 300
-            },
-            "value": "faction_kill_bond"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EscapeInterdiction",
-              "within_seconds": 300
-            },
-            "value": "escape_interdiction"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipTargetted",
-              "within_seconds": 300
-            },
-            "value": "ship_targetted"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CrimeVictim",
-              "within_seconds": 300
-            },
-            "value": "crime_victim"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Resurrect",
-              "within_seconds": 300
-            },
-            "value": "resurrect"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SelfDestruct",
-              "within_seconds": 300
-            },
-            "value": "self_destruct"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CockpitBreached",
-              "within_seconds": 300
-            },
-            "value": "cockpit_breached"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CommitCrime",
-              "within_seconds": 300
-            },
-            "value": "commit_crime"
           }
         ],
         "default": "none"
@@ -8624,11 +7048,6 @@
           "value": "nav_beacon_scan",
           "label": "Nav beacon scanned",
           "recent_event": "NavBeaconScan"
-        },
-        {
-          "value": "scan_bary_centre",
-          "label": "Barycentre scanned",
-          "recent_event": "ScanBaryCentre"
         },
         {
           "value": "material_discarded",
@@ -8759,14 +7178,6 @@
           {
             "when": {
               "op": "recent",
-              "event_name": "ScanBaryCentre",
-              "within_seconds": 300
-            },
-            "value": "scan_bary_centre"
-          },
-          {
-            "when": {
-              "op": "recent",
               "event_name": "MaterialDiscarded",
               "within_seconds": 300
             },
@@ -8808,157 +7219,6 @@
         "default": "none"
       }
     },
-    "trading_event": {
-      "type": "enum",
-      "title": "Trading Event",
-      "ui": {
-        "label": "Trading event",
-        "category": "Trading",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "collect_cargo",
-          "label": "Cargo collected",
-          "recent_event": "CollectCargo"
-        },
-        {
-          "value": "eject_cargo",
-          "label": "Cargo ejected",
-          "recent_event": "EjectCargo"
-        },
-        {
-          "value": "mining_refined",
-          "label": "Material refined",
-          "recent_event": "MiningRefined"
-        },
-        {
-          "value": "cargo_depot",
-          "label": "Wing mission cargo",
-          "recent_event": "CargoDepot"
-        },
-        {
-          "value": "search_and_rescue",
-          "label": "S&R delivery",
-          "recent_event": "SearchAndRescue"
-        },
-        {
-          "value": "asteroid_cracked",
-          "label": "Motherlode cracked",
-          "recent_event": "AsteroidCracked"
-        },
-        {
-          "value": "market",
-          "label": "Market accessed",
-          "recent_event": "Market"
-        },
-        {
-          "value": "buy_trade_data",
-          "label": "Trade data purchased",
-          "recent_event": "BuyTradeData"
-        },
-        {
-          "value": "market_buy",
-          "label": "Commodity purchased",
-          "recent_event": "MarketBuy"
-        },
-        {
-          "value": "market_sell",
-          "label": "Commodity sold",
-          "recent_event": "MarketSell"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MarketBuy",
-              "within_seconds": 300
-            },
-            "value": "market_buy"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MarketSell",
-              "within_seconds": 300
-            },
-            "value": "market_sell"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CollectCargo",
-              "within_seconds": 300
-            },
-            "value": "collect_cargo"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EjectCargo",
-              "within_seconds": 300
-            },
-            "value": "eject_cargo"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MiningRefined",
-              "within_seconds": 300
-            },
-            "value": "mining_refined"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CargoDepot",
-              "within_seconds": 300
-            },
-            "value": "cargo_depot"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SearchAndRescue",
-              "within_seconds": 300
-            },
-            "value": "search_and_rescue"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "BuyTradeData",
-              "within_seconds": 300
-            },
-            "value": "buy_trade_data"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "AsteroidCracked",
-              "within_seconds": 300
-            },
-            "value": "asteroid_cracked"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Market",
-              "within_seconds": 300
-            },
-            "value": "market"
-          }
-        ],
-        "default": "none"
-      }
-    },
     "mission_event": {
       "type": "enum",
       "title": "Mission Event",
@@ -8993,14 +7253,14 @@
           "recent_event": "MissionAbandoned"
         },
         {
-          "value": "community_goal",
-          "label": "CG update",
-          "recent_event": "CommunityGoal"
-        },
-        {
           "value": "mission_redirected",
           "label": "Mission redirected",
           "recent_event": "MissionRedirected"
+        },
+        {
+          "value": "community_goal",
+          "label": "CG update",
+          "recent_event": "CommunityGoal"
         },
         {
           "value": "community_goal_join",
@@ -9097,646 +7357,6 @@
         "default": "none"
       }
     },
-    "ship_event": {
-      "type": "enum",
-      "title": "Ship Event",
-      "ui": {
-        "label": "Ship event",
-        "category": "Ship",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "shipyard_buy",
-          "label": "Ship purchased",
-          "recent_event": "ShipyardBuy"
-        },
-        {
-          "value": "shipyard_sell",
-          "label": "Ship sold",
-          "recent_event": "ShipyardSell"
-        },
-        {
-          "value": "shipyard_swap",
-          "label": "Ship swapped",
-          "recent_event": "ShipyardSwap"
-        },
-        {
-          "value": "loadout",
-          "label": "Loadout changed",
-          "recent_event": "Loadout"
-        },
-        {
-          "value": "module_buy",
-          "label": "Module purchased",
-          "recent_event": "ModuleBuy"
-        },
-        {
-          "value": "module_sell",
-          "label": "Module sold",
-          "recent_event": "ModuleSell"
-        },
-        {
-          "value": "module_swap",
-          "label": "Module swapped",
-          "recent_event": "ModuleSwap"
-        },
-        {
-          "value": "buy_ammo",
-          "label": "Ammunition purchased",
-          "recent_event": "BuyAmmo"
-        },
-        {
-          "value": "restock_vehicle",
-          "label": "SRV/Fighter restocked",
-          "recent_event": "RestockVehicle"
-        },
-        {
-          "value": "module_store",
-          "label": "Module stored",
-          "recent_event": "ModuleStore"
-        },
-        {
-          "value": "module_retrieve",
-          "label": "Module retrieved",
-          "recent_event": "ModuleRetrieve"
-        },
-        {
-          "value": "module_sell_remote",
-          "label": "Remote module sold",
-          "recent_event": "ModuleSellRemote"
-        },
-        {
-          "value": "fetch_remote_module",
-          "label": "Remote transfer",
-          "recent_event": "FetchRemoteModule"
-        },
-        {
-          "value": "mass_module_store",
-          "label": "Multiple modules stored",
-          "recent_event": "MassModuleStore"
-        },
-        {
-          "value": "outfitting",
-          "label": "Outfitting accessed",
-          "recent_event": "Outfitting"
-        },
-        {
-          "value": "shipyard",
-          "label": "Shipyard accessed",
-          "recent_event": "Shipyard"
-        },
-        {
-          "value": "shipyard_transfer",
-          "label": "Ship transfer",
-          "recent_event": "ShipyardTransfer"
-        },
-        {
-          "value": "set_user_ship_name",
-          "label": "Ship renamed",
-          "recent_event": "SetUserShipName"
-        },
-        {
-          "value": "sell_ship_on_rebuy",
-          "label": "Ship sold for rebuy",
-          "recent_event": "SellShipOnRebuy"
-        },
-        {
-          "value": "vehicle_switch",
-          "label": "Switched vehicle",
-          "recent_event": "VehicleSwitch"
-        },
-        {
-          "value": "systems_shutdown",
-          "label": "Systems shut down",
-          "recent_event": "SystemsShutdown"
-        },
-        {
-          "value": "afmu_repairs",
-          "label": "AFMU repairing",
-          "recent_event": "AfmuRepairs"
-        },
-        {
-          "value": "shutdown",
-          "label": "Ship shutdown",
-          "recent_event": "Shutdown"
-        },
-        {
-          "value": "heat_warning",
-          "label": "Overheating warning",
-          "recent_event": "HeatWarning"
-        },
-        {
-          "value": "heat_damage",
-          "label": "Heat damage",
-          "recent_event": "HeatDamage"
-        },
-        {
-          "value": "shield_state",
-          "label": "Shield state changed",
-          "recent_event": "ShieldState"
-        },
-        {
-          "value": "hull_damage",
-          "label": "Hull damage",
-          "recent_event": "HullDamage"
-        },
-        {
-          "value": "cockpit_breached",
-          "label": "Cockpit breached",
-          "recent_event": "CockpitBreached"
-        },
-        {
-          "value": "on_foot_loadout",
-          "label": "On-foot loadout",
-          "recent_event": "OnFootLoadout"
-        },
-        {
-          "value": "upgrade_suit",
-          "label": "Suit upgraded",
-          "recent_event": "UpgradeSuit"
-        },
-        {
-          "value": "upgrade_weapon",
-          "label": "Weapon upgraded",
-          "recent_event": "UpgradeWeapon"
-        },
-        {
-          "value": "weapon_loadout",
-          "label": "Weapon loadout",
-          "recent_event": "WeaponLoadout"
-        },
-        {
-          "value": "reboot_repair",
-          "label": "Emergency reboot",
-          "recent_event": "RebootRepair"
-        },
-        {
-          "value": "refuel_partial",
-          "label": "Partial refuel",
-          "recent_event": "RefuelPartial"
-        },
-        {
-          "value": "repair",
-          "label": "Module repair",
-          "recent_event": "Repair"
-        },
-        {
-          "value": "repair_all",
-          "label": "Full repair",
-          "recent_event": "RepairAll"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardBuy",
-              "within_seconds": 300
-            },
-            "value": "shipyard_buy"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardSell",
-              "within_seconds": 300
-            },
-            "value": "shipyard_sell"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardSwap",
-              "within_seconds": 300
-            },
-            "value": "shipyard_swap"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Loadout",
-              "within_seconds": 300
-            },
-            "value": "loadout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ModuleBuy",
-              "within_seconds": 300
-            },
-            "value": "module_buy"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ModuleSell",
-              "within_seconds": 300
-            },
-            "value": "module_sell"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ModuleSwap",
-              "within_seconds": 300
-            },
-            "value": "module_swap"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "RepairAll",
-              "within_seconds": 300
-            },
-            "value": "repair_all"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "BuyAmmo",
-              "within_seconds": 300
-            },
-            "value": "buy_ammo"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "RefuelPartial",
-              "within_seconds": 300
-            },
-            "value": "refuel_partial"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Repair",
-              "within_seconds": 300
-            },
-            "value": "repair"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "RestockVehicle",
-              "within_seconds": 300
-            },
-            "value": "restock_vehicle"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ModuleStore",
-              "within_seconds": 300
-            },
-            "value": "module_store"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ModuleRetrieve",
-              "within_seconds": 300
-            },
-            "value": "module_retrieve"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ModuleSellRemote",
-              "within_seconds": 300
-            },
-            "value": "module_sell_remote"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "FetchRemoteModule",
-              "within_seconds": 300
-            },
-            "value": "fetch_remote_module"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MassModuleStore",
-              "within_seconds": 300
-            },
-            "value": "mass_module_store"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Outfitting",
-              "within_seconds": 300
-            },
-            "value": "outfitting"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Shipyard",
-              "within_seconds": 300
-            },
-            "value": "shipyard"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardTransfer",
-              "within_seconds": 300
-            },
-            "value": "shipyard_transfer"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SetUserShipName",
-              "within_seconds": 300
-            },
-            "value": "set_user_ship_name"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SellShipOnRebuy",
-              "within_seconds": 300
-            },
-            "value": "sell_ship_on_rebuy"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "VehicleSwitch",
-              "within_seconds": 300
-            },
-            "value": "vehicle_switch"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SystemsShutdown",
-              "within_seconds": 300
-            },
-            "value": "systems_shutdown"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "AfmuRepairs",
-              "within_seconds": 300
-            },
-            "value": "afmu_repairs"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Shutdown",
-              "within_seconds": 300
-            },
-            "value": "shutdown"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "RebootRepair",
-              "within_seconds": 300
-            },
-            "value": "reboot_repair"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "HeatWarning",
-              "within_seconds": 300
-            },
-            "value": "heat_warning"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "HeatDamage",
-              "within_seconds": 300
-            },
-            "value": "heat_damage"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShieldState",
-              "within_seconds": 300
-            },
-            "value": "shield_state"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "HullDamage",
-              "within_seconds": 300
-            },
-            "value": "hull_damage"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CockpitBreached",
-              "within_seconds": 300
-            },
-            "value": "cockpit_breached"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "OnFootLoadout",
-              "within_seconds": 300
-            },
-            "value": "on_foot_loadout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "UpgradeSuit",
-              "within_seconds": 300
-            },
-            "value": "upgrade_suit"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "UpgradeWeapon",
-              "within_seconds": 300
-            },
-            "value": "upgrade_weapon"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "WeaponLoadout",
-              "within_seconds": 300
-            },
-            "value": "weapon_loadout"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "engineering_event": {
-      "type": "enum",
-      "title": "Engineering Event",
-      "ui": {
-        "label": "Engineering event",
-        "category": "Engineering",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "engineer_craft",
-          "label": "Module engineered",
-          "recent_event": "EngineerCraft"
-        },
-        {
-          "value": "engineer_progress",
-          "label": "Engineer progress",
-          "recent_event": "EngineerProgress"
-        },
-        {
-          "value": "material_collected",
-          "label": "Material collected",
-          "recent_event": "MaterialCollected"
-        },
-        {
-          "value": "material_trade",
-          "label": "Materials traded",
-          "recent_event": "MaterialTrade"
-        },
-        {
-          "value": "synthesis",
-          "label": "Synthesis crafted",
-          "recent_event": "Synthesis"
-        },
-        {
-          "value": "engineer_contribution",
-          "label": "Contribution to engineer",
-          "recent_event": "EngineerContribution"
-        },
-        {
-          "value": "engineer_legacy_convert",
-          "label": "Legacy module converted",
-          "recent_event": "EngineerLegacyConvert"
-        },
-        {
-          "value": "technology_broker",
-          "label": "Tech unlocked",
-          "recent_event": "TechnologyBroker"
-        },
-        {
-          "value": "scientific_research",
-          "label": "Research contribution",
-          "recent_event": "ScientificResearch"
-        },
-        {
-          "value": "engineer_apply",
-          "label": "Engineer unlock applied",
-          "recent_event": "EngineerApply"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerCraft",
-              "within_seconds": 300
-            },
-            "value": "engineer_craft"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerProgress",
-              "within_seconds": 300
-            },
-            "value": "engineer_progress"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MaterialCollected",
-              "within_seconds": 300
-            },
-            "value": "material_collected"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MaterialTrade",
-              "within_seconds": 300
-            },
-            "value": "material_trade"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Synthesis",
-              "within_seconds": 300
-            },
-            "value": "synthesis"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerContribution",
-              "within_seconds": 300
-            },
-            "value": "engineer_contribution"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerLegacyConvert",
-              "within_seconds": 300
-            },
-            "value": "engineer_legacy_convert"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "TechnologyBroker",
-              "within_seconds": 300
-            },
-            "value": "technology_broker"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ScientificResearch",
-              "within_seconds": 300
-            },
-            "value": "scientific_research"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerApply",
-              "within_seconds": 300
-            },
-            "value": "engineer_apply"
-          }
-        ],
-        "default": "none"
-      }
-    },
     "carrier_event": {
       "type": "enum",
       "title": "Fleet Carrier Event",
@@ -9808,7 +7428,7 @@
         {
           "value": "carrier_name_change",
           "label": "Carrier renamed",
-          "recent_event": "CarrierNameChange"
+          "recent_event": "CarrierNameChanged"
         },
         {
           "value": "carrier_module_pack",
@@ -9824,11 +7444,6 @@
           "value": "carrier_cancel_decommission",
           "label": "Decommission cancelled",
           "recent_event": "CarrierCancelDecommission"
-        },
-        {
-          "value": "carrier_transfer",
-          "label": "Carrier cargo transfer",
-          "recent_event": "CarrierTransfer"
         }
       ],
       "derive": {
@@ -9925,7 +7540,7 @@
           {
             "when": {
               "op": "recent",
-              "event_name": "CarrierNameChange",
+              "event_name": "CarrierNameChanged",
               "within_seconds": 300
             },
             "value": "carrier_name_change"
@@ -9953,382 +7568,6 @@
               "within_seconds": 300
             },
             "value": "carrier_cancel_decommission"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CarrierTransfer",
-              "within_seconds": 300
-            },
-            "value": "carrier_transfer"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "onfoot_event": {
-      "type": "enum",
-      "title": "On-Foot Event",
-      "ui": {
-        "label": "On-Foot event",
-        "category": "On-Foot",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "disembark",
-          "label": "Disembarked",
-          "recent_event": "Disembark"
-        },
-        {
-          "value": "embark",
-          "label": "Embarked",
-          "recent_event": "Embark"
-        },
-        {
-          "value": "scan_organic",
-          "label": "Organic scanned",
-          "recent_event": "ScanOrganic"
-        },
-        {
-          "value": "commander_in_taxi",
-          "label": "In taxi",
-          "recent_event": "CommanderInTaxi"
-        },
-        {
-          "value": "backpack",
-          "label": "Backpack contents",
-          "recent_event": "Backpack"
-        },
-        {
-          "value": "backpack_change",
-          "label": "Backpack changed",
-          "recent_event": "BackpackChange"
-        },
-        {
-          "value": "drop_ship_deploy",
-          "label": "Dropship deployed",
-          "recent_event": "DropShipDeploy"
-        },
-        {
-          "value": "suit_loadout",
-          "label": "Suit loadout",
-          "recent_event": "SuitLoadout"
-        },
-        {
-          "value": "create_suit_loadout",
-          "label": "Created suit loadout",
-          "recent_event": "CreateSuitLoadout"
-        },
-        {
-          "value": "delete_suit_loadout",
-          "label": "Deleted suit loadout",
-          "recent_event": "DeleteSuitLoadout"
-        },
-        {
-          "value": "loadout_equip_module",
-          "label": "Equipped suit module",
-          "recent_event": "LoadoutEquipModule"
-        },
-        {
-          "value": "switch_suit_loadout",
-          "label": "Switched suit loadout",
-          "recent_event": "SwitchSuitLoadout"
-        },
-        {
-          "value": "approach_settlement",
-          "label": "Approached settlement",
-          "recent_event": "ApproachSettlement"
-        },
-        {
-          "value": "trade_micro_resources",
-          "label": "Traded micro resources",
-          "recent_event": "TradeMicroResources"
-        },
-        {
-          "value": "f_c_materials",
-          "label": "FC materials",
-          "recent_event": "FCMaterials"
-        },
-        {
-          "value": "use_consumable",
-          "label": "Used consumable",
-          "recent_event": "UseConsumable"
-        },
-        {
-          "value": "collect_items",
-          "label": "Items collected",
-          "recent_event": "CollectItems"
-        },
-        {
-          "value": "drop_items",
-          "label": "Items dropped",
-          "recent_event": "DropItems"
-        },
-        {
-          "value": "transfer_micro_resources",
-          "label": "Transferred micro resources",
-          "recent_event": "TransferMicroResources"
-        },
-        {
-          "value": "ship_locker",
-          "label": "Ship locker",
-          "recent_event": "ShipLocker"
-        },
-        {
-          "value": "data_scanned",
-          "label": "Data scanned",
-          "recent_event": "DataScanned"
-        },
-        {
-          "value": "datalink_scan",
-          "label": "Datalink scanned",
-          "recent_event": "DatalinkScan"
-        },
-        {
-          "value": "datalink_voucher",
-          "label": "Datalink voucher",
-          "recent_event": "DatalinkVoucher"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Disembark",
-              "within_seconds": 300
-            },
-            "value": "disembark"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Embark",
-              "within_seconds": 300
-            },
-            "value": "embark"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ScanOrganic",
-              "within_seconds": 300
-            },
-            "value": "scan_organic"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CommanderInTaxi",
-              "within_seconds": 300
-            },
-            "value": "commander_in_taxi"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Backpack",
-              "within_seconds": 300
-            },
-            "value": "backpack"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "BackpackChange",
-              "within_seconds": 300
-            },
-            "value": "backpack_change"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DropShipDeploy",
-              "within_seconds": 300
-            },
-            "value": "drop_ship_deploy"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SuitLoadout",
-              "within_seconds": 300
-            },
-            "value": "suit_loadout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CreateSuitLoadout",
-              "within_seconds": 300
-            },
-            "value": "create_suit_loadout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DeleteSuitLoadout",
-              "within_seconds": 300
-            },
-            "value": "delete_suit_loadout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "LoadoutEquipModule",
-              "within_seconds": 300
-            },
-            "value": "loadout_equip_module"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SwitchSuitLoadout",
-              "within_seconds": 300
-            },
-            "value": "switch_suit_loadout"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ApproachSettlement",
-              "within_seconds": 300
-            },
-            "value": "approach_settlement"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "TradeMicroResources",
-              "within_seconds": 300
-            },
-            "value": "trade_micro_resources"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "FCMaterials",
-              "within_seconds": 300
-            },
-            "value": "f_c_materials"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "UseConsumable",
-              "within_seconds": 300
-            },
-            "value": "use_consumable"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "CollectItems",
-              "within_seconds": 300
-            },
-            "value": "collect_items"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DropItems",
-              "within_seconds": 300
-            },
-            "value": "drop_items"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "TransferMicroResources",
-              "within_seconds": 300
-            },
-            "value": "transfer_micro_resources"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipLocker",
-              "within_seconds": 300
-            },
-            "value": "ship_locker"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DataScanned",
-              "within_seconds": 300
-            },
-            "value": "data_scanned"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DatalinkScan",
-              "within_seconds": 300
-            },
-            "value": "datalink_scan"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "DatalinkVoucher",
-              "within_seconds": 300
-            },
-            "value": "datalink_voucher"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "colonisation_event": {
-      "type": "enum",
-      "title": "Colonisation Event",
-      "ui": {
-        "label": "Colonisation event",
-        "category": "Location",
-        "tier": "core",
-        "subcategory": "System"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "colonisation_construction_depot",
-          "label": "Construction depot",
-          "recent_event": "ColonisationConstructionDepot"
-        },
-        {
-          "value": "colonisation_contribution",
-          "label": "Contribution made",
-          "recent_event": "ColonisationContribution"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ColonisationConstructionDepot",
-              "within_seconds": 300
-            },
-            "value": "colonisation_construction_depot"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ColonisationContribution",
-              "within_seconds": 300
-            },
-            "value": "colonisation_contribution"
           }
         ],
         "default": "none"
@@ -10338,7 +7577,7 @@
       "type": "enum",
       "title": "Communications Event",
       "ui": {
-        "label": "Communications event",
+        "label": "Communications",
         "category": "Commander",
         "tier": "core"
       },
@@ -10407,105 +7646,16 @@
         "default": "none"
       }
     },
-    "ship_purchase_activity": {
-      "type": "enum",
-      "title": "Ship activity",
-      "ui": {
-        "label": "Ship purchase activity",
-        "category": "Ship",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "bought",
-          "label": "Ship bought",
-          "recent_event": "ShipyardBuy"
-        },
-        {
-          "value": "sold",
-          "label": "Ship sold",
-          "recent_event": "ShipyardSell"
-        },
-        {
-          "value": "swapped",
-          "label": "Ship swapped",
-          "recent_event": "ShipyardSwap"
-        },
-        {
-          "value": "transferred",
-          "label": "Transfer initiated",
-          "recent_event": "ShipyardTransfer"
-        },
-        {
-          "value": "renamed",
-          "label": "Ship renamed",
-          "recent_event": "SetUserShipName"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardBuy",
-              "within_seconds": 5
-            },
-            "value": "bought"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardSell",
-              "within_seconds": 5
-            },
-            "value": "sold"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardSwap",
-              "within_seconds": 5
-            },
-            "value": "swapped"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ShipyardTransfer",
-              "within_seconds": 10
-            },
-            "value": "transferred"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "SetUserShipName",
-              "within_seconds": 5
-            },
-            "value": "renamed"
-          }
-        ],
-        "default": "none"
-      }
-    },
     "module_activity": {
       "type": "enum",
       "title": "Module activity",
       "ui": {
-        "label": "Module activity",
+        "label": "Modules",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Outfitting"
       },
       "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
         {
           "value": "bought",
           "label": "Module bought",
@@ -10530,6 +7680,26 @@
           "value": "retrieved",
           "label": "Module retrieved",
           "recent_event": "ModuleRetrieve"
+        },
+        {
+          "value": "module_sell_remote",
+          "label": "Remote module sold",
+          "recent_event": "ModuleSellRemote"
+        },
+        {
+          "value": "mass_module_store",
+          "label": "Multiple modules stored",
+          "recent_event": "MassModuleStore"
+        },
+        {
+          "value": "fetch_remote_module",
+          "label": "Remote transfer",
+          "recent_event": "FetchRemoteModule"
+        },
+        {
+          "value": "outfitting",
+          "label": "Outfitting accessed",
+          "recent_event": "Outfitting"
         }
       ],
       "derive": {
@@ -10631,92 +7801,6 @@
               "within_seconds": 1
             },
             "value": "destroyed"
-          }
-        ],
-        "default": "none"
-      }
-    },
-    "engineering_activity": {
-      "type": "enum",
-      "title": "Engineering",
-      "ui": {
-        "label": "Engineering activity",
-        "category": "Engineering",
-        "tier": "core"
-      },
-      "values": [
-        {
-          "value": "none",
-          "label": "None"
-        },
-        {
-          "value": "crafted",
-          "label": "Module engineered",
-          "recent_event": "EngineerCraft"
-        },
-        {
-          "value": "progressed",
-          "label": "Engineer progress",
-          "recent_event": "EngineerProgress"
-        },
-        {
-          "value": "collected_material",
-          "label": "Material collected",
-          "recent_event": "MaterialCollected"
-        },
-        {
-          "value": "traded_materials",
-          "label": "Materials traded",
-          "recent_event": "MaterialTrade"
-        },
-        {
-          "value": "synthesized",
-          "label": "Synthesis crafted",
-          "recent_event": "Synthesis"
-        }
-      ],
-      "derive": {
-        "op": "first_match",
-        "cases": [
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerCraft",
-              "within_seconds": 5
-            },
-            "value": "crafted"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "EngineerProgress",
-              "within_seconds": 5
-            },
-            "value": "progressed"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "Synthesis",
-              "within_seconds": 3
-            },
-            "value": "synthesized"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MaterialTrade",
-              "within_seconds": 3
-            },
-            "value": "traded_materials"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "MaterialCollected",
-              "within_seconds": 2
-            },
-            "value": "collected_material"
           }
         ],
         "default": "none"
@@ -11060,9 +8144,9 @@
           "recent_event": "PayLegacyFines"
         },
         {
-          "value": "cleared_impound",
-          "label": "Cleared impound",
-          "recent_event": "ClearImpound"
+          "value": "got_bounty",
+          "label": "Got bounty",
+          "recent_event": "Bounty"
         }
       ],
       "derive": {
@@ -11100,14 +8184,6 @@
               "within_seconds": 1
             },
             "value": "paid_legacy_fines"
-          },
-          {
-            "when": {
-              "op": "recent",
-              "event_name": "ClearImpound",
-              "within_seconds": 1
-            },
-            "value": "cleared_impound"
           }
         ]
       }
@@ -11400,7 +8476,8 @@
       "ui": {
         "label": "Limpets",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Cargo"
       },
       "values": [
         {
@@ -11687,27 +8764,39 @@
         ]
       }
     },
-    "status": {
+    "interdiction": {
       "type": "enum",
-      "title": "Danger",
+      "title": "Interdicted Outcome",
       "ui": {
-        "label": "Status",
+        "label": "Interdiction",
         "category": "Ship",
-        "tier": "core"
+        "tier": "core",
+        "subcategory": "Flight"
       },
       "values": [
         {
-          "value": "safe",
-          "label": "Safe"
+          "value": "submitted",
+          "label": "Submitted",
+          "recent_event": "Interdicted"
         },
         {
-          "value": "in_danger",
-          "label": "In danger"
+          "value": "escaped",
+          "label": "Escaped",
+          "recent_event": "Interdicted"
         },
         {
-          "value": "under_attack",
-          "label": "Under attack",
-          "recent_event": "UnderAttack"
+          "value": "succeeded",
+          "label": "Succeeded",
+          "recent_event": "Interdiction"
+        },
+        {
+          "value": "failed",
+          "label": "Failed",
+          "recent_event": "Interdiction"
+        },
+        {
+          "value": "is_player",
+          "label": "Is a Player"
         },
         {
           "value": "being_interdicted",
@@ -11719,30 +8808,363 @@
         "cases": [
           {
             "when": {
-              "op": "recent",
-              "event_name": "UnderAttack",
-              "within_seconds": 5
+              "op": "and",
+              "conditions": [
+                {
+                  "op": "match",
+                  "event_name": "Interdicted",
+                  "event_property": "Submitted",
+                  "value": true
+                }
+              ]
             },
-            "value": "under_attack"
+            "value": "submitted"
           },
           {
             "when": {
-              "op": "recent",
-              "event_name": "Interdicted",
-              "within_seconds": 30
+              "op": "and",
+              "conditions": [
+                {
+                  "op": "match",
+                  "event_name": "Interdicted",
+                  "event_property": "Submitted",
+                  "value": false
+                }
+              ]
             },
-            "value": "being_interdicted"
+            "value": "escaped"
+          }
+        ],
+        "default": "escaped"
+      }
+    },
+    "fsd_status": {
+      "type": "enum",
+      "title": "FSD state",
+      "ui": {
+        "label": "FSD Status",
+        "category": "Ship",
+        "tier": "core",
+        "subcategory": "Flight"
+      },
+      "values": [
+        {
+          "value": "idle",
+          "label": "Idle"
+        },
+        {
+          "value": "charging",
+          "label": "Charging"
+        },
+        {
+          "value": "cooldown",
+          "label": "Cooldown"
+        },
+        {
+          "value": "jump_active",
+          "label": "Jump active"
+        },
+        {
+          "value": "supercruise",
+          "label": "Supercruise"
+        },
+        {
+          "value": "gliding",
+          "label": "Gliding"
+        },
+        {
+          "value": "jet_cone_boost",
+          "label": "FSD boost",
+          "recent_event": "JetConeBoost"
+        },
+        {
+          "value": "jet_cone_damage",
+          "label": "Jet cone damage",
+          "recent_event": "JetConeDamage"
+        },
+        {
+          "value": "off",
+          "label": "Normal space"
+        },
+        {
+          "value": "entering_supercruise",
+          "label": "Entering Supercruise",
+          "recent_event": "SupercruiseEntry"
+        },
+        {
+          "value": "exiting_supercruise",
+          "label": "Exiting Supercruise",
+          "recent_event": "SupercruiseExit"
+        },
+        {
+          "value": "masslocked",
+          "label": "Mass Locked"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 30
+            },
+            "value": "jump_active"
           },
           {
             "when": {
               "op": "flag",
               "field_ref": "ship_flags",
-              "bit": 22
+              "bit": 4
             },
-            "value": "in_danger"
+            "value": "supercruise"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "foot_flags",
+              "bit": 15
+            },
+            "value": "gliding"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 17
+            },
+            "value": "charging"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 18
+            },
+            "value": "cooldown"
           }
         ],
-        "default": "safe"
+        "default": "idle"
+      }
+    },
+    "shipyard": {
+      "type": "enum",
+      "title": "Ship activity",
+      "ui": {
+        "label": "Shipyard",
+        "category": "Ship",
+        "tier": "core",
+        "subcategory": "Outfitting"
+      },
+      "values": [
+        {
+          "value": "bought",
+          "label": "Ship bought",
+          "recent_event": "ShipyardBuy"
+        },
+        {
+          "value": "sold",
+          "label": "Ship sold",
+          "recent_event": "ShipyardSell"
+        },
+        {
+          "value": "swapped",
+          "label": "Ship swapped",
+          "recent_event": "ShipyardSwap"
+        },
+        {
+          "value": "transferred",
+          "label": "Transfer initiated",
+          "recent_event": "ShipyardTransfer"
+        },
+        {
+          "value": "renamed",
+          "label": "Ship renamed",
+          "recent_event": "SetUserShipName"
+        },
+        {
+          "value": "shipyard",
+          "label": "Shipyard accessed",
+          "recent_event": "Shipyard"
+        },
+        {
+          "value": "sell_ship_on_rebuy",
+          "label": "Ship sold for rebuy",
+          "recent_event": "SellShipOnRebuy"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "ShipyardBuy",
+              "within_seconds": 5
+            },
+            "value": "bought"
+          },
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "ShipyardSell",
+              "within_seconds": 5
+            },
+            "value": "sold"
+          },
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "ShipyardSwap",
+              "within_seconds": 5
+            },
+            "value": "swapped"
+          },
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "ShipyardTransfer",
+              "within_seconds": 10
+            },
+            "value": "transferred"
+          },
+          {
+            "when": {
+              "op": "recent",
+              "event_name": "SetUserShipName",
+              "within_seconds": 5
+            },
+            "value": "renamed"
+          }
+        ],
+        "default": "none"
+      }
+    },
+    "mode": {
+      "type": "enum",
+      "title": "Transport",
+      "ui": {
+        "label": "Mode",
+        "category": "Commander",
+        "tier": "core"
+      },
+      "values": [
+        {
+          "value": "ship",
+          "label": "Ship"
+        },
+        {
+          "value": "srv",
+          "label": "SRV"
+        },
+        {
+          "value": "fighter",
+          "label": "Fighter"
+        },
+        {
+          "value": "on_foot",
+          "label": "On foot"
+        },
+        {
+          "value": "in_taxi",
+          "label": "In Taxi"
+        },
+        {
+          "value": "in_multicrew",
+          "label": "In Multicrew"
+        },
+        {
+          "value": "unknown",
+          "label": "Unknown"
+        }
+      ],
+      "derive": {
+        "op": "first_match",
+        "cases": [
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "foot_flags",
+              "bit": 0
+            },
+            "value": "on_foot"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "foot_flags",
+              "bit": 1
+            },
+            "value": "in_taxi"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "foot_flags",
+              "bit": 2
+            },
+            "value": "in_multicrew"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 26
+            },
+            "value": "srv"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 25
+            },
+            "value": "fighter"
+          },
+          {
+            "when": {
+              "op": "flag",
+              "field_ref": "ship_flags",
+              "bit": 24
+            },
+            "value": "ship"
+          }
+        ],
+        "default": "unknown"
+      }
+    },
+    "ship_lights": {
+      "type": "enum",
+      "title": "Lights",
+      "ui": {
+        "label": "Lights",
+        "category": "Ship",
+        "tier": "core",
+        "subcategory": "Controls"
+      },
+      "values": [
+        {
+          "value": "off",
+          "label": "Off"
+        },
+        {
+          "value": "on",
+          "label": "On"
+        }
+      ],
+      "derive": {
+        "op": "map",
+        "from": {
+          "op": "flag",
+          "field_ref": "ship_flags",
+          "bit": 8
+        },
+        "map": {
+          "false": "off",
+          "true": "on"
+        },
+        "default": "off"
       }
     }
   }

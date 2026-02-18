@@ -153,6 +153,7 @@ class SignalCatalogEditor:
         ttk.Button(action_frame, text="Change Tier", command=self.change_tier, width=16).grid(row=row, column=1, pady=1, padx=2, sticky=tk.W+tk.E)
         row += 1
         ttk.Button(action_frame, text="Rename Signal Key", command=self.rename_signal_key, width=16).grid(row=row, column=0, pady=1, padx=2, sticky=tk.W+tk.E)
+        ttk.Button(action_frame, text="🗑️ Delete Signal", command=self.delete_signal, width=16).grid(row=row, column=1, pady=1, padx=2, sticky=tk.W+tk.E)
         row += 1
         
         ttk.Separator(action_frame, orient="horizontal").grid(row=row, column=0, columnspan=2, sticky=(tk.E, tk.W), pady=3)
@@ -170,9 +171,16 @@ class SignalCatalogEditor:
         
         # === Enum Editor ===
         ttk.Button(action_frame, text="📝 Edit Enum Values", command=self.edit_enum_values, width=16).grid(row=row, column=0, pady=1, padx=2, sticky=tk.W+tk.E)
-        ttk.Button(action_frame, text="Merge Enums", command=self.merge_enums, width=16).grid(row=row, column=1, pady=1, padx=2, sticky=tk.W+tk.E)
+        ttk.Button(action_frame, text="Edit Derive", command=self.edit_derive, width=16).grid(row=row, column=1, pady=1, padx=2, sticky=tk.W+tk.E)
         row += 1
-        ttk.Button(action_frame, text="🔍 Check Enum Completeness", command=self.validate_enums, width=16).grid(row=row, column=0, columnspan=2, pady=1, padx=2, sticky=tk.W+tk.E)
+        ttk.Button(action_frame, text="Merge Enums", command=self.merge_enums, width=16).grid(row=row, column=0, columnspan=2, pady=1, padx=2, sticky=tk.W+tk.E)
+        row += 1
+        
+        ttk.Separator(action_frame, orient="horizontal").grid(row=row, column=0, columnspan=2, sticky=(tk.E, tk.W), pady=3)
+        row += 1
+        
+        # === Signal Creation ===
+        ttk.Button(action_frame, text="➕ Create New Signal", command=self.create_new_signal, width=16).grid(row=row, column=0, columnspan=2, pady=1, padx=2, sticky=tk.W+tk.E)
         row += 1
         
         ttk.Separator(action_frame, orient="horizontal").grid(row=row, column=0, columnspan=2, sticky=(tk.E, tk.W), pady=3)
@@ -1243,6 +1251,11 @@ class SignalCatalogEditor:
             return
 
         # Open enum editor dialog
+        # Create refresh callback that updates both tree and details panel
+        def refresh_after_edit():
+            self.populate_tree()
+            self.on_tree_select(None)  # Refresh details panel
+
         dialog = EnumEditorDialog(
             self.root,
             signal_key,
@@ -1250,48 +1263,173 @@ class SignalCatalogEditor:
             self.catalog_data['signals'],
             self.save_state_for_undo,
             self.mark_modified,
-            self.populate_tree,
+            refresh_after_edit,
             self.set_status
         )
 
         if dialog.modified:
             self.populate_tree()
 
-    def validate_enums(self):
-        """Check all enum signals for missing derive (source event) information"""
-        missing_derive = []
-        has_merged_from = []
+    def create_new_signal(self):
+        """Create a new signal in the catalog"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Create New Signal")
+        dialog.geometry("400x500")
+        dialog.transient(self.root)
+        dialog.grab_set()
         
-        # Scan all signals
-        for signal_key, signal_data in self.catalog_data['signals'].items():
-            if isinstance(signal_data, dict):
-                if 'ui' in signal_data and signal_data.get('type') == 'enum':
-                    # This is a direct enum signal
-                    if 'derive' not in signal_data:
-                        missing_derive.append(signal_key)
-                    if '_merged_from' in signal_data:
-                        has_merged_from.append((signal_key, signal_data['_merged_from']))
-                else:
-                    # Check nested signals
-                    for sub_key, sub_data in signal_data.items():
-                        if isinstance(sub_data, dict) and sub_data.get('type') == 'enum':
-                            full_key = f"{signal_key}.{sub_key}"
-                            if 'derive' not in sub_data:
-                                missing_derive.append(full_key)
-                            if '_merged_from' in sub_data:
-                                has_merged_from.append((full_key, sub_data['_merged_from']))
+        # Signal key
+        ttk.Label(dialog, text="Signal Key:").grid(row=0, column=0, sticky=tk.W, padx=10, pady=5)
+        signal_key_var = tk.StringVar()
+        ttk.Entry(dialog, textvariable=signal_key_var, width=30).grid(row=0, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
         
-        # Show validation report
-        dialog = EnumValidationDialog(
-            self.root,
-            missing_derive,
-            has_merged_from,
-            self.catalog_data['signals'],
-            self.save_state_for_undo,
-            self.mark_modified,
-            self.populate_tree,
-            self.set_status
-        )
+        # Label
+        ttk.Label(dialog, text="Label:").grid(row=1, column=0, sticky=tk.W, padx=10, pady=5)
+        label_var = tk.StringVar()
+        ttk.Entry(dialog, textvariable=label_var, width=30).grid(row=1, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
+        
+        # Type
+        ttk.Label(dialog, text="Type:").grid(row=2, column=0, sticky=tk.W, padx=10, pady=5)
+        type_var = tk.StringVar(value="enum")
+        ttk.Combobox(dialog, textvariable=type_var, values=["enum", "path", "flag"], width=27).grid(row=2, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
+        
+        # Category
+        ttk.Label(dialog, text="Category:").grid(row=3, column=0, sticky=tk.W, padx=10, pady=5)
+        category_var = tk.StringVar()
+        categories = sorted(set(s.get('ui', {}).get('category', '') for s in self.catalog_data['signals'].values() if isinstance(s, dict) and 'ui' in s))
+        ttk.Combobox(dialog, textvariable=category_var, values=categories, width=27).grid(row=3, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
+        
+        # Subcategory
+        ttk.Label(dialog, text="Subcategory:").grid(row=4, column=0, sticky=tk.W, padx=10, pady=5)
+        subcategory_var = tk.StringVar()
+        ttk.Entry(dialog, textvariable=subcategory_var, width=30).grid(row=4, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
+        
+        # Tier
+        ttk.Label(dialog, text="Tier:").grid(row=5, column=0, sticky=tk.W, padx=10, pady=5)
+        tier_var = tk.StringVar(value="core")
+        ttk.Combobox(dialog, textvariable=tier_var, values=["core", "detail"], width=27).grid(row=5, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
+        
+        # Values (for enums)
+        ttk.Label(dialog, text="Values (comma-separated):").grid(row=6, column=0, sticky=tk.W, padx=10, pady=5)
+        values_text = tk.Text(dialog, height=5, width=32)
+        values_text.grid(row=6, column=1, sticky=tk.W+tk.E, padx=10, pady=5)
+        
+        dialog.columnconfigure(1, weight=1)
+        
+        def save_signal():
+            signal_key = signal_key_var.get().strip()
+            label = label_var.get().strip()
+            signal_type = type_var.get()
+            category = category_var.get().strip()
+            tier = tier_var.get()
+            
+            if not signal_key or not label:
+                messagebox.showwarning("Warning", "Signal key and label are required")
+                return
+            
+            self.save_state_for_undo()
+            
+            # Create signal structure
+            new_signal = {
+                "type": signal_type,
+                "title": label,
+                "ui": {
+                    "label": label,
+                    "category": category,
+                    "tier": tier
+                }
+            }
+            
+            # Add subcategory if provided
+            if subcategory_var.get().strip():
+                new_signal["ui"]["subcategory"] = subcategory_var.get().strip()
+            
+            # Add values for enum type
+            if signal_type == "enum":
+                values_str = values_text.get("1.0", tk.END).strip()
+                new_signal["values"] = []
+                if values_str:
+                    for val in values_str.split(','):
+                        val = val.strip()
+                        if val:
+                            new_signal["values"].append({"value": val, "label": val.replace('_', ' ').title()})
+                new_signal["derive"] = {"op": "path", "path": ""}
+            
+            self.catalog_data['signals'][signal_key] = new_signal
+            self.mark_modified()
+            self.populate_tree()
+            self.set_status(f"Created signal: {signal_key}")
+            dialog.destroy()
+        
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.grid(row=7, column=0, columnspan=2, sticky=tk.W+tk.E, padx=10, pady=10)
+        ttk.Button(button_frame, text="Create", command=save_signal).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+    
+    def edit_derive(self):
+        """Edit the derive block of a selected signal"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showwarning("Warning", "Please select a signal first")
+            return
+        
+        item = selection[0]
+        values = self.tree.item(item, 'values')
+        if values[0] != 'signal':
+            messagebox.showwarning("Warning", "Please select a signal (not a category)")
+            return
+        
+        signal_key = values[1]
+        signal_data = self._get_signal_data(signal_key)
+        
+        if not signal_data or signal_data.get('type') != 'enum':
+            messagebox.showwarning("Warning", "Only enum signals have derive blocks")
+            return
+        
+        derive = signal_data.get('derive', {})
+        
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Edit Derive: {signal_key}")
+        dialog.geometry("600x500")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # JSON editor for derive block
+        ttk.Label(dialog, text="Derive Block (JSON):").pack(anchor=tk.W, padx=10, pady=5)
+        
+        text_frame = ttk.Frame(dialog)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        text_scroll = ttk.Scrollbar(text_frame)
+        text_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        derive_text = tk.Text(text_frame, yscrollcommand=text_scroll.set, height=20)
+        derive_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        text_scroll.config(command=derive_text.yview)
+        
+        # Load current derive as JSON
+        import json as json_module
+        derive_json = json_module.dumps(derive, indent=2)
+        derive_text.insert("1.0", derive_json)
+        
+        def save_derive():
+            try:
+                new_derive = json_module.loads(derive_text.get("1.0", tk.END))
+                self.save_state_for_undo()
+                signal_data['derive'] = new_derive
+                self.mark_modified()
+                self.on_tree_select(None)  # Refresh details
+                self.set_status(f"Updated derive for {signal_key}")
+                dialog.destroy()
+            except json_module.JSONDecodeError as e:
+                messagebox.showerror("JSON Error", f"Invalid JSON: {e}")
+        
+        # Buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(anchor=tk.W, padx=10, pady=10)
+        ttk.Button(button_frame, text="Save", command=save_derive).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
 
     def merge_enums(self):
         """Merge two enum signals together"""
@@ -1310,13 +1448,18 @@ class SignalCatalogEditor:
         enum_signals.sort(key=lambda x: x[1])
 
         # Dialog to select source and target signals
+        # Create refresh callback that updates both tree and details panel
+        def refresh_after_merge():
+            self.populate_tree()
+            self.on_tree_select(None)  # Refresh details panel
+
         dialog = EnumMergeDialog(
             self.root,
             enum_signals,
             self.catalog_data['signals'],
             self.save_state_for_undo,
             self.mark_modified,
-            self.populate_tree,
+            refresh_after_merge,
             self.set_status
         )
 
@@ -1581,6 +1724,7 @@ class EnumEditorDialog:
             self.mark_modified()
             self.modified = True
             self.load_values()
+            self.refresh()  # Refresh main window details panel
             self.set_status(f"Added enum value '{value_id}' to {self.signal_key}")
             dialog.destroy()
 
@@ -1623,6 +1767,7 @@ class EnumEditorDialog:
             self.mark_modified()
             self.modified = True
             self.load_values()
+            self.refresh()  # Refresh main window details panel
             self.set_status(f"Renamed enum value to '{new_value_id}'")
 
         new_label = simpledialog.askstring(
@@ -1638,6 +1783,7 @@ class EnumEditorDialog:
             self.mark_modified()
             self.modified = True
             self.load_values()
+            self.refresh()  # Refresh main window details panel
             self.set_status(f"Renamed enum label to '{new_label}'")
 
     def delete_value(self):
@@ -1663,6 +1809,7 @@ class EnumEditorDialog:
             self.mark_modified()
             self.modified = True
             self.load_values()
+            self.refresh()  # Refresh main window details panel
             self.set_status(f"Deleted enum value '{value_id}'")
 
     def move_value_up(self):
@@ -1682,6 +1829,7 @@ class EnumEditorDialog:
         self.mark_modified()
         self.modified = True
         self.load_values()
+        self.refresh()  # Refresh main window details panel
         self.values_listbox.selection_set(idx - 1)
         self.set_status(f"Moved value up")
 
@@ -1702,6 +1850,7 @@ class EnumEditorDialog:
         self.mark_modified()
         self.modified = True
         self.load_values()
+        self.refresh()  # Refresh main window details panel
         self.values_listbox.selection_set(idx + 1)
         self.set_status(f"Moved value down")
 
@@ -1759,6 +1908,7 @@ class EnumEditorDialog:
                 self.mark_modified()
                 self.modified = True
                 self.load_values()
+                self.refresh()  # Refresh main window details panel
                 self.set_status(f"Moved value to signal '{target_key}'")
 
 
@@ -1854,9 +2004,10 @@ class EnumMergeDialog:
         result = messagebox.askyesno(
             "Confirm Merge",
             f"Merge '{source_key}' into '{target_key}'?\n\n"
-            f"All values will be moved to target.\n"
-            f"Source event information will be PRESERVED.\n"
-            f"Source signal will be KEPT (with empty values list).",
+            f"• All values will be moved to target\n"
+            f"• If target lacks derive info, source's derive will be copied\n"
+            f"• Source signal will be kept (with empty values list)\n"
+            f"• No merge metadata will be created",
             parent=self.dialog
         )
 
@@ -1886,19 +2037,11 @@ class EnumMergeDialog:
         if source_derive and 'derive' not in target_signal:
             # If target doesn't have derive, copy from source
             target_signal['derive'] = source_derive
-        elif source_derive:
-            # If both have derive, store source derive as metadata for recovery
-            if '_merged_from' not in target_signal:
-                target_signal['_merged_from'] = []
-            target_signal['_merged_from'].append({
-                'source_key': source_key,
-                'derive': source_derive
-            })
-        
-        # Keep source signal but clear its values
+        # Note: If both have derive, target's derive takes precedence
+        # We don't create _merged_from metadata anymore
+
+        # Keep source signal but clear its values (no metadata tags)
         source_signal['values'] = []
-        source_signal['_merged_into'] = target_key
-        source_signal['_note'] = f"Values merged into {target_key}. Kept for source event tracking."
 
         self.mark_modified()
         self.result = True

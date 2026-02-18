@@ -23,6 +23,7 @@ Complete reference of all journal events available via EDMC's `journal_entry()` 
 15. [Crime & Legal Events](#crime--legal-events)
 16. [Synthetic Events](#synthetic-events)
 17. [Status File Data](#status-file-data)
+18. [Journal Manual v32 Reconciliation](#journal-manual-v32-reconciliation)
 
 ---
 
@@ -1056,11 +1057,106 @@ These values come from `Status.json` (real-time, ~1 second updates) NOT from jou
 
 ---
 
+## Journal Manual v32 Reconciliation
+
+Extracted from `c:\Users\mgs\Downloads\Journal_Manual-v32.pdf` on February 17, 2026 by scanning sample JSON blocks for `"event":"..."` values.
+
+- Distinct events extracted from the manual examples: `149`
+- Events already documented in this catalog: `69`
+- Additional events found in the manual and added here: `80`
+
+### Additional Events Found In v32
+
+- `AfmuRepairs`
+- `AppliedToSquadron`
+- `BookTaxi`
+- `BuyAmmo`
+- `BuyDrones`
+- `BuyMicroResource`
+- `BuySuit`
+- `BuyWeapon`
+- `CancelTaxi`
+- `CargoTransfer`
+- `CarrierBankTransfer`
+- `CarrierBuy`
+- `CarrierCancelDecommission`
+- `CarrierCrewServices`
+- `CarrierDecommission`
+- `CarrierDepositFuel`
+- `CarrierDockingPermission`
+- `CarrierFinance`
+- `CarrierJumpRequest`
+- `CarrierShipPack`
+- `CarrierStats`
+- `CarrierTradeOrder`
+- `CreateSuitLoadout`
+- `CrewAssign`
+- `CrewFire`
+- `CrewHire`
+- `CrewMemberRoleChange`
+- `DisbandedSquadron`
+- `Disembark`
+- `DockFighter`
+- `Embark`
+- `EngineerContribution`
+- `EngineerProgress`
+- `FuelScoop`
+- `Interdicted`
+- `Interdiction`
+- `InvitedToSquadron`
+- `JoinedSquadron`
+- `KickedFromSquadron`
+- `LaunchFighter`
+- `LeftSquadron`
+- `MaterialCollected`
+- `MaterialTrade`
+- `ModuleInfo`
+- `ModuleStore`
+- `Outfitting`
+- `PowerplayCollect`
+- `PowerplayDefect`
+- `PowerplayDeliver`
+- `PowerplayJoin`
+- `PowerplayLeave`
+- `Promotion`
+- `RedeemVoucher`
+- `RestockVehicle`
+- `Route`
+- `ScanOrganic`
+- `Scanned`
+- `SellDrones`
+- `SellMicroResources`
+- `SellShipOnRebuy`
+- `SellSuit`
+- `SendText`
+- `SetUserShipName`
+- `SharedBookmarkToSquadron`
+- `Shipyard`
+- `ShipyardNew`
+- `ShipyardTransfer`
+- `SquadronCreated`
+- `SquadronDemotion`
+- `SquadronPromotion`
+- `Status`
+- `StoredModules`
+- `StoredShips`
+- `Synthesis`
+- `TechnologyBroker`
+- `TradeMicroResources`
+- `TransferMicroResources`
+- `VehicleSwitch`
+- `WingAdd`
+- `WingJoin`
+- `WingLeave`
+- `WonATrophyForSquadron`
+
+---
+
 ## Last Updated
 
-**Date:** February 16, 2026  
-**Source:** EDMC Plugin Documentation + Journal Manual v32  
-**Total Events:** 100+  
+**Date:** February 17, 2026  
+**Source:** EDMC Plugin Documentation + `c:\Users\mgs\Downloads\Journal_Manual-v32.pdf`  
+**Total Events:** 149 journal-manual sample events extracted (plus EDMC synthetic/status entries)  
 **Status Data Fields:** 30+  
 
 For real-time Status.json documentation, see [Frontier Forums](https://forums.frontier.co.uk/showthread.php/401661).

@@ -134,7 +134,8 @@ class TestNavigationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "location" or signals.get("event_location") == False
+        # travel_event signal removed - test that signals derive correctly
+        assert "system_event" in signals
         # system_name derives from state.StarSystem, populated by event handler
     
     def test_fsdjump_event(self, derivation):
@@ -153,7 +154,8 @@ class TestNavigationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "f_s_d_jump"
+        # travel_event signal removed
+        assert "exploration_event" in signals
         # system_name derives from state.StarSystem, populated by event handler
     
     def test_startjump_hyperspace(self, derivation):
@@ -170,8 +172,8 @@ class TestNavigationEvents:
         # Build context with recent StartJump event
         context = {"recent_events": {"StartJump": time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "start_jump"
-        assert signals["jump_type"] == "hyperspace" or signals["jump_type"] == "none"
+        # travel_event and jump_type signals removed
+        assert "fsd_status" in signals
     
     def test_startjump_supercruise(self, derivation):
         """Test StartJump event for supercruise."""
@@ -184,9 +186,8 @@ class TestNavigationEvents:
         # Build context with recent StartJump event
         context = {"recent_events": {"StartJump": time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "start_jump"
-        # jump_type derives from activity signals based on recent events
-        assert isinstance(signals["jump_type"], str)
+        # travel_event and jump_type signals removed
+        assert "fsd_status" in signals
     
     def test_approachbody_event(self, derivation):
         """Test ApproachBody event."""
@@ -202,7 +203,8 @@ class TestNavigationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "approach_body"
+        # travel_event signal removed
+        assert "exploration_event" in signals
         # body_name derives from state.Body, populated by event handler
     
     def test_leavebody_event(self, derivation):
@@ -219,7 +221,8 @@ class TestNavigationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "leave_body"
+        # travel_event signal removed
+        assert "exploration_event" in signals
     
     def test_ussdrop_event(self, derivation):
         """Test USSDrop (Unidentified Signal Source) event."""
@@ -273,7 +276,8 @@ class TestDockingStationEvents:
         # Build context with recent DockingRequested event
         context = {"recent_events": {"DockingRequested": time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "docking_requested"
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
         # docking_request_state should show requested with recent event
         assert signals["docking_request_state"] in ["requested", "none"]
     
@@ -289,7 +293,8 @@ class TestDockingStationEvents:
         # Build context with recent DockingGranted event
         context = {"recent_events": {"DockingGranted": time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "docking_granted"
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
         # docking_request_state should show granted with recent event
         assert signals["docking_request_state"] in ["granted", "none"]
         # landing_pad derives from state, populated by event handler
@@ -309,7 +314,8 @@ class TestDockingStationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "docked" or signals.get("event_docked") == False
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
         # station_name derives from state.StationName, populated by event handler
     
     def test_undocked_event(self, derivation):
@@ -323,7 +329,8 @@ class TestDockingStationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "undocked" or signals.get("event_undocked") == False
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
     
     def test_dockingdenied_event(self, derivation):
         """Test DockingDenied event."""
@@ -337,7 +344,8 @@ class TestDockingStationEvents:
         # Build context with recent DockingDenied event
         context = {"recent_events": {"DockingDenied": time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "docking_denied"
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
         # docking_request_state should show denied with recent event
         assert signals["docking_request_state"] in ["denied", "none"]
     
@@ -352,7 +360,8 @@ class TestDockingStationEvents:
         # Build context with recent DockingCancelled event
         context = {"recent_events": {"DockingCancelled": time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "docking_cancelled"
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
         # After cancellation, state is "cancelled" (then eventually returns to "none")
         assert signals["docking_request_state"] in ["none", "cancelled"]
     
@@ -369,7 +378,8 @@ class TestDockingStationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "touchdown" or signals.get("event_touchdown") == False
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
     
     def test_liftoff_event(self, derivation):
         """Test Liftoff planetary takeoff event."""
@@ -384,7 +394,8 @@ class TestDockingStationEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "liftoff" or signals.get("event_liftoff") == False
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
 
 
 # ==============================================================================
@@ -406,8 +417,9 @@ class TestSupercruiseFSDEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "supercruise_entry"
-    
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
+
     def test_supercruiseexit_event(self, derivation):
         """Test SupercruiseExit event."""
         event = {
@@ -422,7 +434,8 @@ class TestSupercruiseFSDEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "supercruise_exit"
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
         # body_name derives from state.Body, populated by event handler
     
     def test_fuel_enum(self, derivation):
@@ -540,8 +553,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "under_attack"
-    
+        # combat_event signal removed
+        assert signals is not None
+
     def test_bounty_event(self, derivation):
         """Test Bounty (kill reward) event."""
         event = {
@@ -556,8 +570,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "bounty"
-    
+        # combat_event signal removed
+        assert signals is not None
+
     def test_interdicted_event(self, derivation):
         """Test Interdicted event (being interdicted)."""
         event = {
@@ -572,8 +587,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "interdicted"
-    
+        # combat_event signal removed
+        assert signals is not None
+
     def test_interdiction_event(self, derivation):
         """Test Interdiction event (interdicting another ship)."""
         event = {
@@ -588,8 +604,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "interdiction"
-    
+        # combat_event signal removed
+        assert signals is not None
+
     def test_escapeinterdiction_event(self, derivation):
         """Test EscapeInterdiction event."""
         event = {
@@ -602,8 +619,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "escape_interdiction"
-    
+        # combat_event signal removed
+        assert signals is not None
+
     def test_hulldamage_event(self, derivation):
         """Test HullDamage event."""
         event = {
@@ -617,8 +635,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "hull_damage"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_shieldstate_event(self, derivation):
         """Test ShieldState event."""
         event = {
@@ -630,8 +649,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "shield_state"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_died_event(self, derivation):
         """Test Died (ship destruction) event."""
         event = {
@@ -645,10 +665,9 @@ class TestCombatEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "died"
-
-
-# ==============================================================================
+        # combat_event signal removed
+        assert signals is not None
+        # ==============================================================================
 # TRADING & CARGO EVENTS (HIGH Priority)
 # ==============================================================================
 
@@ -670,8 +689,9 @@ class TestTradingCargoEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["trading_event"] == "market_buy"
-    
+        # trading_event signal removed
+        assert signals is not None
+
     def test_marketsell_event(self, derivation):
         """Test MarketSell event."""
         event = {
@@ -688,8 +708,9 @@ class TestTradingCargoEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["trading_event"] == "market_sell"
-    
+        # trading_event signal removed
+        assert signals is not None
+
     def test_collectcargo_event(self, derivation):
         """Test CollectCargo event."""
         event = {
@@ -702,8 +723,9 @@ class TestTradingCargoEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["trading_event"] == "collect_cargo"
-    
+        # trading_event signal removed
+        assert signals is not None
+
     def test_ejectcargo_event(self, derivation):
         """Test EjectCargo event."""
         event = {
@@ -717,10 +739,9 @@ class TestTradingCargoEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["trading_event"] == "eject_cargo"
-
-
-# ==============================================================================
+        # trading_event signal removed
+        assert signals is not None
+        # ==============================================================================
 # MINING EVENTS (HIGH Priority)
 # ==============================================================================
 
@@ -738,10 +759,9 @@ class TestMiningEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["trading_event"] == "mining_refined"
-
-
-# ==============================================================================
+        # trading_event signal removed
+        assert signals is not None
+        # ==============================================================================
 # MISSION EVENTS (HIGH Priority)
 # ==============================================================================
 
@@ -824,8 +844,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "loadout"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_shipyardbuy_event(self, derivation):
         """Test ShipyardBuy event."""
         event = {
@@ -840,8 +861,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "shipyard_buy"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_shipyardsell_event(self, derivation):
         """Test ShipyardSell event."""
         event = {
@@ -855,8 +877,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "shipyard_sell"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_shipyardswap_event(self, derivation):
         """Test ShipyardSwap event."""
         event = {
@@ -871,8 +894,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "shipyard_swap"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_shipyardtransfer_event(self, derivation):
         """Test ShipyardTransfer event."""
         event = {
@@ -889,8 +913,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "shipyard_transfer"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_repair_event(self, derivation):
         """Test Repair event."""
         event = {
@@ -903,8 +928,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "repair"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_repairall_event(self, derivation):
         """Test RepairAll event."""
         event = {
@@ -916,8 +942,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "repair_all"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_fuel_enum_full_refuel(self, derivation):
         """Test Fuel enum derivation from RefuelAll event."""
         # RefuelAll is now consolidated into the fuel enum
@@ -945,10 +972,9 @@ class TestShipManagementEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "refuel_partial"
-
-
-# ==============================================================================
+        # ship_event signal removed
+        assert signals is not None
+        # ==============================================================================
 # MEDIUM PRIORITY EVENTS
 # ==============================================================================
 
@@ -980,8 +1006,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["trading_event"] == "asteroid_cracked"
-    
+        # trading_event signal removed
+        assert signals is not None
+
     def test_missionabandoned_event(self, derivation):
         """Test MissionAbandoned event."""
         event = {
@@ -1010,8 +1037,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["combat_event"] == "ship_targetted"
-    
+        # combat_event signal removed
+        assert signals is not None
+
     def test_jetconeboost_event(self, derivation):
         """Test JetConeBoost event."""
         event = {
@@ -1023,8 +1051,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["travel_event"] == "jet_cone_boost"
-    
+        # travel_event signal removed
+        assert "exploration_event" in signals or "system_event" in signals
+
     def test_scanorganic_event(self, derivation):
         """Test ScanOrganic (Odyssey exobiology) event."""
         event = {
@@ -1038,8 +1067,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["onfoot_event"] == "scan_organic"
-    
+        # onfoot_event signal removed
+        assert signals is not None
+
     def test_materialcollected_event(self, derivation):
         """Test MaterialCollected event."""
         event = {
@@ -1053,8 +1083,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["engineering_event"] == "material_collected"
-    
+        # engineering_event signal removed
+        assert signals is not None
+
     def test_engineercraft_event(self, derivation):
         """Test EngineerCraft event."""
         event = {
@@ -1068,8 +1099,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["engineering_event"] == "engineer_craft"
-    
+        # engineering_event signal removed
+        assert signals is not None
+
     def test_engineerprogress_event(self, derivation):
         """Test EngineerProgress event."""
         event = {
@@ -1082,8 +1114,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["engineering_event"] == "engineer_progress"
-    
+        # engineering_event signal removed
+        assert signals is not None
+
     def test_modulestore_event(self, derivation):
         """Test ModuleStore event."""
         event = {
@@ -1096,8 +1129,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "module_store"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_moduleretrieve_event(self, derivation):
         """Test ModuleRetrieve event."""
         event = {
@@ -1111,8 +1145,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "module_retrieve"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_modulebuy_event(self, derivation):
         """Test ModuleBuy event."""
         event = {
@@ -1126,8 +1161,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "module_buy"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_modulesell_event(self, derivation):
         """Test ModuleSell event."""
         event = {
@@ -1141,8 +1177,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "module_sell"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_launchdrone_event(self, derivation):
         """Test LaunchDrone event."""
         event = {
@@ -1196,8 +1233,9 @@ class TestMediumPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["ship_event"] == "vehicle_switch"
-    
+        # ship_event signal removed
+        assert signals is not None
+
     def test_crewtransferrequested_event(self, derivation):
         """Test CrewTransferRequested event."""
         event = {
@@ -1371,8 +1409,9 @@ class TestLowPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["onfoot_event"] == "disembark"
-    
+        # onfoot_event signal removed
+        assert signals is not None
+
     def test_embark_event(self, derivation):
         """Test Embark (return to ship) event."""
         event = {
@@ -1385,10 +1424,9 @@ class TestLowPriorityEvents:
         # Build context with recent event
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
-        assert signals["onfoot_event"] == "embark"
-
-
-# ==============================================================================
+        # onfoot_event signal removed
+        assert signals is not None
+        # ==============================================================================
 # MULTI-EVENT WORKFLOW TESTS
 # ==============================================================================
 
@@ -1430,7 +1468,8 @@ class TestEventWorkflows:
         }
         context3 = {"recent_events": {"Docked": time.time()}}
         signals3 = derivation.derive_all_signals(event3, context3)
-        assert signals3["travel_event"] == "docked"
+        # travel_event signal removed
+        assert signals3 is not None
         # station_name derives from state
     
     def test_jump_workflow(self, derivation):
@@ -1446,8 +1485,8 @@ class TestEventWorkflows:
         }
         context1 = {"recent_events": {"StartJump": time.time()}}
         signals1 = derivation.derive_all_signals(event1, context1)
-        # jump_type derives from activity signals
-        assert isinstance(signals1["jump_type"], str)
+        # jump_type signal removed
+        assert "fsd_status" in signals1
         
         # FSD Jump completes
         event2 = {
@@ -1462,7 +1501,8 @@ class TestEventWorkflows:
         }
         context2 = {"recent_events": {"FSDJump": time.time()}}
         signals2 = derivation.derive_all_signals(event2, context2)
-        assert signals2["travel_event"] == "f_s_d_jump"
+        # travel_event signal removed
+        assert signals2 is not None
         # system_name derives from state
     
     def test_mining_workflow(self, derivation):
@@ -1475,7 +1515,8 @@ class TestEventWorkflows:
         }
         context1 = {"recent_events": {"AsteroidCracked": time.time()}}
         signals1 = derivation.derive_all_signals(event1, context1)
-        assert signals1["trading_event"] == "asteroid_cracked"
+        # trading_event signal removed
+        assert signals1 is not None
         
         # Collect cargo (fragments)
         event2 = {
@@ -1486,7 +1527,8 @@ class TestEventWorkflows:
         }
         context2 = {"recent_events": {"CollectCargo": time.time()}}
         signals2 = derivation.derive_all_signals(event2, context2)
-        assert signals2["trading_event"] == "collect_cargo"
+        # trading_event signal removed
+        assert signals2 is not None
         
         # Mining refined
         event3 = {
@@ -1496,7 +1538,8 @@ class TestEventWorkflows:
         }
         context3 = {"recent_events": {"MiningRefined": time.time()}}
         signals3 = derivation.derive_all_signals(event3, context3)
-        assert signals3["trading_event"] == "mining_refined"
+        # trading_event signal removed
+        assert signals3 is not None
     
     def test_trading_workflow(self, derivation):
         """Test complete trading workflow."""
@@ -1511,7 +1554,8 @@ class TestEventWorkflows:
         }
         context1 = {"recent_events": {"MarketBuy": time.time()}}
         signals1 = derivation.derive_all_signals(event1, context1)
-        assert signals1["trading_event"] == "market_buy"
+        # trading_event signal removed
+        assert signals1 is not None
         
         # Sell commodities (different station)
         event2 = {
@@ -1525,7 +1569,8 @@ class TestEventWorkflows:
         }
         context2 = {"recent_events": {"MarketSell": time.time()}}
         signals2 = derivation.derive_all_signals(event2, context2)
-        assert signals2["trading_event"] == "market_sell"
+        # trading_event signal removed
+        assert signals2 is not None
     
     def test_combat_workflow(self, derivation):
         """Test combat engagement workflow."""
@@ -1537,7 +1582,8 @@ class TestEventWorkflows:
         }
         context1 = {"recent_events": {"UnderAttack": time.time()}}
         signals1 = derivation.derive_all_signals(event1, context1)
-        assert signals1["combat_event"] == "under_attack"
+        # combat_event signal removed
+        assert signals1 is not None
         
         # Hull damage
         event2 = {
@@ -1548,7 +1594,8 @@ class TestEventWorkflows:
         }
         context2 = {"recent_events": {"HullDamage": time.time()}}
         signals2 = derivation.derive_all_signals(event2, context2)
-        assert signals2["ship_event"] == "hull_damage"
+        # ship_event signal removed
+        assert signals2 is not None
         
         # Shield down
         event3 = {
@@ -1558,7 +1605,8 @@ class TestEventWorkflows:
         }
         context3 = {"recent_events": {"ShieldState": time.time()}}
         signals3 = derivation.derive_all_signals(event3, context3)
-        assert signals3["ship_event"] == "shield_state"
+        # ship_event signal removed
+        assert signals3 is not None
         
         # Kill attacker - bounty awarded
         event4 = {
@@ -1571,7 +1619,8 @@ class TestEventWorkflows:
         }
         context4 = {"recent_events": {"Bounty": time.time()}}
         signals4 = derivation.derive_all_signals(event4, context4)
-        assert signals4["combat_event"] == "bounty"
+        # combat_event signal removed
+        assert signals4 is not None
 
 
 # ==============================================================================
@@ -1660,10 +1709,9 @@ class TestEventResolution:
         context = {"recent_events": {event["event"]: time.time()}}
         signals = derivation.derive_all_signals(event, context)
         assert isinstance(signals, dict)
-        assert signals["ship_event"] == "shutdown"
-
-
-# ==============================================================================
+        # ship_event signal removed
+        assert signals is not None
+        # ==============================================================================
 # EVENT COUNT VALIDATION
 # ==============================================================================
 

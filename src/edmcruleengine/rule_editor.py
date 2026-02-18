@@ -9,6 +9,7 @@ Provides a visual editor for creating and editing rules using the schema:
 - Inline validation and error handling
 """
 
+import copy
 import json
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
@@ -24,6 +25,293 @@ logger = plugin_logger(__name__)
 SHIFT_TOKENS = ["Shift1", "Shift2"]
 SUBSHIFT_TOKENS = [f"Subshift{i}" for i in range(1, 8)]
 ALL_SHIFT_TOKENS = SHIFT_TOKENS + SUBSHIFT_TOKENS
+
+# Canvas-drawn icon button size
+ICON_SIZE = 20
+
+
+class IconButton(tk.Canvas):
+    """A small canvas-drawn colored icon button.
+
+    Draws crisp vector icons that render identically across platforms
+    without relying on emoji font support.
+    """
+
+    # Colour palette
+    PALETTES = {
+        "delete":    {"bg": "#e74c3c", "fg": "white", "hover": "#c0392b"},
+        "add":       {"bg": "#27ae60", "fg": "white", "hover": "#1e8449"},
+        "up":        {"bg": "#3498db", "fg": "white", "hover": "#2980b9"},
+        "down":      {"bg": "#3498db", "fg": "white", "hover": "#2980b9"},
+        "duplicate": {"bg": "#8e44ad", "fg": "white", "hover": "#6c3483"},
+    }
+
+    def __init__(self, parent, icon_type: str, command=None, size=ICON_SIZE, tooltip: str = "", **kw):
+        super().__init__(parent, width=size, height=size, highlightthickness=0, bd=0, **kw)
+        self._icon_type = icon_type
+        self._command = command
+        self._size = size
+        self._palette = self.PALETTES.get(icon_type, {"bg": "#95a5a6", "fg": "white", "hover": "#7f8c8d"})
+        self._hovering = False
+
+        self._draw()
+        self.bind("<Button-1>", self._on_click)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+
+        if tooltip:
+            self._tooltip = tooltip
+            self.bind("<Enter>", self._show_tip, add="+")
+            self.bind("<Leave>", self._hide_tip, add="+")
+            self._tip_window = None
+
+    # -- drawing -------------------------------------------------------
+
+    def _draw(self):
+        self.delete("all")
+        s = self._size
+        bg = self._palette["hover"] if self._hovering else self._palette["bg"]
+        fg = self._palette["fg"]
+
+        # Rounded-rect background
+        r = 3
+        self.create_rectangle(r, r, s - r, s - r, fill=bg, outline="", width=0)
+        self.create_rectangle(0, r, s, s - r, fill=bg, outline="")
+        self.create_rectangle(r, 0, s - r, s, fill=bg, outline="")
+        # Fill corners with small ovals for a rounded look
+        for cx, cy in [(r, r), (s - r, r), (r, s - r), (s - r, s - r)]:
+            self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=bg, outline="")
+
+        m = s // 2  # midpoint
+        p = 5       # padding from edges
+
+        if self._icon_type == "delete":
+            # X cross
+            self.create_line(p, p, s - p, s - p, fill=fg, width=2)
+            self.create_line(s - p, p, p, s - p, fill=fg, width=2)
+
+        elif self._icon_type == "add":
+            # + cross
+            self.create_line(m, p, m, s - p, fill=fg, width=2)
+            self.create_line(p, m, s - p, m, fill=fg, width=2)
+
+        elif self._icon_type == "up":
+            # Up triangle
+            self.create_polygon(m, p, s - p, s - p, p, s - p, fill=fg, outline="")
+
+        elif self._icon_type == "down":
+            # Down triangle
+            self.create_polygon(m, s - p, s - p, p, p, p, fill=fg, outline="")
+
+        elif self._icon_type == "duplicate":
+            # Two overlapping rectangles
+            off = 3
+            self.create_rectangle(p + off, p, s - p, s - p - off, outline=fg, width=1.5, fill="")
+            self.create_rectangle(p, p + off, s - p - off, s - p, outline=fg, width=1.5, fill="")
+
+    # -- interaction ----------------------------------------------------
+
+    def _on_click(self, event=None):
+        if self._command:
+            self._command()
+
+    def _on_enter(self, event=None):
+        self._hovering = True
+        self._draw()
+
+    def _on_leave(self, event=None):
+        self._hovering = False
+        self._draw()
+
+    # -- tooltip --------------------------------------------------------
+
+    def _show_tip(self, event=None):
+        if self._tip_window:
+            return
+        x = self.winfo_rootx() + self._size + 2
+        y = self.winfo_rooty()
+        tw = tk.Toplevel(self)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        tk.Label(tw, text=getattr(self, "_tooltip", ""), bg="#333", fg="white",
+                 font=("TkDefaultFont", 8), padx=4, pady=2).pack()
+        self._tip_window = tw
+
+    def _hide_tip(self, event=None):
+        if self._tip_window:
+            self._tip_window.destroy()
+            self._tip_window = None
+
+
+def _centered_yesno(parent, title, message):
+    """Show a yes/no dialog centered on the parent window."""
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    dlg.transient(parent)
+    dlg.grab_set()
+
+    result = [False]
+
+    ttk.Label(dlg, text=message, wraplength=350, padding=15).pack()
+
+    btn_frame = ttk.Frame(dlg, padding=(10, 0, 10, 10))
+    btn_frame.pack()
+
+    def on_yes():
+        result[0] = True
+        dlg.destroy()
+
+    def on_no():
+        dlg.destroy()
+
+    tk.Button(btn_frame, text="Yes", command=on_yes, width=8, bg="#27ae60", fg="white").pack(side=tk.LEFT, padx=5)
+    tk.Button(btn_frame, text="No", command=on_no, width=8, bg="#e74c3c", fg="white").pack(side=tk.LEFT, padx=5)
+
+    dlg.update_idletasks()
+    # Center on parent
+    pw = parent.winfo_width()
+    ph = parent.winfo_height()
+    px = parent.winfo_rootx()
+    py = parent.winfo_rooty()
+    dw = dlg.winfo_width()
+    dh = dlg.winfo_height()
+    x = max(0, px + (pw - dw) // 2)
+    y = max(0, py + (ph - dh) // 2)
+    dlg.geometry(f"+{x}+{y}")
+    dlg.protocol("WM_DELETE_WINDOW", on_no)
+    dlg.wait_window()
+    return result[0]
+
+
+def _centered_info(parent, title, message):
+    """Show an info dialog centered on the parent window."""
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    dlg.transient(parent)
+    dlg.grab_set()
+
+    ttk.Label(dlg, text=message, wraplength=350, padding=15).pack()
+
+    btn_frame = ttk.Frame(dlg, padding=(10, 0, 10, 10))
+    btn_frame.pack()
+    tk.Button(btn_frame, text="OK", command=dlg.destroy, width=8, bg="#3498db", fg="white").pack()
+
+    dlg.update_idletasks()
+    pw = parent.winfo_width()
+    ph = parent.winfo_height()
+    px = parent.winfo_rootx()
+    py = parent.winfo_rooty()
+    dw = dlg.winfo_width()
+    dh = dlg.winfo_height()
+    x = max(0, px + (pw - dw) // 2)
+    y = max(0, py + (ph - dh) // 2)
+    dlg.geometry(f"+{x}+{y}")
+    dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+    dlg.wait_window()
+
+
+def _centered_error(parent, title, message):
+    """Show an error dialog centered on the parent window."""
+    dlg = tk.Toplevel(parent)
+    dlg.title(title)
+    dlg.resizable(False, False)
+    dlg.transient(parent)
+    dlg.grab_set()
+
+    ttk.Label(dlg, text=message, wraplength=400, padding=15, foreground="red").pack()
+
+    btn_frame = ttk.Frame(dlg, padding=(10, 0, 10, 10))
+    btn_frame.pack()
+    tk.Button(btn_frame, text="OK", command=dlg.destroy, width=8, bg="#e74c3c", fg="white").pack()
+
+    dlg.update_idletasks()
+    pw = parent.winfo_width()
+    ph = parent.winfo_height()
+    px = parent.winfo_rootx()
+    py = parent.winfo_rooty()
+    dw = dlg.winfo_width()
+    dh = dlg.winfo_height()
+    x = max(0, px + (pw - dw) // 2)
+    y = max(0, py + (ph - dh) // 2)
+    dlg.geometry(f"+{x}+{y}")
+    dlg.protocol("WM_DELETE_WINDOW", dlg.destroy)
+    dlg.wait_window()
+
+
+class ThreeStateCheckbutton(tk.Canvas):
+    """
+    A 3-state checkbox widget with states: OFF (0), ON (1), IGNORED (2).
+    
+    States cycle through: OFF → ON → IGNORED → OFF
+    - OFF: Shift is cleared/disabled
+    - ON: Shift is set/enabled  
+    - IGNORED: Shift state is not changed
+    """
+    
+    def __init__(self, parent, text="", variable=None, command=None, **kwargs):
+        """
+        Initialize 3-state checkbox.
+        
+        Args:
+            parent: Parent widget
+            text: Label text
+            variable: tk.StringVar to track state ('off', 'on', 'ignored')
+            command: Callback when state changes
+        """
+        super().__init__(parent, width=20, height=20, highlightthickness=0, bg="white", **kwargs)
+        self.text = text
+        self.variable = variable if variable else tk.StringVar(value='off')
+        self.command = command
+        self.size = 14  # Checkbox size
+        self.label_font = ("TkDefaultFont", 10)
+        
+        # Bind click and display initial state
+        self.bind("<Button-1>", self._on_click)
+        self._draw()
+    
+    def _on_click(self, event=None):
+        """Cycle to next state on click."""
+        current = self.variable.get()
+        states = ['off', 'on', 'ignored']
+        current_idx = states.index(current) if current in states else 0
+        next_idx = (current_idx + 1) % 3
+        self.variable.set(states[next_idx])
+        self._draw()
+        if self.command:
+            self.command()
+    
+    def _draw(self):
+        """Draw the checkbox in current state."""
+        self.delete("all")
+        state = self.variable.get()
+        
+        # Box outline
+        box_color = "#333"
+        if state == 'off':
+            box_fill = "#e74c3c"
+            symbol = "✗"
+            symbol_color = "white"
+        elif state == 'on':
+            box_fill = "#27ae60"
+            symbol = "✓"
+            symbol_color = "white"
+        else:  # ignored
+            box_fill = "#ecf0f1"
+            symbol = ""
+            symbol_color = "#333"
+        
+        # Draw box
+        self.create_rectangle(2, 2, 16, 16, fill=box_fill, outline=box_color, width=1)
+        
+        # Draw symbol (empty for ignored)
+        if symbol:
+            self.create_text(9, 9, text=symbol, font=self.label_font, fill=symbol_color)
+        
+        # Draw label
+        if self.text:
+            self.create_text(22, 9, text=self.text, anchor="w", font=self.label_font)
 
 
 class RuleEditorUI:
@@ -70,10 +358,14 @@ class RuleEditorUI:
         # Track unsaved changes
         self.unsaved_changes = False
         
-        # Current view state
-        self.current_view = "list"  # "list" or "editor"
+        # Active editor state
         self.editing_rule_index: Optional[int] = None
         self.active_editor: Optional["RuleEditor"] = None
+        
+        # If opening directly to edit a specific rule, set that now
+        if initial_rule_index is not None and not self.catalog_error:
+            if 0 <= initial_rule_index < len(self.rules):
+                self.editing_rule_index = initial_rule_index
         
         # Create main window
         self.window = tk.Toplevel(parent)
@@ -81,12 +373,8 @@ class RuleEditorUI:
         self.window.geometry("1000x700")
         self.window.protocol("WM_DELETE_WINDOW", self._on_close)
         
-        # Build UI
+        # Build UI (will show editor if editing_rule_index is set)
         self._build_ui()
-
-        if initial_rule_index is not None and not self.catalog_error:
-            if 0 <= initial_rule_index < len(self.rules):
-                self._edit_rule(initial_rule_index)
 
         # Start catalog change watcher
         self._schedule_catalog_poll()
@@ -137,7 +425,7 @@ class RuleEditorUI:
                 self.rules = []
         except Exception as e:
             logger.error(f"Failed to load rules: {e}")
-            messagebox.showerror("Error", f"Failed to load rules:\n{e}")
+            _centered_error(self.window, "Error", f"Failed to load rules:\n{e}")
             self.rules = []
     
     def _save_rules(self):
@@ -150,7 +438,7 @@ class RuleEditorUI:
             logger.info(f"Saved {len(self.rules)} rules to {self.rules_file}")
         except Exception as e:
             logger.error(f"Failed to save rules: {e}")
-            messagebox.showerror("Error", f"Failed to save rules:\n{e}")
+            _centered_error(self.window, "Error", f"Failed to save rules:\n{e}")
             raise
     
     def _build_ui(self):
@@ -160,17 +448,23 @@ class RuleEditorUI:
             self._show_catalog_error()
             return
         
-        # Create container for swappable views
+        # Create container for editor view
         self.view_container = ttk.Frame(self.window)
         self.view_container.pack(fill=tk.BOTH, expand=True)
         
-        # Show rules list by default
-        self._show_rules_list()
+        # Show editor (either for existing rule or new rule)
+        if self.editing_rule_index is not None:
+            self._show_rule_editor()
+        else:
+            # Create new empty rule
+            self.editing_rule_index = -1  # Special marker for new rule
+            self._show_rule_editor()
 
     def _reload_catalog(self):
-        """Reload the signals catalog and refresh the UI."""
-        if self.current_view == "editor" and self.active_editor and self.active_editor.has_changes:
-            if not messagebox.askyesno(
+        """Reload the signals catalog and refresh the editor."""
+        if self.active_editor and self.active_editor.has_changes:
+            if not _centered_yesno(
+                self.window,
                 "Unsaved Changes",
                 "You have unsaved changes. Reloading the catalog will discard them. Continue?"
             ):
@@ -179,10 +473,11 @@ class RuleEditorUI:
             self.catalog = SignalsCatalog.from_plugin_dir(str(self.plugin_dir))
             self.catalog_error = None
             logger.info("Reloaded signals catalog")
-            if self.current_view == "editor" and self.editing_rule_index is not None:
+            if self.editing_rule_index is not None:
                 self._show_rule_editor()
             else:
-                self._show_rules_list()
+                # No rule being edited, close window
+                self.window.destroy()
         except CatalogError as e:
             self.catalog_error = str(e)
             logger.error(f"Failed to reload catalog: {e}")
@@ -199,7 +494,7 @@ class RuleEditorUI:
         
         ttk.Label(
             error_frame,
-            text="❌ Catalog Error",
+            text="Catalog Error",
             font=("TkDefaultFont", 16, "bold"),
             foreground="red"
         ).pack(pady=(0, 10))
@@ -224,68 +519,6 @@ class RuleEditorUI:
         
         ttk.Button(error_frame, text="Close", command=self.window.destroy).pack()
     
-    def _show_rules_list(self):
-        """Show the rules list view."""
-        # Clear container
-        for widget in self.view_container.winfo_children():
-            widget.destroy()
-        
-        self.current_view = "list"
-        
-        # Create list view
-        list_frame = ttk.Frame(self.view_container)
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
-        
-        # Header with New Rule button
-        header_frame = ttk.Frame(list_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 8))
-        
-        ttk.Label(header_frame, text="Rules", font=("TkDefaultFont", 14, "bold")).pack(side=tk.LEFT)
-        ttk.Button(header_frame, text="➕ New Rule", command=self._new_rule).pack(side=tk.RIGHT)
-        ttk.Button(header_frame, text="⟲ Reload catalog", command=self._reload_catalog).pack(side=tk.RIGHT, padx=5)
-        
-        # Rules list with scrollbar
-        list_container = ttk.Frame(list_frame)
-        list_container.pack(fill=tk.BOTH, expand=True)
-        
-        canvas = tk.Canvas(list_container, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL, command=canvas.yview)
-        rules_frame = ttk.Frame(canvas)
-        
-        canvas_window = canvas.create_window((0, 0), window=rules_frame, anchor="nw")
-        
-        def _on_frame_configure(event=None):
-            canvas.configure(scrollregion=canvas.bbox("all"))
-        
-        def _on_canvas_configure(event):
-            canvas.itemconfigure(canvas_window, width=event.width)
-        
-        rules_frame.bind("<Configure>", _on_frame_configure)
-        canvas.bind("<Configure>", _on_canvas_configure)
-        
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Add rules
-        if not self.rules:
-            # Empty state
-            empty_frame = ttk.Frame(rules_frame)
-            empty_frame.pack(pady=30)
-            ttk.Label(
-                empty_frame,
-                text="No rules yet",
-                font=("TkDefaultFont", 12)
-            ).pack()
-            ttk.Label(
-                empty_frame,
-                text='Click "➕ New Rule" to create your first rule',
-                foreground="gray"
-            ).pack()
-        else:
-            for idx, rule in enumerate(self.rules):
-                self._create_rule_list_item(rules_frame, idx, rule)
-
     def _get_catalog_mtime(self) -> Optional[float]:
         """Return the catalog file mtime or None if unavailable."""
         try:
@@ -316,10 +549,11 @@ class RuleEditorUI:
 
     def _on_catalog_file_changed(self):
         """Handle catalog changes without clobbering active edits."""
-        if self.current_view == "editor" and self.active_editor and self.active_editor.has_changes:
+        if self.active_editor and self.active_editor.has_changes:
             if not self.pending_catalog_reload:
                 self.pending_catalog_reload = True
-                messagebox.showinfo(
+                _centered_info(
+                    self.window,
                     "Catalog Changed",
                     "Signals catalog changed on disk. Save or cancel your edits to reload."
                 )
@@ -327,217 +561,6 @@ class RuleEditorUI:
 
         self.pending_catalog_reload = False
         self._reload_catalog()
-    
-    def _create_rule_list_item(self, parent, idx: int, rule: Dict[str, Any]):
-        """Create a single rule list item."""
-        item_frame = ttk.Frame(parent)
-        item_frame.pack(fill=tk.X, pady=3)
-        
-        # Top row: title (with ID and enabled status) + actions
-        top_row = ttk.Frame(item_frame)
-        top_row.pack(fill=tk.X)
-        
-        # Title with ID and enabled status indicator
-        title = rule.get("title", rule.get("id", "Untitled"))
-        rule_id = rule.get("id", "")
-        enabled = rule.get("enabled", True)
-        
-        # Build title label with ID and status
-        title_parts = [title]
-        if rule_id:
-            title_parts.append(f"[{rule_id}]")
-        enabled_marker = "●" if enabled else "○"
-        title_text = f"{enabled_marker} {' '.join(title_parts)}"
-        
-        ttk.Label(
-            top_row,
-            text=title_text,
-            font=("TkDefaultFont", 10, "bold")
-        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        # Actions (compact)
-        ttk.Button(top_row, text="Edit", width=6, command=lambda: self._edit_rule(idx)).pack(side=tk.RIGHT, padx=1)
-        ttk.Button(top_row, text="Dup", width=4, command=lambda: self._duplicate_rule(idx)).pack(side=tk.RIGHT, padx=1)
-        ttk.Button(top_row, text="Del", width=4, command=lambda: self._delete_rule(idx)).pack(side=tk.RIGHT, padx=1)
-        
-        # Summary row - readable prose format
-        summary = self._generate_rule_summary(rule)
-        if summary:
-            summary_label = ttk.Label(item_frame, text=summary, foreground="gray", font=("TkDefaultFont", 9), wraplength=900, justify=tk.LEFT)
-            summary_label.pack(fill=tk.X, padx=30, pady=(0, 2))
-    
-    def _generate_rule_summary(self, rule: Dict[str, Any]) -> str:
-        """Generate a readable summary of the rule."""
-        parts = []
-        
-        # When conditions
-        when = rule.get("when", {})
-        all_conds = when.get("all", [])
-        any_conds = when.get("any", [])
-        
-        if all_conds or any_conds:
-            cond_descriptions = []
-            
-            # Add ALL conditions
-            for cond in all_conds:
-                desc = self._describe_condition(cond)
-                if desc:
-                    cond_descriptions.append(desc)
-            
-            # Add ANY conditions
-            if any_conds:
-                any_descs = []
-                for cond in any_conds:
-                    desc = self._describe_condition(cond)
-                    if desc:
-                        any_descs.append(desc)
-                if any_descs:
-                    cond_descriptions.append(f"({' OR '.join(any_descs)})")
-            
-            if cond_descriptions:
-                parts.append(f"When: {' AND '.join(cond_descriptions)}")
-            else:
-                parts.append("When: (always)")
-        else:
-            parts.append("When: (always)")
-        
-        # Then actions
-        then_actions = rule.get("then", [])
-        if then_actions:
-            action_parts = []
-            for action in then_actions:
-                for action_type, value in action.items():
-                    if action_type == "vkb_set_shift":
-                        tokens = value if isinstance(value, list) else [value]
-                        action_parts.append(f"Set {', '.join(tokens)}")
-                    elif action_type == "vkb_clear_shift":
-                        tokens = value if isinstance(value, list) else [value]
-                        action_parts.append(f"Clear {', '.join(tokens)}")
-                    elif action_type == "log":
-                        action_parts.append(f'Log "{value}"')
-            if action_parts:
-                parts.append(f"Then: {'; '.join(action_parts)}")
-        
-        # Else actions
-        else_actions = rule.get("else", [])
-        if else_actions:
-            action_parts = []
-            for action in else_actions:
-                for action_type, value in action.items():
-                    if action_type == "vkb_set_shift":
-                        tokens = value if isinstance(value, list) else [value]
-                        action_parts.append(f"Set {', '.join(tokens)}")
-                    elif action_type == "vkb_clear_shift":
-                        tokens = value if isinstance(value, list) else [value]
-                        action_parts.append(f"Clear {', '.join(tokens)}")
-                    elif action_type == "log":
-                        action_parts.append(f'Log "{value}"')
-            if action_parts:
-                parts.append(f"Else: {'; '.join(action_parts)}")
-        
-        return " | ".join(parts)
-    
-    def _describe_condition(self, condition: Dict[str, Any]) -> Optional[str]:
-        """Generate a readable description of a single condition."""
-        signal_id = condition.get("signal")
-        op_token = condition.get("op")
-        value = condition.get("value")
-        
-        if not signal_id or not self.catalog:
-            return None
-        
-        # Get signal name
-        signal_def = self.catalog.signals.get(signal_id)
-        if not signal_def:
-            return None
-        
-        signal_name = signal_def.get("ui", {}).get("label", signal_id)
-        
-        # Get operator symbol
-        op_def = self.catalog.operators.get(op_token)
-        op_symbol = op_def.get("symbol", op_token) if op_def else op_token
-        
-        # Format value
-        if isinstance(value, bool):
-            value_str = str(value).lower()
-        elif isinstance(value, list):
-            # Look up enum display values
-            signal_type = signal_def.get("type", "text")
-            if signal_type == "enum":
-                displays = []
-                for v in value:
-                    for item in signal_def.get("values", []):
-                        if item.get("value") == v:
-                            label = item.get("label", v)
-                            displays.append(label)
-                            break
-                    else:
-                        displays.append(str(v))
-                value_str = ", ".join(displays)
-            else:
-                value_str = ", ".join(str(v) for v in value)
-        else:
-            # Single value - check if it's an enum
-            signal_type = signal_def.get("type", "text")
-            if signal_type == "enum":
-                for item in signal_def.get("values", []):
-                    if item.get("value") == value:
-                        value_str = item.get("label", value)
-                        break
-                else:
-                    value_str = str(value)
-            else:
-                value_str = str(value)
-        
-        return f"{signal_name} {op_symbol} {value_str}"
-    
-    def _new_rule(self):
-        """Create a new rule."""
-        new_rule = {
-            "title": "New Rule",
-            "enabled": True,
-            "when": {"all": [], "any": []},
-            "then": [],
-            "else": []
-        }
-        self.rules.append(new_rule)
-        self.unsaved_changes = True
-        self._edit_rule(len(self.rules) - 1)
-    
-    def _edit_rule(self, idx: int):
-        """Edit a rule."""
-        self.editing_rule_index = idx
-        self._show_rule_editor()
-    
-    def _duplicate_rule(self, idx: int):
-        """Duplicate a rule."""
-        original = self.rules[idx]
-        duplicate = dict(original)
-        
-        # Modify title to indicate copy
-        title = duplicate.get("title", "Rule")
-        duplicate["title"] = f"{title} (copy)"
-        
-        # Remove ID so it gets regenerated
-        if "id" in duplicate:
-            del duplicate["id"]
-        
-        self.rules.insert(idx + 1, duplicate)
-        self.unsaved_changes = True
-        self._save_rules()
-        self._show_rules_list()
-        messagebox.showinfo("Duplicated", f'Rule "{title}" duplicated')
-    
-    def _delete_rule(self, idx: int):
-        """Delete a rule with confirmation."""
-        rule = self.rules[idx]
-        title = rule.get("title", rule.get("id", "this rule"))
-        
-        if messagebox.askyesno("Confirm Delete", f'Delete rule "{title}"?'):
-            del self.rules[idx]
-            self.unsaved_changes = True
-            self._save_rules()
-            self._show_rules_list()
     
     def _show_rule_editor(self):
         """Show the rule editor view."""
@@ -551,10 +574,22 @@ class RuleEditorUI:
             logger.error("No rule index set for editing")
             return
         
-        # Create editor (will be implemented in next phase)
+        # For new rules (index = -1), create an empty rule
+        if self.editing_rule_index == -1:
+            rule_to_edit = {
+                "title": "",
+                "enabled": True,
+                "when": {"all": [], "any": []},
+                "then": [],
+                "else": []
+            }
+        else:
+            rule_to_edit = self.rules[self.editing_rule_index]
+        
+        # Create editor
         self.active_editor = RuleEditor(
             self.view_container,
-            self.rules[self.editing_rule_index],
+            rule_to_edit,
             self.catalog,
             self._on_save_rule,
             self._on_cancel_edit
@@ -566,36 +601,32 @@ class RuleEditorUI:
             if not updated_rule.get("id"):
                 used_ids = {
                     r.get("id") for i, r in enumerate(self.rules)
-                    if r.get("id") and i != self.editing_rule_index
+                    if r.get("id") and i != self.editing_rule_index and self.editing_rule_index != -1
                 }
                 updated_rule["id"] = generate_id_from_title(updated_rule.get("title", ""), used_ids)
-            self.rules[self.editing_rule_index] = updated_rule
+            
+            # For new rules (index = -1), append to rules list
+            if self.editing_rule_index == -1:
+                self.rules.append(updated_rule)
+            else:
+                self.rules[self.editing_rule_index] = updated_rule
+            
             self.unsaved_changes = True
             self._save_rules()
-            self.editing_rule_index = None
-            self.active_editor = None
-            self._show_rules_list()
-            messagebox.showinfo("Saved", "Rule saved successfully")
-            if self.pending_catalog_reload:
-                self.pending_catalog_reload = False
-                self._reload_catalog()
+            _centered_info(self.window, "Saved", "Rule saved successfully")
+            # Close window after successful save
+            self.window.destroy()
     
     def _on_cancel_edit(self):
         """Callback when edit is cancelled."""
-        self.editing_rule_index = None
-        self.active_editor = None
-        self._show_rules_list()
-        if self.pending_catalog_reload:
-            self.pending_catalog_reload = False
-            self._reload_catalog()
+        # Close window when edit is cancelled
+        self.window.destroy()
     
     def _on_close(self):
         """Handle window close."""
-        if self.current_view == "editor" and self.active_editor and self.active_editor.has_changes:
-            if not messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Close anyway?"):
-                return
-        if self.unsaved_changes:
-            if not messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Close anyway?"):
+        # Only check the active editor's changes, not the window's overall unsaved status
+        if self.active_editor and self.active_editor.has_changes:
+            if not _centered_yesno(self.window, "Unsaved Changes", "You have unsaved changes. Close anyway?"):
                 return
         self.window.destroy()
 
@@ -626,26 +657,31 @@ class RuleEditor:
             on_cancel: Callback when cancelled
         """
         self.parent = parent
-        self.original_rule = dict(rule)
-        self.rule = dict(rule)  # Working copy
+        self.original_rule = copy.deepcopy(rule)
+        self.rule = copy.deepcopy(rule)  # Working copy
         self.catalog = catalog
         self.on_save_callback = on_save
         self.on_cancel_callback = on_cancel
-        
-        # Track changes
+
+        # Track changes - suppress during initial load
         self.has_changes = False
-        
+        self._loading = True
+
         # Load icon mapping
         self._load_icon_map()
-        
+
         # Build signal lookup tables from catalog
         self._build_lookup_tables()
-        
+
         # Tier filter state - always show both tiers
         self.show_detail_tier = tk.BooleanVar(value=True)
-        
+
         # Build UI
         self._build_ui()
+
+        # Done loading - enable change tracking
+        self._loading = False
+        self.has_changes = False
     
     def _build_lookup_tables(self):
         """Build lookup tables from catalog for efficient access."""
@@ -805,12 +841,44 @@ class RuleEditor:
         main_frame = ttk.Frame(self.parent, padding=10)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Header with back button
+        # Header with title and action buttons on right
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill=tk.X, pady=(0, 10))
         
-        ttk.Button(header_frame, text="← Back", command=self._on_back).pack(side=tk.LEFT)
-        ttk.Label(header_frame, text="Edit Rule", font=("TkDefaultFont", 14, "bold")).pack(side=tk.LEFT, padx=10)
+        ttk.Label(header_frame, text="Edit Rule", font=("TkDefaultFont", 14, "bold")).pack(side=tk.LEFT)
+        
+        # Action buttons on the right (Cancel then Save)
+        button_frame_right = ttk.Frame(header_frame)
+        button_frame_right.pack(side=tk.RIGHT, fill=tk.X)
+        
+        # Create styled buttons with colors
+        cancel_btn = tk.Button(
+            button_frame_right, 
+            text="Cancel", 
+            command=self._on_back,
+            bg="#e74c3c",
+            fg="white",
+            padx=12,
+            pady=6,
+            font=("TkDefaultFont", 10),
+            relief=tk.RAISED,
+            bd=2
+        )
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+        
+        save_btn = tk.Button(
+            button_frame_right, 
+            text="Save",
+            command=self._save,
+            bg="#27ae60",
+            fg="white",
+            padx=12,
+            pady=6,
+            font=("TkDefaultFont", 10),
+            relief=tk.RAISED,
+            bd=2
+        )
+        save_btn.pack(side=tk.LEFT, padx=5)
         
         # Scrollable content area
         canvas = tk.Canvas(main_frame, highlightthickness=0)
@@ -837,33 +905,27 @@ class RuleEditor:
         self._build_when_section(content_frame)
         self._build_then_section(content_frame)
         self._build_else_section(content_frame)
-
-        # Save/Cancel buttons at bottom, right aligned under panels
-        button_frame = ttk.Frame(content_frame)
-        button_frame.pack(fill=tk.X, pady=(10, 0))
-
-        ttk.Button(button_frame, text="💾 Save", command=self._save, width=15).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self._on_back, width=15).pack(side=tk.RIGHT)
     
     def _build_basic_fields(self, parent):
         """Build basic fields (title, id)."""
         basic_frame = ttk.LabelFrame(parent, text="Basic Information", padding=10)
         basic_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Title (required)
-        title_row = ttk.Frame(basic_frame)
-        title_row.pack(fill=tk.X, pady=5)
-        ttk.Label(title_row, text="Title:*", width=15).pack(side=tk.LEFT)
+        # Title and ID on same row - title left (editable), ID right (read-only)
+        header_row = ttk.Frame(basic_frame)
+        header_row.pack(fill=tk.X, pady=5)
+        header_row.columnconfigure(1, weight=1)  # Make title entry expand
+        
+        # Left side: Title label and entry
+        ttk.Label(header_row, text="Title:*").grid(row=0, column=0, sticky="w", padx=(0, 6))
         self.title_var = tk.StringVar(value=self.rule.get("title", ""))
         self.title_var.trace_add("write", lambda *args: self._on_title_changed())
-        ttk.Entry(title_row, textvariable=self.title_var, width=50).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Entry(header_row, textvariable=self.title_var).grid(row=0, column=1, sticky="ew", padx=(0, 12))
         
-        # Rule ID (always shown, read-only)
+        # Right side: ID label (read-only)
+        ttk.Label(header_row, text="ID:", foreground="gray").grid(row=0, column=2, sticky="e", padx=(0, 4))
         self.id_preview_var = tk.StringVar(value="")
-        id_row = ttk.Frame(basic_frame)
-        id_row.pack(fill=tk.X, pady=5)
-        ttk.Label(id_row, text="ID:", width=15, foreground="gray").pack(side=tk.LEFT)
-        ttk.Label(id_row, textvariable=self.id_preview_var, foreground="gray").pack(side=tk.LEFT)
+        ttk.Label(header_row, textvariable=self.id_preview_var, foreground="gray").grid(row=0, column=3, sticky="e")
         self._update_id_preview()
         
         # Enabled state (always tracked internally, not shown in UI)
@@ -872,29 +934,37 @@ class RuleEditor:
     
     def _build_when_section(self, parent):
         """Build the When condition builder section."""
-        when_frame = ttk.LabelFrame(parent, text="When (Conditions) - Define when this rule activates", padding=8)
-        when_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
-        
+        when_frame = ttk.LabelFrame(parent, text="When (Conditions) - Define when this rule activates", padding=4)
+        when_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
+
         # All of these (all)
-        self.all_frame = ttk.LabelFrame(when_frame, text="✓ All of these (AND logic)", padding=8)
-        self.all_frame.pack(fill=tk.X, pady=(0, 8))
+        self.all_frame = ttk.LabelFrame(when_frame, text="All of these (AND logic)", padding=2)
+        self.all_frame.pack(fill=tk.X, pady=(0, 2))
         
-        self.all_add_button = ttk.Button(self.all_frame, text="+ Add condition", command=lambda: self._add_condition("all"))
-        self.all_add_button.pack(anchor=tk.W, pady=(3, 0))
+        self.all_add_frame = ttk.Frame(self.all_frame)
+        self.all_add_frame.pack(anchor=tk.W, pady=(2, 0))
+        self.all_add_button = self.all_add_frame  # used as pack reference in _add_condition
+        IconButton(self.all_add_frame, "add", command=lambda: self._add_condition("all") ).pack(side=tk.LEFT)
+        ttk.Label(self.all_add_frame, text="Add condition", foreground="#27ae60",
+                  font=("TkDefaultFont", 9)).pack(side=tk.LEFT, padx=(4, 0))
         self.all_conditions = []
         self._load_conditions("all")
         
         # Any of these (any)
-        self.any_frame = ttk.LabelFrame(when_frame, text="⚡ Any of these (OR logic)", padding=8)
+        self.any_frame = ttk.LabelFrame(when_frame, text="Any of these (OR logic)", padding=2)
         self.any_frame.pack(fill=tk.X)
         
-        self.any_add_button = ttk.Button(self.any_frame, text="+ Add condition", command=lambda: self._add_condition("any"))
-        self.any_add_button.pack(anchor=tk.W, pady=(3, 0))
+        self.any_add_frame = ttk.Frame(self.any_frame)
+        self.any_add_frame.pack(anchor=tk.W, pady=(2, 0))
+        self.any_add_button = self.any_add_frame  # used as pack reference in _add_condition
+        IconButton(self.any_add_frame, "add", command=lambda: self._add_condition("any"), tooltip="Add condition").pack(side=tk.LEFT)
+        ttk.Label(self.any_add_frame, text="Add condition", foreground="#27ae60",
+                  font=("TkDefaultFont", 9)).pack(side=tk.LEFT, padx=(4, 0))
         self.any_conditions = []
         self._load_conditions("any")
 
         # Empty state hints
-        self.when_hint_label = ttk.Label(when_frame, text="💡 Add a condition to start", foreground="gray")
+        self.when_hint_label = ttk.Label(when_frame, text="Add a condition to start", foreground="gray")
         self.when_hint_label.pack(pady=8)
         self._update_when_hint()
     
@@ -912,9 +982,9 @@ class RuleEditor:
         
         # Condition container (row + error)
         cond_container = ttk.Frame(target_frame)
-        cond_container.pack(fill=tk.X, pady=2, before=add_button)
+        cond_container.pack(fill=tk.X, pady=(2, 2), before=add_button)
         row_frame = ttk.Frame(cond_container)
-        row_frame.pack(fill=tk.X)
+        row_frame.pack(fill=tk.X, pady=0, ipady=0)
         
         # Category dropdown (first step)
         category_var = tk.StringVar(value="")
@@ -957,14 +1027,13 @@ class RuleEditor:
         def duplicate_row():
             self._duplicate_condition(cond_data)
         
-        ttk.Button(row_frame, text="⧉", width=3, command=duplicate_row).pack(side=tk.RIGHT, padx=1)
-        ttk.Button(row_frame, text="↓", width=3, command=move_down).pack(side=tk.RIGHT, padx=1)
-        ttk.Button(row_frame, text="↑", width=3, command=move_up).pack(side=tk.RIGHT, padx=1)
-        ttk.Button(row_frame, text="🗑️", width=3, command=remove_cond).pack(side=tk.RIGHT, padx=1)
+        IconButton(row_frame, "duplicate", command=duplicate_row, tooltip="Duplicate").pack(side=tk.RIGHT, padx=1)
+        IconButton(row_frame, "down", command=move_down, tooltip="Move down").pack(side=tk.RIGHT, padx=1)
+        IconButton(row_frame, "up", command=move_up, tooltip="Move up").pack(side=tk.RIGHT, padx=1)
+        IconButton(row_frame, "delete", command=remove_cond, tooltip="Remove").pack(side=tk.RIGHT, padx=1)
 
-        # Inline error label
+        # Inline error label (hidden until error occurs)
         error_label = ttk.Label(cond_container, text="", foreground="red")
-        error_label.pack(fill=tk.X, padx=4)
         
         # Store condition data
         cond_data = {
@@ -1749,7 +1818,14 @@ class RuleEditor:
 
     def _set_condition_error(self, cond_data: Dict, message: str):
         """Set inline error message for a condition row."""
-        cond_data["error_label"].configure(text=message)
+        error_label = cond_data["error_label"]
+        if message:
+            error_label.configure(text=message)
+            if not error_label.winfo_ismapped():
+                error_label.pack(fill=tk.X, padx=4, pady=0)
+        else:
+            error_label.configure(text="")
+            error_label.pack_forget()
 
     def _update_when_hint(self):
         """Show or hide the empty-state hint for conditions."""
@@ -1792,141 +1868,67 @@ class RuleEditor:
         self._mark_changed()
     
     def _build_then_section(self, parent):
-        """Build the Combined Actions section (replaces separate Then/Else)."""
-        actions_frame = ttk.LabelFrame(parent, text="Then (when rule becomes TRUE)", padding=8)
-        actions_frame.pack(fill=tk.X, pady=(0, 8))
+        """Build the Then Actions section."""
+        actions_frame = ttk.LabelFrame(parent, text="Then (when rule becomes TRUE)", padding=4)
+        actions_frame.pack(fill=tk.X, pady=(0, 4))
         
-        # Clear actions - inline with icon
-        clear_row = ttk.Frame(actions_frame)
-        clear_row.pack(fill=tk.X, pady=(0, 6))
+        # Shifts (unified 3-state selector)
+        shifts_row = ttk.Frame(actions_frame)
+        shifts_row.pack(fill=tk.X)
         
-        # Get clear icon from map
-        clear_icon = self.icon_map.get("minus", "➖")
-        ttk.Label(clear_row, text=clear_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
-        
-        # Find existing clear shifts
-        existing_clear_shifts = []
-        for action in self.rule.get("then", []):
-            if "vkb_clear_shift" in action:
-                shifts = action["vkb_clear_shift"]
-                existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
-                break
-
-        clear_shift_vars = self._build_shift_checkbox_row(clear_row, existing_clear_shifts)
-
-        self.clear_shift_vars = clear_shift_vars
-        
-        # Set actions - inline with icon
-        set_row = ttk.Frame(actions_frame)
-        set_row.pack(fill=tk.X, pady=(0, 6))
-        
-        # Get set icon from map
-        set_icon = self.icon_map.get("plus", "➕")
-        ttk.Label(set_row, text=set_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
-        
-        # Find existing set shifts
+        # Find existing shifts
         existing_set_shifts = []
+        existing_clear_shifts = []
         for action in self.rule.get("then", []):
             if "vkb_set_shift" in action:
                 shifts = action["vkb_set_shift"]
                 existing_set_shifts = shifts if isinstance(shifts, list) else [shifts]
-                break
+            elif "vkb_clear_shift" in action:
+                shifts = action["vkb_clear_shift"]
+                existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
 
-        set_shift_vars = self._build_shift_checkbox_row(set_row, existing_set_shifts)
-
-        self.set_shift_vars = set_shift_vars
-        
-        # Log message - inline with icon
-        log_row = ttk.Frame(actions_frame)
-        log_row.pack(fill=tk.X)
-        
-        log_icon = self.icon_map.get("message", "💬")
-        ttk.Label(log_row, text=log_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
-        
-        # Get existing log message
-        log_message = ""
-        for action in self.rule.get("then", []):
-            if "log" in action:
-                log_message = action["log"]
-                break
-        
-        log_var = tk.StringVar(value=log_message)
-        entry = ttk.Entry(log_row, textvariable=log_var, width=60)
-        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        self.log_var = log_var
-        log_var.trace_add("write", lambda *args: self._mark_changed())
+        shift_vars = self._build_shift_checkbox_row(shifts_row, existing_set_shifts, existing_clear_shifts)
+        self.shift_vars = shift_vars
     
 
     def _build_else_section(self, parent):
         """Build the Else Actions section."""
-        else_frame = ttk.LabelFrame(parent, text="Else (when rule becomes FALSE)", padding=8)
+        else_frame = ttk.LabelFrame(parent, text="Else (when rule becomes FALSE)", padding=4)
         else_frame.pack(fill=tk.X)
         
-        # Clear actions - inline with icon
-        clear_row = ttk.Frame(else_frame)
-        clear_row.pack(fill=tk.X, pady=(0, 6))
+        # Shifts (unified 3-state selector)
+        shifts_row = ttk.Frame(else_frame)
+        shifts_row.pack(fill=tk.X)
         
-        # Get clear icon from map
-        clear_icon = self.icon_map.get("minus", "➖")
-        ttk.Label(clear_row, text=clear_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
-        
-        # Find existing clear shifts in else
-        existing_clear_shifts = []
-        for action in self.rule.get("else", []):
-            if "vkb_clear_shift" in action:
-                shifts = action["vkb_clear_shift"]
-                existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
-                break
-
-        else_clear_shift_vars = self._build_shift_checkbox_row(clear_row, existing_clear_shifts)
-
-        self.else_clear_shift_vars = else_clear_shift_vars
-        
-        # Set actions - inline with icon
-        set_row = ttk.Frame(else_frame)
-        set_row.pack(fill=tk.X, pady=(0, 6))
-        
-        # Get set icon from map
-        set_icon = self.icon_map.get("plus", "➕")
-        ttk.Label(set_row, text=set_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
-        
-        # Find existing set shifts in else
+        # Find existing shifts
         existing_set_shifts = []
+        existing_clear_shifts = []
         for action in self.rule.get("else", []):
             if "vkb_set_shift" in action:
                 shifts = action["vkb_set_shift"]
                 existing_set_shifts = shifts if isinstance(shifts, list) else [shifts]
-                break
+            elif "vkb_clear_shift" in action:
+                shifts = action["vkb_clear_shift"]
+                existing_clear_shifts = shifts if isinstance(shifts, list) else [shifts]
+        
+        else_shift_vars = self._build_shift_checkbox_row(shifts_row, existing_set_shifts, existing_clear_shifts)
+        self.else_shift_vars = else_shift_vars
 
-        else_set_shift_vars = self._build_shift_checkbox_row(set_row, existing_set_shifts)
-
-        self.else_set_shift_vars = else_set_shift_vars
+    def _build_shift_checkbox_row(self, parent, existing_tokens_for_set: List[str], existing_tokens_for_clear: List[str] = None) -> List[Tuple[str, tk.StringVar]]:
+        """Build Shift/SubShift 3-state checkboxes on one line with labels.
         
-        # Log message - inline with icon
-        log_row = ttk.Frame(else_frame)
-        log_row.pack(fill=tk.X)
+        Args:
+            parent: Parent widget
+            existing_tokens_for_set: Tokens that should be in "on" state
+            existing_tokens_for_clear: Tokens that should be in "off" state (optional)
         
-        log_icon = self.icon_map.get("message", "💬")
-        ttk.Label(log_row, text=log_icon, font=("TkDefaultFont", 10)).pack(side=tk.LEFT, padx=(0, 8))
+        Returns:
+            List of (token, StringVar) tuples where StringVar is 'off', 'on', or 'ignored'
+        """
+        if existing_tokens_for_clear is None:
+            existing_tokens_for_clear = []
         
-        # Get existing log message
-        log_message = ""
-        for action in self.rule.get("else", []):
-            if "log" in action:
-                log_message = action["log"]
-                break
-        
-        else_log_var = tk.StringVar(value=log_message)
-        entry = ttk.Entry(log_row, textvariable=else_log_var, width=60)
-        entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        self.else_log_var = else_log_var
-        else_log_var.trace_add("write", lambda *args: self._mark_changed())
-
-    def _build_shift_checkbox_row(self, parent, existing_tokens: List[str]) -> List[Tuple[str, tk.BooleanVar]]:
-        """Build Shift/SubShift checkboxes on one line with labels."""
-        shift_vars: List[Tuple[str, tk.BooleanVar]] = []
+        shift_vars: List[Tuple[str, tk.StringVar]] = []
 
         def token_label(token: str) -> str:
             digits = "".join(ch for ch in token if ch.isdigit())
@@ -1934,15 +1936,41 @@ class RuleEditor:
 
         ttk.Label(parent, text="Shift:").pack(side=tk.LEFT, padx=(0, 6))
         for token in SHIFT_TOKENS:
-            var = tk.BooleanVar(value=token in existing_tokens)
-            cb = ttk.Checkbutton(parent, text=token_label(token), variable=var, command=lambda: self._mark_changed())
+            # Determine initial state
+            if token in existing_tokens_for_set:
+                state = 'on'
+            elif token in existing_tokens_for_clear:
+                state = 'off'
+            else:
+                state = 'ignored'
+            
+            var = tk.StringVar(value=state)
+            cb = ThreeStateCheckbutton(
+                parent, 
+                text=token_label(token), 
+                variable=var, 
+                command=lambda: self._mark_changed()
+            )
             cb.pack(side=tk.LEFT, padx=2)
             shift_vars.append((token, var))
 
         ttk.Label(parent, text="SubShift:").pack(side=tk.LEFT, padx=(8, 6))
         for token in SUBSHIFT_TOKENS:
-            var = tk.BooleanVar(value=token in existing_tokens)
-            cb = ttk.Checkbutton(parent, text=token_label(token), variable=var, command=lambda: self._mark_changed())
+            # Determine initial state
+            if token in existing_tokens_for_set:
+                state = 'on'
+            elif token in existing_tokens_for_clear:
+                state = 'off'
+            else:
+                state = 'ignored'
+            
+            var = tk.StringVar(value=state)
+            cb = ThreeStateCheckbutton(
+                parent, 
+                text=token_label(token), 
+                variable=var, 
+                command=lambda: self._mark_changed()
+            )
             cb.pack(side=tk.LEFT, padx=2)
             shift_vars.append((token, var))
 
@@ -1964,8 +1992,19 @@ class RuleEditor:
             self.id_preview_var.set(f"{preview} (generated on save)")
     
     def _mark_changed(self):
-        """Mark that the rule has been modified."""
-        self.has_changes = True
+        """Mark that the rule has been modified by comparing current state to original."""
+        # Skip during initial load to avoid false positives
+        if getattr(self, '_loading', True):
+            return
+        # Build the current rule from UI and compare with original
+        try:
+            current_rule = self._build_rule_from_ui()
+            # Deep comparison of the rule structure
+            self.has_changes = (json.dumps(current_rule, sort_keys=True) !=
+                               json.dumps(self.original_rule, sort_keys=True))
+        except Exception:
+            # If we can't build/compare, assume there are changes to be safe
+            self.has_changes = True
     
     def _validate_rule(self) -> Tuple[bool, List[str]]:
         """
@@ -2045,37 +2084,25 @@ class RuleEditor:
             if cond:
                 rule["when"]["any"].append(cond)
         
-        # Build Then actions
-        if hasattr(self, "clear_shift_vars"):
-            clear_shift = [token for token, var in self.clear_shift_vars if var.get()]
-            if clear_shift:
-                rule["then"].append({"vkb_clear_shift": clear_shift})
-
-        if hasattr(self, "set_shift_vars"):
-            set_shift = [token for token, var in self.set_shift_vars if var.get()]
-            if set_shift:
-                rule["then"].append({"vkb_set_shift": set_shift})
+        # Build Then actions from 3-state checkboxes
+        if hasattr(self, "shift_vars"):
+            set_shifts = [token for token, var in self.shift_vars if var.get() == 'on']
+            clear_shifts = [token for token, var in self.shift_vars if var.get() == 'off']
+            
+            if set_shifts:
+                rule["then"].append({"vkb_set_shift": set_shifts})
+            if clear_shifts:
+                rule["then"].append({"vkb_clear_shift": clear_shifts})
         
-        if hasattr(self, "log_var"):
-            log_msg = self.log_var.get().strip()
-            if log_msg:
-                rule["then"].append({"log": log_msg})
-        
-        # Build Else actions
-        if hasattr(self, "else_clear_shift_vars"):
-            else_clear_shift = [token for token, var in self.else_clear_shift_vars if var.get()]
-            if else_clear_shift:
-                rule["else"].append({"vkb_clear_shift": else_clear_shift})
-
-        if hasattr(self, "else_set_shift_vars"):
-            else_set_shift = [token for token, var in self.else_set_shift_vars if var.get()]
-            if else_set_shift:
-                rule["else"].append({"vkb_set_shift": else_set_shift})
-        
-        if hasattr(self, "else_log_var"):
-            else_log_msg = self.else_log_var.get().strip()
-            if else_log_msg:
-                rule["else"].append({"log": else_log_msg})
+        # Build Else actions from 3-state checkboxes
+        if hasattr(self, "else_shift_vars"):
+            set_shifts = [token for token, var in self.else_shift_vars if var.get() == 'on']
+            clear_shifts = [token for token, var in self.else_shift_vars if var.get() == 'off']
+            
+            if set_shifts:
+                rule["else"].append({"vkb_set_shift": set_shifts})
+            if clear_shifts:
+                rule["else"].append({"vkb_clear_shift": clear_shifts})
         
         return rule
     
@@ -2125,7 +2152,7 @@ class RuleEditor:
         
         if not is_valid:
             error_msg = "Cannot save rule:\n\n" + "\n".join(f"• {err}" for err in errors)
-            messagebox.showerror("Validation Error", error_msg)
+            _centered_error(self.parent.winfo_toplevel(), "Validation Error", error_msg)
             return
         
         # Build rule from UI
@@ -2137,7 +2164,7 @@ class RuleEditor:
     def _on_back(self):
         """Handle back button."""
         if self.has_changes:
-            if messagebox.askyesno("Unsaved Changes", "You have unsaved changes. Discard them?"):
+            if _centered_yesno(self.parent.winfo_toplevel(), "Unsaved Changes", "You have unsaved changes. Discard them?"):
                 self.on_cancel_callback()
         else:
             self.on_cancel_callback()
@@ -2157,6 +2184,6 @@ def show_rule_editor(parent, rules_file: Path, plugin_dir: Path, initial_rule_in
         return editor.window
     except Exception as e:
         logger.error(f"Failed to open rule editor: {e}", exc_info=True)
-        messagebox.showerror("Error", f"Failed to open rule editor:\n{e}")
+        messagebox.showerror("Error", f"Failed to open rule editor:\n{e}", parent=parent)
         return None
 

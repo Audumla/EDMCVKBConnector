@@ -62,6 +62,13 @@ except Exception:
 
 plugin_logger_name = logger.name
 
+# UI Icon constants for consistent, pretty buttons across all panels
+ICON_EDIT = "✎"       # Edit icon (pencil)
+ICON_DELETE = "✕"     # Delete/X icon
+ICON_DUPLICATE = "↻"   # Duplicate/circular arrow icon
+ICON_ADD = "⊕"        # Add icon (circled plus)
+ICON_UP = "▲"         # Move up icon (triangle)
+ICON_DOWN = "▼"       # Move down icon (triangle)
 
 # Tell submodules to log under the same EDMC-managed hierarchy.
 from edmcruleengine import set_plugin_logger_name
@@ -83,6 +90,7 @@ if not _using_edmc_logger and not logger.hasHandlers():
 # Global instances
 _config = None
 _event_handler = None
+_event_recorder = None
 _plugin_dir = None
 _prefs_vars = {}
 
@@ -280,11 +288,12 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     Returns:
         Plugin name as displayed in EDMC UI.
     """
-    global _config, _event_handler, _plugin_dir
+    global _config, _event_handler, _event_recorder, _plugin_dir
 
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
         from edmcruleengine import Config, EventHandler
+        from edmcruleengine.event_recorder import EventRecorder
         import threading
 
         logger.info(f"VKB Connector v{VERSION} starting")
@@ -314,6 +323,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
         # Initialize event handler with automatic reconnection
         _event_handler = EventHandler(_config, plugin_dir=_plugin_dir)
+        _event_recorder = EventRecorder()
         _restore_test_shift_state_from_config()
         
         # On startup, refresh unregistered events against catalog
@@ -357,10 +367,12 @@ def plugin_stop() -> None:
     
     Gracefully shuts down the VKB connector and stops all background reconnection attempts.
     """
-    global _event_handler
+    global _event_handler, _event_recorder
 
     try:
         logger.info("VKB Connector stopping")
+        if _event_recorder and _event_recorder.is_recording:
+            _event_recorder.stop()
         if _event_handler:
             _event_handler.disconnect()
             logger.info("VKB Connector stopped successfully")
@@ -489,6 +501,10 @@ def journal_entry(
         # Get event type
         event_type = entry.get("event", "Unknown")
 
+        # Record event if recorder is active
+        if _event_recorder and _event_recorder.is_recording:
+            _event_recorder.record("journal", event_type, entry)
+
         # Forward to VKB hardware (handles reconnection internally if needed)
         _event_handler.handle_event(
             event_type,
@@ -514,6 +530,10 @@ def _dispatch_notification(
 ) -> None:
     """Route non-journal EDMC notifications into the same event pipeline."""
     global _event_handler
+
+    # Record event if recorder is active (even if handler is disabled)
+    if _event_recorder and _event_recorder.is_recording:
+        _event_recorder.record(source, event_type, payload)
 
     if not _event_handler or not _event_handler.enabled:
         return
@@ -638,6 +658,63 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             logger.error(f"Failed to load tkinter for preferences UI: {inner_e}")
             return None
 
+    # Define TwoStateCheckbutton class here so it has access to tk
+    class TwoStateCheckbutton(tk.Canvas):
+        """A 2-state checkbox widget with states: OFF (empty square) and ON (checkmark)."""
+        
+        def __init__(self, parent, text="", variable=None, command=None, **kwargs):
+            """
+            Initialize 2-state checkbox.
+            
+            Args:
+                parent: Parent widget
+                text: Label text
+                variable: tk.BooleanVar to track state (True=on, False=off)
+                command: Callback when state changes
+            """
+            super().__init__(parent, width=20, height=20, highlightthickness=0, bg="white", **kwargs)
+            self.text = text
+            self.variable = variable if variable else tk.BooleanVar(value=False)
+            self.command = command
+            self.label_font = ("TkDefaultFont", 10)
+            
+            self.bind("<Button-1>", self._on_click)
+            self._draw()
+        
+        def _on_click(self, event=None):
+            """Toggle state on click."""
+            self.variable.set(not self.variable.get())
+            self._draw()
+            if self.command:
+                self.command()
+        
+        def _draw(self):
+            """Draw the checkbox in current state."""
+            self.delete("all")
+            is_checked = self.variable.get()
+            
+            # Box outline
+            box_color = "#333"
+            if is_checked:
+                box_fill = "#27ae60"
+                symbol = "✓"
+                symbol_color = "white"
+            else:
+                box_fill = "white"
+                symbol = ""
+                symbol_color = "#333"
+            
+            # Draw box
+            self.create_rectangle(2, 2, 16, 16, fill=box_fill, outline=box_color, width=1)
+            
+            # Draw symbol
+            if symbol:
+                self.create_text(9, 9, text=symbol, font=self.label_font, fill=symbol_color)
+            
+            # Draw label
+            if self.text:
+                self.create_text(22, 9, text=self.text, anchor="w", font=self.label_font)
+
     frame = nb.Frame(parent)
 
     notebook = ttk.Notebook(frame)
@@ -650,8 +727,37 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     notebook.add(settings_tab, text="Settings")
     notebook.add(events_tab, text="Unregistered Events")
 
-    settings_tab.columnconfigure(0, weight=1)
-    settings_tab.columnconfigure(1, weight=1)
+    settings_tab.columnconfigure(0, weight=0)  # Don't expand VKB-Link
+    settings_tab.columnconfigure(1, weight=1)  # Expand shift flags box
+
+    # Helper to create small colored icon buttons for rules list
+    def _make_small_icon_button(parent, icon_text, color_key, command, tooltip_text=""):
+        """Create a small colored button with consistent sizing."""
+        colors = {
+            "edit": {"bg": "#3498db", "fg": "white"},
+            "duplicate": {"bg": "#8e44ad", "fg": "white"},
+            "delete": {"bg": "#e74c3c", "fg": "white"},
+        }
+        colors_dict = colors.get(color_key, {"bg": "#95a5a6", "fg": "white"})
+        btn = tk.Button(
+            parent,
+            text=icon_text,
+            command=command,
+            bg=colors_dict["bg"],
+            fg=colors_dict["fg"],
+            width=2,
+            height=1,
+            padx=2,
+            pady=2,
+            font=("TkDefaultFont", 8),
+            relief=tk.FLAT,
+            bd=0,
+            activebackground=colors_dict["bg"],
+            activeforeground=colors_dict["fg"],
+        )
+        if tooltip_text:
+            _ToolTip(btn, tooltip_text)
+        return btn
 
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
     vkb_port = _config.get("vkb_port", 50995) if _config else 50995
@@ -667,6 +773,38 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     shift_vars = [tk.BooleanVar(value=bool(current_shift & (1 << (code - 1)))) for code in (1, 2)]
     subshift_vars = [tk.BooleanVar(value=bool(current_subshift & (1 << i))) for i in range(7)]
 
+    # Track initial values for change detection
+    initial_host = host_var.get()
+    initial_port = port_var.get()
+    initial_shift_bitmap = current_shift
+    initial_subshift_bitmap = current_subshift
+    changes_made_var = tk.BooleanVar(value=False)
+
+    def _check_prefs_changed(*args):
+        """Check if any preferences have changed and update status indicator."""
+        current_host = host_var.get()
+        current_port = port_var.get()
+        current_shift, current_subshift = _compute_test_shift_bitmaps_from_ui()
+        
+        has_changes = (
+            current_host != initial_host or
+            current_port != initial_port or
+            current_shift != initial_shift_bitmap or
+            current_subshift != initial_subshift_bitmap
+        )
+        
+        changes_made_var.set(has_changes)
+        if has_changes:
+            unsaved_status_var.set("✚ Changes made")
+        else:
+            unsaved_status_var.set("")
+    
+    # Trace all preference changes
+    host_var.trace_add("write", _check_prefs_changed)
+    port_var.trace_add("write", _check_prefs_changed)
+    for var in shift_vars + subshift_vars:
+        var.trace_add("write", _check_prefs_changed)
+
     _prefs_vars = {
         "vkb_host": host_var,
         "vkb_port": port_var,
@@ -674,37 +812,304 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
         "test_subshift_vars": subshift_vars,
     }
 
+    # Status variable for unsaved changes indicator
+    unsaved_status_var = tk.StringVar(value="")
+
     vkb_link_frame = ttk.LabelFrame(settings_tab, text="VKB-Link", padding=6)
-    vkb_link_frame.grid(row=0, column=0, sticky="nsew", padx=(4, 6), pady=2)
-    vkb_link_frame.columnconfigure(1, weight=1)
+    vkb_link_frame.grid(row=0, column=0, sticky="w", padx=(4, 6), pady=2)
+    vkb_link_frame.columnconfigure(1, weight=0)
 
-    ttk.Label(vkb_link_frame, text="VKB Host:").grid(row=0, column=0, sticky="w", padx=4, pady=(2, 6))
-    ttk.Entry(vkb_link_frame, textvariable=host_var, width=24).grid(row=0, column=1, sticky="ew", padx=4, pady=(2, 6))
+    ttk.Label(vkb_link_frame, text="Host:").grid(row=0, column=0, sticky="w", padx=(4, 4), pady=2)
+    ttk.Entry(vkb_link_frame, textvariable=host_var, width=12).grid(row=0, column=1, sticky="w", padx=(0, 12), pady=2)
 
-    ttk.Label(vkb_link_frame, text="VKB Port:").grid(row=1, column=0, sticky="w", padx=4, pady=(0, 2))
-    ttk.Entry(vkb_link_frame, textvariable=port_var, width=10).grid(row=1, column=1, sticky="w", padx=4, pady=(0, 2))
+    ttk.Label(vkb_link_frame, text="Port:").grid(row=0, column=2, sticky="w", padx=(0, 4), pady=2)
+    ttk.Entry(vkb_link_frame, textvariable=port_var, width=6).grid(row=0, column=3, sticky="w", padx=4, pady=2)
 
-    static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=6)
-    static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2)
+    # --- Connection status row ---
+    vkb_status_var = tk.StringVar(value="Checking...")
+    vkb_status_label = tk.Label(vkb_link_frame, textvariable=vkb_status_var, foreground="gray",
+                                font=("TkDefaultFont", 8))
+    vkb_status_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=(4, 4), pady=(2, 0))
 
-    ttk.Label(static_shift_frame, text="Shift:").grid(row=0, column=0, sticky="w", padx=(0, 6), pady=2)
+    vkb_ini_path_saved = _config.get("vkb_ini_path", "") if _config else ""
+
+    def _configure_vkb_ini():
+        """Open file dialog to locate VKB-Link INI and write TCP section."""
+        nonlocal vkb_ini_path_saved
+        from tkinter import filedialog
+        import configparser
+
+        initial_dir = ""
+        if vkb_ini_path_saved:
+            ini_p = Path(vkb_ini_path_saved)
+            if ini_p.parent.exists():
+                initial_dir = str(ini_p.parent)
+
+        ini_path = filedialog.askopenfilename(
+            title="Select VKB-Link INI file",
+            filetypes=[("INI files", "*.ini"), ("All files", "*.*")],
+            initialdir=initial_dir or None,
+        )
+        if not ini_path:
+            return
+
+        try:
+            cp = configparser.ConfigParser()
+            cp.read(ini_path, encoding="utf-8")
+
+            if "TCP" not in cp:
+                cp.add_section("TCP")
+            cp.set("TCP", "Adress", host_var.get())
+            cp.set("TCP", "Port", port_var.get())
+
+            with open(ini_path, "w", encoding="utf-8") as f:
+                cp.write(f)
+
+            vkb_ini_path_saved = ini_path
+            if _config:
+                _config.set("vkb_ini_path", ini_path)
+            vkb_status_var.set(f"INI updated: {Path(ini_path).name}")
+            vkb_status_label.configure(foreground="#27ae60")
+            logger.info(f"Updated VKB-Link INI: {ini_path}")
+        except Exception as e:
+            vkb_status_var.set(f"INI error: {e}")
+            vkb_status_label.configure(foreground="#e74c3c")
+            logger.error(f"Failed to update VKB-Link INI: {e}")
+
+    ini_btn = tk.Button(
+        vkb_link_frame,
+        text="Configure INI...",
+        command=_configure_vkb_ini,
+        bg="#3498db",
+        fg="white",
+        padx=6,
+        pady=4,
+        font=("TkDefaultFont", 8, "bold"),
+        relief=tk.RAISED,
+        bd=1,
+    )
+    # Initially hidden; shown when disconnected
+    ini_btn_visible = [False]
+
+    def _poll_vkb_status():
+        """Poll VKB-Link connection status and update UI."""
+        if not frame.winfo_exists():
+            return
+        connected = False
+        if _event_handler:
+            try:
+                connected = _event_handler.vkb_client.connected
+            except Exception:
+                pass
+
+        if connected:
+            vkb_status_var.set("Connected")
+            vkb_status_label.configure(foreground="#27ae60")
+            if ini_btn_visible[0]:
+                ini_btn.grid_forget()
+                ini_btn_visible[0] = False
+        else:
+            vkb_status_var.set("Disconnected - retrying...")
+            vkb_status_label.configure(foreground="#e74c3c")
+            if not ini_btn_visible[0]:
+                ini_btn.grid(row=1, column=2, columnspan=2, sticky="e", padx=(4, 4), pady=(2, 0))
+                ini_btn_visible[0] = True
+
+        frame.after(2000, _poll_vkb_status)
+
+    # Start polling
+    frame.after(500, _poll_vkb_status)
+
+    static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=8)
+    static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2, rowspan=2)
+    
+    # Configure columns for shift flags
+    static_shift_frame.columnconfigure(0, weight=0)  # Shift label
+    for col in range(1, 11):
+        static_shift_frame.columnconfigure(col, weight=0)
+
+    # All shift flags on one row
+    ttk.Label(static_shift_frame, text="Shift:").grid(row=0, column=0, sticky="w", padx=(0, 4), pady=2)
     for i, shift_code in enumerate((1, 2)):
-        ttk.Checkbutton(
+        cb = TwoStateCheckbutton(
             static_shift_frame,
             text=f"{shift_code}",
             variable=shift_vars[i],
             command=_apply_test_shift_from_ui,
-        ).grid(row=0, column=1 + i, sticky="w", padx=2, pady=2)
-
-    ttk.Label(static_shift_frame, text="SubShift:").grid(row=1, column=0, sticky="w", padx=(0, 6), pady=2)
+        )
+        cb.grid(row=0, column=1 + i, sticky="w", padx=2, pady=2)
+    
+    # SubShift label and checkboxes on same row
+    ttk.Label(static_shift_frame, text="SubShift:").grid(row=0, column=3, sticky="w", padx=(8, 4), pady=2)
     for i in range(7):
-        ttk.Checkbutton(
+        cb = TwoStateCheckbutton(
             static_shift_frame,
             text=f"{i + 1}",
             variable=subshift_vars[i],
             command=_apply_test_shift_from_ui,
-        ).grid(row=1, column=1 + i, sticky="w", padx=2, pady=2)
-    settings_tab.rowconfigure(1, weight=1)
+        )
+        cb.grid(row=0, column=4 + i, sticky="w", padx=2, pady=2)
+
+    settings_tab.rowconfigure(2, weight=1)
+
+    # --- Event Recording section ---
+    recording_frame = ttk.LabelFrame(settings_tab, text="Event Recording", padding=6)
+    recording_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=4, pady=(6, 2))
+    recording_frame.columnconfigure(1, weight=1)
+
+    rec_status_var = tk.StringVar(value="Idle")
+    rec_count_var = tk.StringVar(value="Events: 0")
+    rec_poll_id = [None]  # mutable ref for after() cancel
+
+    def _open_recorded_file():
+        """Open the recorded events file with default application."""
+        if _event_recorder and _event_recorder.output_path:
+            try:
+                file_path = _event_recorder.output_path
+                if sys.platform == "win32":
+                    import subprocess
+                    subprocess.Popen(["explorer", "/select,", str(file_path)])
+                elif sys.platform == "darwin":
+                    import subprocess
+                    subprocess.Popen(["open", "-R", str(file_path)])
+                else:  # Linux
+                    import subprocess
+                    subprocess.Popen(["xdg-open", str(file_path.parent)])
+            except Exception as e:
+                logger.error(f"Failed to open recorded file: {e}")
+
+    def _toggle_recording():
+        global _event_recorder
+        if _event_recorder and _event_recorder.is_recording:
+            # Stop
+            _event_recorder.stop()
+            rec_btn.configure(text="Start Recording", bg="#27ae60")
+            if _event_recorder.output_path:
+                full_path = str(_event_recorder.output_path)
+                rec_status_var.set(f"Stopped. File: {full_path}")
+            else:
+                rec_status_var.set("Stopped.")
+            _cancel_rec_poll()
+        else:
+            # Start
+            if not _event_recorder:
+                from edmcruleengine.event_recorder import EventRecorder
+                _event_recorder = EventRecorder()
+            # Sync anonymization settings before starting
+            _event_recorder.anonymize = anon_enabled_var.get()
+            _event_recorder.mock_commander = mock_cmdr_var.get() or "CMDR_Redacted"
+            _event_recorder.mock_fid = mock_fid_var.get() or "F0000000"
+            output_dir = Path(_plugin_dir) if _plugin_dir else Path(__file__).parent
+            output_file = output_dir / "recorded_events.jsonl"
+            try:
+                _event_recorder.start(output_file)
+                rec_btn.configure(text="Stop Recording", bg="#e74c3c")
+                rec_status_var.set("Recording...")
+                rec_count_var.set("Events: 0")
+                _schedule_rec_poll()
+            except Exception as e:
+                rec_status_var.set(f"Error: {e}")
+
+    def _update_rec_status():
+        if _event_recorder and _event_recorder.is_recording:
+            last = _event_recorder.last_event_type
+            status = f"Recording... (last: {last})" if last else "Recording..."
+            rec_status_var.set(status)
+            rec_count_var.set(f"Events: {_event_recorder.event_count}")
+            _schedule_rec_poll()
+
+    def _schedule_rec_poll():
+        if frame.winfo_exists():
+            rec_poll_id[0] = frame.after(500, _update_rec_status)
+
+    def _cancel_rec_poll():
+        if rec_poll_id[0] is not None:
+            try:
+                frame.after_cancel(rec_poll_id[0])
+            except Exception:
+                pass
+            rec_poll_id[0] = None
+
+    # Button: green Start, toggles to red Stop
+    rec_btn = tk.Button(
+        recording_frame,
+        text="Start Recording",
+        command=_toggle_recording,
+        bg="#27ae60",
+        fg="white",
+        padx=10,
+        pady=4,
+        font=("TkDefaultFont", 9),
+        relief=tk.RAISED,
+        bd=1,
+    )
+    rec_btn.grid(row=0, column=0, sticky="w", padx=(0, 8))
+
+    # Status label (middle, expands) - clickable when showing file path
+    status_label = tk.Label(recording_frame, textvariable=rec_status_var, foreground="gray")
+    status_label.grid(row=0, column=1, sticky="w", padx=(0, 8))
+
+    # Make clickable: change cursor and color on hover
+    def _on_status_enter(event):
+        if _event_recorder and _event_recorder.is_recording:
+            return  # Don't change appearance while recording
+        if "File:" in rec_status_var.get():
+            status_label.configure(foreground="#0066cc", cursor="hand2", font=("TkDefaultFont", 9, "underline"))
+
+    def _on_status_leave(event):
+        if _event_recorder and _event_recorder.is_recording:
+            status_label.configure(foreground="gray", cursor="arrow", font=("TkDefaultFont", 9))
+        else:
+            status_label.configure(foreground="gray", cursor="arrow", font=("TkDefaultFont", 9))
+
+    status_label.bind("<Enter>", _on_status_enter)
+    status_label.bind("<Leave>", _on_status_leave)
+    status_label.bind("<Button-1>", lambda e: _open_recorded_file())
+
+    # Event count (right-aligned)
+    ttk.Label(recording_frame, textvariable=rec_count_var, foreground="gray").grid(
+        row=0, column=2, sticky="e"
+    )
+
+    # --- Anonymization controls (row 1 of recording frame) ---
+    anon_enabled_var = tk.BooleanVar(value=_config.get("recorder_anonymize", True) if _config else True)
+    mock_cmdr_var = tk.StringVar(value=_config.get("recorder_mock_commander", "CMDR_Redacted") if _config else "CMDR_Redacted")
+    mock_fid_var = tk.StringVar(value=_config.get("recorder_mock_fid", "F0000000") if _config else "F0000000")
+
+    ttk.Checkbutton(recording_frame, text="Anonymize", variable=anon_enabled_var).grid(
+        row=1, column=0, sticky="w", padx=(0, 8), pady=(4, 0)
+    )
+
+    anon_fields = ttk.Frame(recording_frame)
+    anon_fields.grid(row=1, column=1, columnspan=2, sticky="w", pady=(4, 0))
+
+    ttk.Label(anon_fields, text="Mock CMDR:").pack(side=tk.LEFT, padx=(0, 4))
+    ttk.Entry(anon_fields, textvariable=mock_cmdr_var, width=14).pack(side=tk.LEFT, padx=(0, 10))
+    ttk.Label(anon_fields, text="Mock FID:").pack(side=tk.LEFT, padx=(0, 4))
+    ttk.Entry(anon_fields, textvariable=mock_fid_var, width=10).pack(side=tk.LEFT)
+
+    def _sync_recorder_anon_settings():
+        """Push current anonymization UI values to the recorder instance."""
+        if _event_recorder:
+            _event_recorder.anonymize = anon_enabled_var.get()
+            _event_recorder.mock_commander = mock_cmdr_var.get() or "CMDR_Redacted"
+            _event_recorder.mock_fid = mock_fid_var.get() or "F0000000"
+        if _config:
+            _config.set("recorder_anonymize", anon_enabled_var.get())
+            _config.set("recorder_mock_commander", mock_cmdr_var.get())
+            _config.set("recorder_mock_fid", mock_fid_var.get())
+
+    anon_enabled_var.trace_add("write", lambda *a: _sync_recorder_anon_settings())
+    mock_cmdr_var.trace_add("write", lambda *a: _sync_recorder_anon_settings())
+    mock_fid_var.trace_add("write", lambda *a: _sync_recorder_anon_settings())
+
+    # Apply saved settings to recorder if it exists
+    _sync_recorder_anon_settings()
+
+    # If recorder was already running (e.g. prefs reopened), reflect state
+    if _event_recorder and _event_recorder.is_recording:
+        rec_btn.configure(text="Stop Recording", bg="#e74c3c")
+        _update_rec_status()
 
     # Rules summary panel
     rules_path_var = tk.StringVar(value="")
@@ -893,17 +1298,14 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             actions_frame = ttk.Frame(item_frame)
             actions_frame.pack(side=tk.LEFT, padx=(0, 6))
 
-            edit_button = ttk.Button(actions_frame, text="✎", width=3, command=lambda i=idx: _edit_rule(i))
+            edit_button = _make_small_icon_button(actions_frame, ICON_EDIT, "edit", lambda i=idx: _edit_rule(i), "Edit rule")
             edit_button.pack(side=tk.LEFT, padx=1)
-            _ToolTip(edit_button, "Edit rule")
 
-            dup_button = ttk.Button(actions_frame, text="⎘", width=3, command=lambda i=idx: _duplicate_rule(i))
+            dup_button = _make_small_icon_button(actions_frame, ICON_DUPLICATE, "duplicate", lambda i=idx: _duplicate_rule(i), "Duplicate rule")
             dup_button.pack(side=tk.LEFT, padx=1)
-            _ToolTip(dup_button, "Duplicate rule")
 
-            del_button = ttk.Button(actions_frame, text="🗑", width=3, command=lambda i=idx: _delete_rule(i))
+            del_button = _make_small_icon_button(actions_frame, ICON_DELETE, "delete", lambda i=idx: _delete_rule(i), "Delete rule")
             del_button.pack(side=tk.LEFT, padx=1)
-            _ToolTip(del_button, "Delete rule")
 
             enabled_var = tk.BooleanVar(value=rule.get("enabled", True))
             enabled_button = ttk.Checkbutton(
@@ -922,7 +1324,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     rules_frame = ttk.LabelFrame(settings_tab, text="Rules", padding=6)
-    rules_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
+    rules_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
     rules_frame.columnconfigure(0, weight=1)
     rules_frame.rowconfigure(1, weight=1)
 
@@ -930,10 +1332,27 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
     rules_header.grid(row=0, column=0, sticky="ew")
     rules_header.columnconfigure(1, weight=1)
 
-    ttk.Label(rules_header, text="Rules file:").grid(row=0, column=0, sticky="w", padx=(0, 6))
+    # Add "New Rule" button on the left
+    new_rule_btn = tk.Button(
+        rules_header,
+        text=f"{ICON_ADD} New Rule",
+        command=lambda: _open_rules_editor(initial_rule_index=None),
+        bg="#27ae60",
+        fg="white",
+        padx=10,
+        pady=4,
+        font=("TkDefaultFont", 9, "bold"),
+        relief=tk.RAISED,
+        bd=1
+    )
+    new_rule_btn.grid(row=0, column=0, sticky="w", padx=(0, 8))
+    _ToolTip(new_rule_btn, "Create a new rule")
+    
+    # Rules file path on the right
+    ttk.Label(rules_header, text="Rules file:").grid(row=0, column=2, sticky="e", padx=(0, 6))
     _refresh_rules_path()
     ttk.Label(rules_header, textvariable=rules_path_var, foreground="gray").grid(
-        row=0, column=1, sticky="w"
+        row=0, column=3, sticky="e"
     )
 
     list_container = ttk.Frame(rules_frame)
@@ -972,6 +1391,11 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
 
     rules_mtime = _get_rules_mtime()
     frame.after(rules_poll_ms, _poll_rules_changes)
+
+    # Status indicator for unsaved changes in preferences
+    ttk.Label(settings_tab, textvariable=unsaved_status_var, foreground="#e74c3c", font=("TkDefaultFont", 9)).grid(
+        row=3, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 0)
+    )
 
     # Events Tab - Unregistered Events Tracker
     events_tab.columnconfigure(0, weight=1)
@@ -1036,7 +1460,7 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             events_status_var.set(f"Error: {e}")
 
     def _show_unregistered_events_list() -> None:
-        """Display detailed list of unregistered events."""
+        """Display detailed list of unregistered events with collapsible JSON."""
         if not _event_handler:
             from tkinter import messagebox
 
@@ -1055,13 +1479,13 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             # Create a new window to display events
             details_window = tk.Toplevel(frame)
             details_window.title("Unregistered Events Details")
-            details_window.geometry("800x500")
+            details_window.geometry("900x600")
 
             # Create frame with scrollbar
             canvas_frame = ttk.Frame(details_window)
             canvas_frame.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
 
-            canvas = tk.Canvas(canvas_frame)
+            canvas = tk.Canvas(canvas_frame, highlightthickness=0)
             scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=canvas.yview)
             scrollable_frame = ttk.Frame(canvas)
 
@@ -1074,30 +1498,181 @@ def plugin_prefs(parent, cmdr: str, is_beta: bool):
             canvas.configure(yscrollcommand=scrollbar.set)
 
             # Add events to the scrollable frame
-            for i, event in enumerate(events):
+            for event in events:
+                event_type = event.get('event_type', 'Unknown')
+                source = event.get('source', 'unknown')
+                first_seen = event.get('first_seen')
+                last_seen = event.get('last_seen')
+                sample_data = event.get('sample_data', {})
+                occurrences = event.get('occurrences', 0)
+                
+                # Determine what kind of data is missing
+                data_info = ""
+                if source == 'journal':
+                    # For journal events, show the event data structure hint
+                    if isinstance(sample_data, dict):
+                        # Get key fields that might be notable
+                        keys = list(sample_data.keys())
+                        if keys:
+                            # Show first few important-looking keys
+                            important_keys = [k for k in keys if not k.startswith('_')][:2]
+                            if important_keys:
+                                data_info = f"Fields: {', '.join(important_keys)}"
+                    if not data_info:
+                        data_info = "Journal event"
+                elif source == 'flags':
+                    # For flags, show bit info
+                    if isinstance(sample_data, dict) and 'bit' in sample_data:
+                        data_info = f"Bit {sample_data['bit']}"
+                    else:
+                        data_info = "Flags value"
+                elif source == 'dashboard':
+                    # For dashboard, show the field name if available
+                    if isinstance(sample_data, dict):
+                        keys = list(sample_data.keys())
+                        if keys:
+                            data_info = f"Field: {keys[0]}"
+                    if not data_info:
+                        data_info = "Dashboard field"
+                
+                # Create event frame with title section
                 event_frame = ttk.LabelFrame(
                     scrollable_frame,
-                    text=f"{event['event_type']} (from {event['source']})",
-                    padding=6,
+                    padding=8,
                 )
                 event_frame.pack(fill=tk.X, padx=4, pady=4)
-
-                # Event details
-                info_text = f"First seen: {event.get('first_seen', 'unknown')}\n"
-                info_text += f"Last seen: {event.get('last_seen', 'unknown')}\n"
-                info_text += f"Occurrences: {event.get('occurrences', 0)}"
-
-                ttk.Label(event_frame, text=info_text, justify=tk.LEFT).pack(anchor="w", pady=(0, 4))
-
-                # Sample data preview
-                ttk.Label(event_frame, text="Sample data:", font=("TkDefaultFont", 9, "bold")).pack(anchor="w")
-                sample_text = tk.Text(event_frame, height=4, width=80, wrap=tk.WORD)
-                sample_text.pack(anchor="w", fill=tk.BOTH, expand=True)
-
-                sample_data = event.get("sample_data", {})
-                sample_str = json.dumps(sample_data, indent=2)
-                sample_text.insert("1.0", sample_str)
-                sample_text.config(state=tk.DISABLED)
+                
+                # Title with event name, summary info, and right-aligned occurrences + details button
+                title_frame = ttk.Frame(event_frame)
+                title_frame.pack(fill=tk.X, pady=(0, 6))
+                
+                # Left side: event name and data info
+                left_frame = ttk.Frame(title_frame)
+                left_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                
+                ttk.Label(
+                    left_frame,
+                    text=event_type,
+                    font=("TkDefaultFont", 11, "bold"),
+                    foreground="#e74c3c"
+                ).pack(side=tk.LEFT, padx=(0, 6))
+                
+                if data_info:
+                    ttk.Label(
+                        left_frame,
+                        text=data_info,
+                        foreground="#27ae60",
+                        font=("TkDefaultFont", 10)
+                    ).pack(side=tk.LEFT, padx=(0, 6))
+                
+                ttk.Label(
+                    left_frame,
+                    text=f"[{source}]",
+                    foreground="gray"
+                ).pack(side=tk.LEFT)
+                
+                # Right side: occurrences count + details button (both on same line)
+                right_frame = ttk.Frame(title_frame)
+                right_frame.pack(side=tk.RIGHT)
+                
+                ttk.Label(
+                    right_frame,
+                    text=f"Occurrences: {occurrences}",
+                    foreground="navy",
+                    font=("TkDefaultFont", 9)
+                ).pack(side=tk.LEFT, padx=(0, 8))
+                
+                # Use a container to hold details and make it toggleable
+                details_visible_var = tk.BooleanVar(value=False)
+                details_container = ttk.Frame(event_frame)
+                details_container.pack(fill=tk.BOTH, expand=True)
+                
+                toggle_btn_text_var = tk.StringVar(value="Show Details ▼")
+                
+                def create_toggle_callback(visible_var, btn_text_var, details_frame):
+                    def toggle_details():
+                        if visible_var.get():
+                            details_frame.pack_forget()
+                            visible_var.set(False)
+                            btn_text_var.set("Show Details ▼")
+                        else:
+                            details_frame.pack(fill=tk.BOTH, expand=True, pady=(6, 0))
+                            visible_var.set(True)
+                            btn_text_var.set("Hide Details ▲")
+                    return toggle_details
+                
+                # Create button and add to right frame
+                toggle_btn = tk.Button(
+                    right_frame,
+                    textvariable=toggle_btn_text_var,
+                    command=None,  # Will be set after details frame is created
+                    bg="#3498db",
+                    fg="white",
+                    padx=10,
+                    pady=4,
+                    font=("TkDefaultFont", 9),
+                    relief=tk.RAISED,
+                    bd=1
+                )
+                toggle_btn.pack(side=tk.LEFT)
+                
+                # Details container (initially hidden)
+                details_frame = ttk.Frame(event_frame)
+                
+                # Collapsible JSON tree view
+                tree_frame = ttk.Frame(details_frame)
+                tree_frame.pack(fill=tk.BOTH, expand=True)
+                
+                tree = ttk.Treeview(tree_frame, height=8, show="tree")
+                tree_scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=tree.yview)
+                tree.configure(yscrollcommand=tree_scrollbar.set)
+                
+                # Check if a key is a timestamp field
+                def is_timestamp_field(key):
+                    """Check if a field name indicates it's a timestamp."""
+                    key_lower = str(key).lower()
+                    timestamp_keywords = ['time', 'timestamp', 'date', 'epoch']
+                    return any(kw in key_lower for kw in timestamp_keywords)
+                
+                # Populate tree with JSON data (excluding timestamps)
+                def populate_tree(parent_node, data, max_depth=10):
+                    """Recursively populate tree with JSON data, excluding timestamp fields."""
+                    if max_depth <= 0:
+                        return
+                    
+                    if isinstance(data, dict):
+                        for key, value in data.items():
+                            # Skip timestamp fields
+                            if is_timestamp_field(key):
+                                continue
+                            
+                            if isinstance(value, (dict, list)):
+                                node = tree.insert(parent_node, "end", text=f"{key}: {{...}}", open=False)
+                                populate_tree(node, value, max_depth - 1)
+                            else:
+                                value_str = str(value)[:50]  # Limit display length
+                                if len(str(value)) > 50:
+                                    value_str += "..."
+                                tree.insert(parent_node, "end", text=f"{key}: {value_str}")
+                    elif isinstance(data, list):
+                        for i, item in enumerate(data):
+                            if isinstance(item, (dict, list)):
+                                node = tree.insert(parent_node, "end", text=f"[{i}]: {{...}}", open=False)
+                                populate_tree(node, item, max_depth - 1)
+                            else:
+                                item_str = str(item)[:50]
+                                if len(str(item)) > 50:
+                                    item_str += "..."
+                                tree.insert(parent_node, "end", text=f"[{i}]: {item_str}")
+                
+                # Populate tree with root-level items (parent_node = "")
+                populate_tree("", sample_data)
+                
+                tree.pack(side="left", fill=tk.BOTH, expand=True)
+                tree_scrollbar.pack(side="right", fill="y")
+                
+                # Now set the toggle callback
+                toggle_btn.config(command=create_toggle_callback(details_visible_var, toggle_btn_text_var, details_frame))
 
             canvas.pack(side="left", fill=tk.BOTH, expand=True)
             scrollbar.pack(side="right", fill="y")

@@ -101,7 +101,7 @@ def test_loads_override_rules_json_path():
                     "enabled": True,
                     "when": {
                         "all": [
-                            {"signal": "flag_supercruise", "op": "eq", "value": "yes"}
+                            {"signal": "fsd_status", "op": "eq", "value": "supercruise"}
                         ]
                     },
                     "then": [{"type": "log", "message": "override"}],

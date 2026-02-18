@@ -411,6 +411,18 @@ class RuleEngine:
         
         # Only return result if there are actions to execute
         if actions_to_execute:
+            if prev_matched is None:
+                transition = "initial"
+            elif current_matched:
+                transition = "activated"
+            else:
+                transition = "deactivated"
+            branch = "then" if current_matched else "else"
+            logger.info(
+                f"Rule '{rule_title}' [{rule_id}] {transition} "
+                f"(matched={current_matched}), executing {branch} "
+                f"with {len(actions_to_execute)} action(s)"
+            )
             return MatchResult(
                 rule_id=rule_id,
                 rule_title=rule_title,

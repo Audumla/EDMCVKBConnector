@@ -1,747 +1,1218 @@
-# EDMCVKBConnector - Master Signals Reference
+# Signals Reference
 
-A comprehensive reference of all 700+ game state signals available for rule creation and VKB hardware automation.
+Comprehensive catalog of rule signals with trigger/source mapping.
 
----
+- Generated: 2026-02-18
+- Catalog file: `signals_catalog.json`
+- Total signals: 196
+- Signal types: array=1, enum=106, number=73, string=16
+- UI tiers: advanced=10, core=73, detail=113
+- Sample source: `recorded_events.jsonl` (277 records)
 
-## Table of Contents
+For each signal:
+- `Trigger/source` lists journal event triggers and/or state/status paths used for derivation.
+- `Sample values` are shown for non-enum signals.
 
-1. [UI & HUD Signals](#ui--hud-signals)
-2. [Commander & Progress Signals](#commander--progress-signals)
-3. [Location & Navigation Signals](#location--navigation-signals)
-4. [Travel & FSD Signals](#travel--fsd-signals)
-5. [Ship Status & Systems](#ship-status--systems)
-6. [Combat Signals](#combat-signals)
-7. [SRV Signals](#srv-signals)
-8. [On-Foot / Odyssey Signals](#on-foot--odyssey-signals)
-9. [Inventory & Materials](#inventory--materials)
-10. [Reputation & Influence](#reputation--influence)
-11. [Powerplay Signals](#powerplay-signals)
-12. [Squadron & Fleet Carrier](#squadron--fleet-carrier)
-13. [Game Mode & Session](#game-mode--session)
-14. [Station & System Data](#station--system-data)
-15. [Statistics Signals](#statistics-signals)
-16. [Passengers & Crew](#passengers--crew)
-17. [Navigation & Routes](#navigation--routes)
-18. [Target Information](#target-information)
-19. [Event Categories](#event-categories)
-
----
-
-## UI & HUD Signals
-
-### `gui_focus`
-**Type:** Enum | **Category:** HUD | **Tier:** Core  
-Current focused UI panel
-- `NoFocus` - None
-- `InternalPanel` - Left panel
-- `ExternalPanel` - Right panel
-- `CommsPanel` - Comms
-- `RolePanel` - Role
-- `StationServices` - Station
-- `GalaxyMap` - Galaxy map
-- `SystemMap` - System map
-- `Orrery` - Orrery
-- `FSS` - FSS
-- `SAA` - SAA
-- `Codex` - Codex
-
-### `hud_mode`
-**Type:** Enum | **Category:** HUD | **Tier:** Core  
-HUD display mode
-- `combat` - Combat mode
-- `analysis` - Analysis mode
-
-### `night_vision`
-**Type:** Enum | **Category:** HUD | **Tier:** Core  
-Night vision toggle
-- `off` - Night vision off
-- `on` - Night vision on
-
----
-
-## Commander & Progress Signals
-
-### `commander_name`
-**Type:** String | **Category:** Commander | **Tier:** Core  
-Currently logged-in commander name
-
-### `transport`
-**Type:** Enum | **Category:** Commander | **Tier:** Core  
-Current transport/vehicle type
-- `ship` - In ship
-- `srv` - In SRV
-- `fighter` - In fighter (multicrew)
-- `on_foot` - On foot (Odyssey)
-- `in_taxi` - In orbital taxi
-- `in_multicrew` - In other player's ship
-- `in_wing` - In wing formation
-- `unknown` - Unknown state
-
-### `credits`
-**Type:** Number | **Category:** Commander | **Tier:** Core  
-Current credit balance
-
-### `commander_rank_combat`
-**Type:** Enum | **Category:** Commander | **Tier:** Detail  
-Combat rank (0-8)
-- 0: Harmless, 1: Mostly Harmless, 2: Novice, 3: Competent, 4: Expert, 5: Master, 6: Dangerous, 7: Deadly, 8: Elite
-
-### `commander_rank_trade`
-**Type:** Enum | **Category:** Commander | **Tier:** Detail  
-Trade rank (0-8)
-- 0: Penniless, 1: Mostly Penniless, 2: Peddler, 3: Dealer, 4: Merchant, 5: Broker, 6: Entrepreneur, 7: Tycoon, 8: Elite
-
-### `commander_rank_explore`
-**Type:** Enum | **Category:** Commander | **Tier:** Detail  
-Exploration rank (0-8)
-- 0: Aimless, 1: Mostly Aimless, 2: Scout, 3: Surveyor, 4: Trailblazer, 5: Pathfinder, 6: Ranger, 7: Pioneer, 8: Elite
-
-### `commander_rank_empire`
-**Type:** Enum | **Category:** Commander | **Tier:** Detail  
-Empire rank
-- none, outsider, serf, master, squire, knight, lord, baron, viscount, count, earl, marquis, duke, prince, king
-
-### `commander_rank_federation`
-**Type:** Enum | **Category:** Commander | **Tier:** Detail  
-Federation rank
-- none, recruit, cadet, midshipman, petty_officer, chief_petty_officer, warrant_officer, ensign, lieutenant, lieutenant_commander, post_commander, post_captain, rear_admiral, vice_admiral, admiral
-
-### `commander_progress_combat`, `commander_progress_trade`, `commander_progress_explore`, `commander_progress_empire`, `commander_progress_federation`, `commander_progress_cqc`
-**Type:** Number | **Category:** Commander | **Tier:** Detail  
-Rank progression percentage (0-100%)
-
-### `commander_promotion.*`
-**Type:** Enum | **Category:** Commander > Promotion | **Tier:** Detail  
-Recent rank promotions showing new rank value (within 5 seconds of Promotion event)
-- `commander_promotion.combat` - Combat promotion (0-8: Harmless to Elite)
-- `commander_promotion.trade` - Trade promotion (0-8: Penniless to Elite)
-- `commander_promotion.explore` - Exploration promotion (0-8: Aimless to Elite)
-- `commander_promotion.empire` - Empire promotion (none to king)
-- `commander_promotion.federation` - Federation promotion (none to admiral)
-- `commander_promotion.soldier` - Soldier promotion (0-8: Defenceless to Elite)
-- `commander_promotion.exobiologist` - Exobiologist promotion (0-8: Directionless to Elite)
-- `commander_promotion.mercenary` - Mercenary promotion (0-8: Defenceless to Elite)
-- `commander_promotion.cqc` - CQC promotion (0-8: Helpless to Elite)
-
-### `commander_activity_social`
-**Type:** Enum | **Category:** Commander | **Tier:** Core  
-Recent social events
-- `none` - No recent friend list updates
-- `friends` - Friends list updated (within 300s)
-
----
-
-## Location & Navigation Signals
-
-### `system_name`
-**Type:** String | **Category:** Location | **Tier:** Core  
-Current system name
-
-### `system_address`
-**Type:** Number | **Category:** Location | **Tier:** Detail  
-Unique 64-bit system ID
-
-### `station_name`
-**Type:** String | **Category:** Location | **Tier:** Core  
-Docked station name (empty if not docked)
-
-### `body_name`
-**Type:** String | **Category:** Location | **Tier:** Core  
-Current body name (planet/moon/station)
-
-### `docking_state`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Docking/landing status
-- `in_space` - In open space
-- `landed` - Landed on surface
-- `docked` - Docked at station
-- `just_docked` - Just docked (within 3s)
-- `just_undocked` - Just undocked (within 3s)
-- `just_landed` - Just landed (within 3s)
-- `just_lifted_off` - Just took off (within 3s)
-
-### `has_lat_long`
-**Type:** Enum | **Category:** Location | **Tier:** Advanced  
-Whether position data is available
-- `no` / `yes`
-
-### `latitude`, `longitude`, `altitude`, `heading`
-**Type:** Number | **Category:** Location | **Tier:** Detail  
-Current position and orientation (when on surface)
-
-### `body_proximity`
-**Type:** Enum | **Category:** Location | **Tier:** Detail  
-Proximity to celestial body
-- `far` - Not approaching
-- `approaching` - Approaching (recent ApproachBody event)
-- `orbital_cruise` - In orbital cruise
-- `leaving` - Leaving body (recent LeaveBody event)
-
-### `docking_request_state`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Docking request status
-- `none`, `requested`, `granted`, `denied`, `cancelled`, `timeout`
-
----
-
-## Travel & FSD Signals
-
-### `supercruise_state`
-**Type:** Enum | **Category:** Travel | **Tier:** Core  
-Supercruise engagement state
-- `off` - Normal space
-- `on` - In supercruise
-- `entering` - Entering supercruise (within 3s)
-- `exiting` - Exiting supercruise (within 3s)
-
-### `fsd_state`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-FSD engine state
-- `idle` - Ready
-- `charging` - FSD charging
-- `cooldown` - FSD cooling down
-- `jump_active` - Jump in progress
-
-### `jump_type`
-**Type:** Enum | **Category:** Travel | **Tier:** Detail  
-Type of jump being performed
-- `none`, `hyperspace`, `supercruise`
-
-### `mass_locked`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-FSD mass lock status
-- `no` / `yes`
-
-### `flag_low_fuel`
-**Type:** Enum | **Category:** Ship | **Tier:** Advanced  
-Low fuel warning flag
-- `normal` / `low`
-
-### `flag_overheating`
-**Type:** Enum | **Category:** Ship | **Tier:** Advanced  
-Ship overheating status
-- `normal` / `overheating`
-
-### `flag_in_danger`
-**Type:** Enum | **Category:** Travel | **Tier:** Advanced  
-Danger zone detection
-- `safe` / `danger`
-
-### `interdicted`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Being interdicted status
-- `no` / `yes`
-
-### `destination_system`
-**Type:** String | **Category:** Travel | **Tier:** Detail  
-Destination system (if set)
-
-### `jet_cone_boost_state`
-**Type:** Enum | **Category:** Travel | **Tier:** Detail  
-Jet cone boost events
-- `none`, `boosted`, `damaged`
-
----
-
-## Ship Status & Systems
-
-### `ship_type`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Current ship model (adder, anaconda, asp, asp_scout, belugaliner, cobra_mkiii, etc.)
-
-### `ship_name`
-**Type:** String | **Category:** Ship | **Tier:** Core  
-Player-set ship name
-
-### `ship_ident`
-**Type:** String | **Category:** Ship | **Tier:** Detail  
-Player-set ship identifier
-
-### `landing_gear`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Landing gear position
-- `retracted` / `deployed`
-
-### `lights`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-External lights
-- `off` / `on`
-
-### `cargo_hatch`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Cargo hold door
-- `retracted` / `deployed`
-
-### `hardpoints`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Weapon hardpoints
-- `retracted` / `deployed`
-
-### `silent_running`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Silent running (heat suppression) mode
-- `off` / `on`
-
-### `flight_assist`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Flight assist status
-- `on` / `off`
-
-### `heat_status`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Thermal status
-- `normal`, `overheating`, `heat_damage` (recent damage)
-
-### `danger_status`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Ship danger state
-- `safe`, `in_danger`, `under_attack` (recent attack)
-
-### `refuel_status`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Recent refueling
-- `none`, `partial_refueled`, `full_refueled`
-
-### `repair_status`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Recent repair activity
-- `none`, `module_repaired`, `full_repaired`, `rebooting`
-
-### `cockpit_status`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Cockpit integrity
-- `intact`, `breached` (recent breach event)
-
-### `fuel_main`, `fuel_reservoir`
-**Type:** Number | **Category:** Ship | **Tier:** Detail  
-Current fuel amounts (tons)
-
-### `cargo_count`
-**Type:** Number | **Category:** Ship | **Tier:** Core  
-Cargo carried (tons)
+## Ship
 
 ### `cargo_activity`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Recent cargo events
-- `none`, `collected`, `ejected` (within 3s)
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: CollectCargo (<= 3s), EjectCargo (<= 3s)
+- Enum values: none, collected, ejected
 
-### Ship Value Signals
-- `ship_hull_value` - Hull value (credits)
-- `ship_modules_value` - Modules value (credits)
-- `ship_rebuy_cost` - Insurance rebuy cost
-- `ship_hull_health` - Hull integrity percentage
-- `ship_unladen_mass` - Mass without cargo (tons)
-- `ship_max_jump_range` - Unladen jump range (ly)
-- `ship_fuel_capacity_main` - Main tank capacity (tons)
-- `ship_fuel_capacity_reserve` - Reserve tank capacity (tons)
-- `ship_cargo_capacity` - Total cargo capacity (tons)
+### `cargo_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: paths: dashboard.Cargo
+- Sample values: 0, 31.0, 30.0, 29.0, 28.0
 
-### `ship_status`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Legal status
-- `clean` / `wanted`
+### `cargo_hatch`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[9]
+- Enum values: retracted, deployed
 
----
+### `cockpit_status`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: CockpitBreached (<= 300s)
+- Enum values: intact, breached
 
-## Combat Signals
+### `crew_activity`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: ChangeCrewRole (<= 1s), CrewAssign (<= 1s), CrewFire (<= 1s), CrewHire (<= 1s), CrewLaunchFighter (<= 1s), CrewMemberJoins (<= 1s), CrewMemberQuits (<= 1s), CrewMemberRoleChange (<= 1s), EndCrewSession (<= 1s), JoinACrew (<= 1s), KickCrewMember (<= 1s), NpcCrewPaidWage (<= 1s), NpcCrewRank (<= 1s), QuitACrew (<= 1s)
+- Enum values: none, hired, fired, joined_session, left_session, assigned, kicked, session_ended, member_joined, member_left, member_role_changed, launched_fighter, your_role_changed, npc_paid, npc_ranked_up
 
-### `shield_state`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Shield status
-- `down` - Shields offline
-- `up` - Shields active
-- `just_failed` - Just failed (within 3s)
-- `just_restored` - Just restored (within 3s)
+### `docking_request_state`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: DockingCancelled (<= 5s), DockingDenied (<= 5s), DockingGranted (<= 30s), DockingRequested (<= 5s), DockingTimeout (<= 5s)
+- Enum values: none, requested, granted, denied, cancelled, timeout
 
-### `hull_state`
-**Type:** Enum | **Category:** Ship | **Tier:** Core  
-Hull condition
-- `ok` - No damage
-- `damaged` - 30-70% integrity
-- `critical` - <30% integrity
-- `taking_damage` - Recently hit (within 2s)
+### `docking_state`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: Docked (<= 3s), Liftoff (<= 3s), Touchdown (<= 3s), Undocked (<= 3s) | flags: ship_flags[0], ship_flags[1]
+- Enum values: in_space, landed, docked, just_docked, just_undocked, just_landed, just_lifted_off
 
-### `combat_state`
-**Type:** Enum | **Category:** Combat | **Tier:** Core  
-Overall combat status
-- `peaceful` - No threats
-- `under_attack` - Being attacked (within 5s)
-- `got_bounty` - Bounty received (within 5s)
-- `killed_target` - Target destroyed (within 5s)
-- `destroyed` - Ship destroyed (within 10s)
-
-### `target_state`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Current target
-- `none` - No target
-- `locked` - Target locked (recent)
-- `lost` - Target lost
+### `fighter`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: DockFighter (<= 1s), FighterDestroyed (<= 1s), LaunchFighter (<= 1s)
+- Enum values: none, launched, docked, destroyed
 
 ### `fire_group`
-**Type:** Number | **Category:** Ship | **Tier:** Detail  
-Currently selected fire group (0-N)
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.FireGroup
+- Sample values: 0, 6, 5, 4, 3
 
-### Power Distribution Pips
-- `pips_sys` - System pips (0-8, half-pip increments)
-- `pips_eng` - Engine pips (0-8)
-- `pips_wep` - Weapon pips (0-8)
+### `flight_assist`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[5]
+- Enum values: on, off
+
+### `fsd_status`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: foot_flags[15], ship_flags[17], ship_flags[18], ship_flags[30], ship_flags[4]
+- Enum values: idle, charging, cooldown, jump_active, supercruise, gliding, jet_cone_boost, jet_cone_damage, off, entering_supercruise, exiting_supercruise, masslocked
+
+### `fuel`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: FuelScoop (<= 1s), RefuelAll (<= 1s), RefuelPartial (<= 1s), ReservoirReplenished (<= 1s) | flags: ship_flags[11], ship_flags[19] | paths: dashboard.Fuel.FuelMain
+- Enum values: ok, low, critical, scooping, scooped, full_refuel, partial_refuel, reservoir_filled
+
+### `fuel_main`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Fuel.FuelMain
+- Sample values: 0
+
+### `fuel_reservoir`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Fuel.FuelReservoir
+- Sample values: 0
+
+### `hardpoints`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[6]
+- Enum values: retracted, deployed
+
+### `has_npc_crew`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `has_vip_passengers`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `has_wanted_passengers`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `heat_status`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: HeatDamage (<= 2s) | flags: ship_flags[20]
+- Enum values: normal, overheating, heat_damage
+
+### `hull_state`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: HullDamage (<= 2s) | paths: state.HullHealth
+- Enum values: ok, damaged, critical, taking_damage
+
+### `interdiction`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: Interdicted
+- Enum values: submitted, escaped, succeeded, failed, is_player, being_interdicted
+
+### `landing_gear`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[2]
+- Enum values: retracted, deployed
+
+### `limpets`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: BuyDrones (<= 1s), LaunchDrone (<= 1s), SellDrones (<= 1s)
+- Enum values: none, purchased, launched, sold
+
+### `module_activity`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: ModuleBuy (<= 3s), ModuleRetrieve (<= 3s), ModuleSell (<= 3s), ModuleStore (<= 3s), ModuleSwap (<= 3s)
+- Enum values: bought, sold, swapped, stored, retrieved, module_sell_remote, mass_module_store, fetch_remote_module, outfitting
+
+### `night_vision`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[28]
+- Enum values: off, on
+
+### `npc_crew_count`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: n/a
+- Sample values: 0
+
+### `passengers_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
+
+### `pips_eng`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Pips.1
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8
+
+### `pips_sys`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Pips.0
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8
+
+### `pips_wep`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Pips.2
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8
 
 ### `power_distribution`
-**Type:** Enum | **Category:** Ship | **Tier:** Detail  
-Current power mode
-- `balanced` - 2-2-2 pips
-- `defensive` - 4+ sys pips
-- `aggressive` - 4+ wep pips
-- `evasive` - 4+ eng pips
-- `custom` - Other configuration
-
-### Legal & Bounties
-- `legal_state` - Current legal status (Clean, IllegalCargo, Speeding, Wanted, Hostile, etc.)
-- `bounty_activity` - Recent bounty events (none, paid_bounties, paid_fines)
-
----
-
-## SRV Signals
-
-### `srv_deployed_state`
-**Type:** Enum | **Category:** SRV | **Tier:** Core  
-SRV deployment status
-- `stowed` - In hangar
-- `deployed` - On surface
-- `just_launched` - Just deployed (within 3s)
-- `just_docked` - Just recovered (within 3s)
-
-### `srv_handbrake`
-**Type:** Enum | **Category:** SRV | **Tier:** Core  
-SRV handbrake
-- `off` / `on`
-
-### `srv_drive_assist`
-**Type:** Enum | **Category:** SRV | **Tier:** Core  
-SRV drive assist
-- `off` / `on`
-
-### `srv_high_beam`
-**Type:** Enum | **Category:** SRV | **Tier:** Core  
-SRV headlights
-- `off` / `on`
-
-### `flag_srv_turret`
-**Type:** Enum | **Category:** SRV | **Tier:** Advanced  
-SRV turret position
-- `retracted` / `deployed`
-
-### `srv_under_ship`
-**Type:** Enum | **Category:** SRV | **Tier:** Detail  
-SRV docking underneath ship
-- `no` / `yes`
-
----
-
-## On-Foot / Odyssey Signals
-
-### `flag_on_foot`
-**Type:** Enum | **Category:** On-Foot | **Tier:** Advanced  
-Commander is on foot
-- `no` / `yes`
-
-### `aim`
-**Type:** Enum | **Category:** On-Foot | **Tier:** Core  
-Weapon aiming state
-- `normal`, `aiming` (aim down sight)
-
-### `flag_aim_down_sight`
-**Type:** Enum | **Category:** On-Foot | **Tier:** Advanced  
-ADS (aim down sight) flag
-- `no` / `yes`
-
-### Environmental Conditions
-- `temperature` - Environment temperature (very_cold, cold, normal, hot, very_hot)
-- `temperature_state` - Temperature alert state
-- `temperature_value` - Temperature in Kelvin (number)
-- `oxygen` - Oxygen status (ok, low)
-- `oxygen_level` - Oxygen percentage (number)
-- `health` - Health status (ok, low)
-- `health_level` - Health percentage (number)
-- `gravity_level` - Gravity multiplier (number)
-
-### Oxygen & Health Warnings
-- `flag_low_oxygen` - Low oxygen flag (normal, low)
-- `flag_low_health` - Low health flag (normal, low)
-
-### On-Foot Location
-- `on_foot_location` - Where on foot (none, station, planet, hangar, social_space, exterior)
-- `breathable_atmosphere` - Is atmosphere breathable (no, yes)
-
-### Locomotion
-- `glide_mode` - In glide mode (no, yes)
-
-### Weapons
-- `selected_weapon` - Current weapon (none, unarmed, energylink, arc_cutter, profile_analyser, genetic_sampler, kinetic, laser, plasma, rocket, grenades)
-
----
-
-## Inventory & Materials
-
-### Material Counts
-- `raw_materials_count` - Count of raw engineering materials
-- `manufactured_materials_count` - Count of manufactured materials
-- `encoded_materials_count` - Count of encoded data
-- `total_materials_count` - Sum of all material categories
-
-### Cargo & Missions
-- `cargo_inventory` - Array of cargo items (detailed)
-- `missions_active_count` - Number of active missions
-
----
-
-## Reputation & Influence
-
-### Faction Reputation
-- `empire_reputation` - Empire faction reputation (number, can be negative)
-- `federation_reputation` - Federation reputation
-- `alliance_reputation` - Alliance reputation
-- `independent_reputation` - Independent systems reputation
-
-*Note: These represent standing with each superpower*
-
----
-
-## Powerplay Signals
-
-### Powerplay Status
-- `powerplay_pledged` - Is pledged to a power (no, yes)
-- `powerplay_power` - Pledged power name (aisling_duval, arissa_lavigny-duval, denton_patreus, zemina_torval, edmund_mahon, li_yong-rui, felicia_winters, zachary_hudson, yuri_grom, archon_delaine, pranav_antal, or none)
-
-### Powerplay Metrics
-- `powerplay_rank` - Rank within power (0-5)
-- `powerplay_merits` - Merits earned (number)
-- `powerplay_time_pledged` - Time pledged (seconds)
-
----
-
-## Squadron & Fleet Carrier
-
-### Squadron
-- `in_squadron` - Is in a squadron (no, yes)
-- `squadron_name` - Squadron name
-- `squadron_rank` - Rank within squadron (0-N)
-
-### Fleet Carrier
-- `has_fleet_carrier` - Owns a carrier (no, yes)
-- `fleet_carrier_callsign` - Carrier callsign (e.g., "ABC-12")
-- `fleet_carrier_name` - Carrier display name
-- `fleet_carrier_balance` - Carrier credit balance
-- `fleet_carrier_fuel` - Carrier fuel % (0-100)
-
----
-
-## Game Mode & Session
-
-### Game Mode
-- `game_mode` - Current mode (Open, Solo, Group)
-- `group_name` - Private group name (if applicable)
-
-### Game Version
-- `game_version` - Edition being played (base, horizons, odyssey)
-
----
-
-## Station & System Data
-
-### Station Information
-- `station_name` - Station name
-- `station_type` - Type (coriolis, orbis, ocellus, outpost, crateroutpost, craterport, megaship, asteroidbase, fleetcarrier)
-- `station_faction` - Controlling faction
-- `station_government` - Government type
-- `station_allegiance` - Allegiance (alliance, empire, federation, independent, pirate, pilotsfederation)
-- `station_economy` - Primary economy
-- `station_distance_ls` - Distance from main star (light-seconds)
-- `market_id` - Market ID number (for API lookup)
-
-### System Information
-- `system_name` - System name
-- `system_address` - System ID64
-- `system_faction` - Controlling faction
-- `system_government` - Government type
-- `system_allegiance` - Allegiance
-- `system_economy` - Primary economy
-- `system_security` - Security level
-- `system_population` - System population (number)
-
-### System Coordinates (Galactic)
-- `system_x` - X coordinate
-- `system_y` - Y coordinate
-- `system_z` - Z coordinate
-
----
-
-## Statistics Signals
-
-### Financial
-- `stat_total_wealth` - Current wealth (credits)
-- `stat_spent_on_ships` - Lifetime ship purchases
-- `stat_insurance_claims` - Number of times rebuked
-
-### Combat
-- `stat_bounty_hunting_profit` - Bounty hunting earnings
-- `stat_combat_bonds` - Combat bonds earned
-
-### Exploration
-- `stat_exploration_profit` - Exploration data earnings
-- `stat_systems_visited` - Systems discovered
-- `stat_hyperspace_jumps` - Total jumps made
-
-### Trading & Mining
-- `stat_trading_profit` - Trading earnings
-- `stat_mining_profit` - Mining earnings
-
-### Time
-- `stat_time_played` - Total playtime (seconds)
-
----
-
-## Passengers & Crew
-
-### Passengers
-- `passengers_count` - Number of passengers in cabins
-- `has_vip_passengers` - Carrying VIPs (no, yes)
-- `has_wanted_passengers` - Carrying wanted prisoners (no, yes)
-
-### NPC Crew
-- `has_npc_crew` - Has hired NPC crew (no, yes)
-- `npc_crew_count` - Number of active crew members
-
----
-
-## Navigation & Routes
-
-### Route Planning
-- `has_route` - Route plotted (no, yes)
-- `route_length` - Number of jumps remaining in route
-- `next_system_in_route` - Next waypoint system name
-
-### FSD Target
-- `fsd_target_system` - Current FSD target system
-- `fsd_target_remaining_jumps` - Jumps to reach FSD target
-
----
-
-## Target Information
-
-### Target Lock Status
-- `target_locked` - Has target locked (no, yes)
-
-### Target Ship Details
-- `target_ship_type` - Target ship model
-- `target_scan_stage` - Scan progress level (0-4)
-- `target_pilot_name` - Pilot name (if known)
-- `target_pilot_rank` - Combat rank (harmless to elite)
-- `target_legal_status` - Pilot status (clean, wanted, lawless)
-
-### Target Condition
-- `target_shield_health` - Shield integrity %
-- `target_hull_health` - Hull integrity %
-
-### Target Loadout
-- `target_subsystem` - Focused subsystem
-- `target_subsystem_health` - Subsystem integrity %
-- `target_bounty` - Bounty value on target
-
-### Target Affiliation
-- `target_faction` - Target faction
-
----
-
-## Event Categories
-
-These signals track recent events within various game activity categories. Each returns the most recent event in that category, with a 300-second (5-minute) window.
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Pips.0, dashboard.Pips.1, dashboard.Pips.2
+- Enum values: balanced, defensive, aggressive, evasive, custom
+
+### `refuel_status`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: RefuelAll (<= 5s), RefuelPartial (<= 5s)
+- Enum values: none, partial_refueled, full_refueled
+
+### `repair_status`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: RebootRepair (<= 10s), Repair (<= 5s), RepairAll (<= 5s)
+- Enum values: none, module_repaired, full_repaired, rebooting, afmu_repairs
+
+### `shield_state`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: ShieldState (<= 3s) | flags: ship_flags[3]
+- Enum values: down, up, just_failed, just_restored
+
+### `ship_cargo_capacity`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.CargoCapacity
+- Sample values: 0
+
+### `ship_fuel_capacity_main`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.FuelCapacity.Main
+- Sample values: 0
+
+### `ship_fuel_capacity_reserve`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.FuelCapacity.Reserve
+- Sample values: 0
+
+### `ship_hull_health`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: paths: state.HullHealth
+- Sample values: 100
+
+### `ship_hull_value`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.HullValue
+- Sample values: 0
+
+### `ship_ident`
+- Type: `string`
+- Tier: `detail`
+- Trigger/source: paths: state.ShipIdent
+- Sample values: "" (default)
+
+### `ship_lights`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[8]
+- Enum values: off, on
+
+### `ship_max_jump_range`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.MaxJumpRange
+- Sample values: 0
+
+### `ship_modules_value`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.ModulesValue
+- Sample values: 0
+
+### `ship_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.ShipName
+- Sample values: "" (default)
+
+### `ship_rebuy_cost`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Rebuy
+- Sample values: 0
+
+### `ship_status`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: state.Hot
+- Enum values: clean, wanted
+
+### `ship_type`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: state.ShipType
+- Enum values: unknown, adder, anaconda, asp, asp_scout, belugaliner, cobramkiii, cobramkiv, diamondback, diamondbackxl, dolphin, eagle, empire_courier, empire_eagle, empire_fighter, empire_trader, cutter, federation_corvette, federation_dropship, federation_dropship_mkii, federation_gunship, federation_fighter, ferdelance, hauler, independant_trader, krait_mkii, krait_light, mamba, orca, python, python_nx, sidewinder, type6, type7, type9, type9_military, typex, typex_2, typex_3, viper, viper_mkiv, vulture
+
+### `ship_unladen_mass`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.UnladenMass
+- Sample values: 0
+
+### `shipyard`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: SetUserShipName (<= 5s), ShipyardBuy (<= 5s), ShipyardSell (<= 5s), ShipyardSwap (<= 5s), ShipyardTransfer (<= 10s)
+- Enum values: bought, sold, swapped, transferred, renamed, shipyard, sell_ship_on_rebuy
+
+### `silent_running`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[10]
+- Enum values: off, on
+
+### `target_bounty`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.Bounty
+- Sample values: 0
+
+### `target_faction`
+- Type: `string`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.Faction
+- Sample values: "" (default)
+
+### `target_hull_health`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.HullHealth
+- Sample values: 0
+
+### `target_legal_status`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.LegalStatus
+- Enum values: unknown, clean, wanted, lawless
+
+### `target_locked`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `target_pilot_name`
+- Type: `string`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.PilotName
+- Sample values: "" (default)
+
+### `target_pilot_rank`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.PilotRank
+- Enum values: unknown, harmless, mostly_harmless, novice, competent, expert, master, dangerous, deadly, elite
+
+### `target_scan_stage`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.ScanStage
+- Sample values: 0
+
+### `target_shield_health`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.ShieldHealth
+- Sample values: 0
+
+### `target_ship_type`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.Ship
+- Enum values: unknown, adder, anaconda, asp, asp_scout, belugaliner, cobramkiii, cobramkiv, diamondback, diamondbackxl, dolphin, eagle, empire_courier, empire_eagle, empire_fighter, empire_trader, cutter, federation_corvette, federation_dropship, federation_dropship_mkii, federation_gunship, federation_fighter, ferdelance, hauler, independant_trader, krait_mkii, krait_light, mamba, orca, python, python_nx, sidewinder, type6, type7, type9, type9_military, typex, typex_2, typex_3, viper, viper_mkiv, vulture
+
+### `target_state`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: ShipTargetted
+- Enum values: none, locked, lost, killed_target
+
+### `target_subsystem`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.SubSystem
+- Enum values: none, $int_powerplant;, $int_engine;, $int_hyperdrive;, $int_lifesupport;, $int_powerdistributor;, $int_sensors;, $int_fueltank;, $int_cargohatch;, $hpt_turret;, $ext_drivebay;
+
+### `target_subsystem_health`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Target.SubSystemHealth
+- Sample values: 0
+
+## Commander
+
+### `alliance_reputation`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Reputation.Alliance
+- Sample values: 0
+
+### `commander_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.Commander
+- Sample values: "" (default)
+
+### `commander_progress.by_faction.empire`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Empire
+- Sample values: 0
+
+### `commander_progress.by_faction.federation`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Federation
+- Sample values: 0
+
+### `commander_progress.by_rank_type.combat`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Combat
+- Sample values: 0
+
+### `commander_progress.by_rank_type.cqc`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.CQC
+- Sample values: 0
+
+### `commander_progress.by_rank_type.exobiologist`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Exobiologist
+- Sample values: 0
+
+### `commander_progress.by_rank_type.explore`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Explore
+- Sample values: 0
+
+### `commander_progress.by_rank_type.mercenary`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Mercenary
+- Sample values: 0
+
+### `commander_progress.by_rank_type.soldier`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Soldier
+- Sample values: 0
+
+### `commander_progress.by_rank_type.trade`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.RankProgress.Trade
+- Sample values: 0
+
+### `commander_promotion.combat`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Combat
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_promotion.cqc`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: CQC
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8
+
+### `commander_promotion.empire`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Empire
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+
+### `commander_promotion.exobiologist`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Exobiologist
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_promotion.explore`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Explore
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_promotion.federation`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Federation
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
+
+### `commander_promotion.mercenary`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Mercenary
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_promotion.soldier`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Soldier
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_promotion.trade`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: Promotion (<= 5s) | paths: Trade
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_ranks.combat`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.Combat
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_ranks.cqc`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.CQC
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8
+
+### `commander_ranks.empire`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: n/a
+- Enum values: none, outsider, serf, master, squire, knight, lord, baron, viscount, count, earl, marquis, duke, prince, king
+
+### `commander_ranks.exobiologist`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.Exobiologist
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_ranks.explore`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.Explore
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_ranks.federation`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: n/a
+- Enum values: none, recruit, cadet, midshipman, petty_officer, chief_petty_officer, warrant_officer, ensign, lieutenant, lieutenant_commander, post_commander, post_captain, rear_admiral, vice_admiral, admiral
+
+### `commander_ranks.mercenary`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.Mercenary
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_ranks.soldier`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.Soldier
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `commander_ranks.trade`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.Rank.Trade
+- Enum values: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
+
+### `comms_event`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: Friends (<= 300s), Music (<= 300s), ReceiveText (<= 300s), SendText (<= 300s)
+- Enum values: receive_text, send_text, music, friends, none
+
+### `credits`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: paths: dashboard.Balance
+- Sample values: 0, 2702325380
+
+### `empire_reputation`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Reputation.Empire
+- Sample values: 0
+
+### `federation_reputation`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Reputation.Federation
+- Sample values: 0
+
+### `financial_activity`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: PayBounties (<= 1s), PayFines (<= 1s), PayLegacyFines (<= 1s), RedeemVoucher (<= 1s)
+- Enum values: none, paid_fines, paid_bounties, redeemed_voucher, paid_legacy_fines, got_bounty
+
+### `independent_reputation`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Reputation.Independent
+- Sample values: 0
+
+### `legal_state`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: dashboard.LegalState
+- Enum values: Clean, IllegalCargo, Speeding, Wanted, Hostile, PassengerWanted, Warrant, commit_crime, crime_victim
+
+### `mode`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: foot_flags[0], foot_flags[1], foot_flags[2], ship_flags[24], ship_flags[25], ship_flags[26]
+- Enum values: ship, srv, fighter, on_foot, in_taxi, in_multicrew, unknown
+
+## Location
+
+### `altitude`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Altitude
+- Sample values: 0
+
+### `body_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: dashboard.BodyName
+- Sample values: "HIP 54530 B 3 B Ring"
+
+### `body_proximity`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: ApproachBody (<= 10s), LeaveBody (<= 5s) | flags: ship_flags[4]
+- Enum values: far, approaching, orbital_cruise, leaving
+
+### `breathable_atmosphere`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: flags: foot_flags[14]
+- Enum values: no, yes
+
+### `gravity_level`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Gravity
+- Sample values: 0
+
+### `has_lat_long`
+- Type: `enum`
+- Tier: `advanced`
+- Trigger/source: flags: ship_flags[21]
+- Enum values: no, yes
+
+### `heading`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Heading
+- Sample values: 0
+
+### `latitude`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Latitude
+- Sample values: 0
+
+### `longitude`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Longitude
+- Sample values: 0
+
+### `market_id`
+- Type: `number`
+- Tier: `advanced`
+- Trigger/source: paths: state.MarketID
+- Sample values: 0
+
+### `oxygen`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: foot_flags[6]
+- Enum values: ok, low
+
+### `oxygen_level`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Oxygen
+- Sample values: 0
+
+### `station_allegiance`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.StationAllegiance
+- Enum values: unknown, alliance, empire, federation, independent, pirate, pilotsfederation
+
+### `station_distance_ls`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.DistFromStarLS
+- Sample values: 0
+
+### `station_economy`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.StationEconomy
+- Enum values: unknown, $economy_agri;, $economy_colony;, $economy_extraction;, $economy_hightech;, $economy_industrial;, $economy_military;, $economy_refinery;, $economy_service;, $economy_terraforming;, $economy_tourism;, $economy_engineer;, $economy_prison;, $economy_damaged;, $economy_rescue;, $economy_carrier;
+
+### `station_faction`
+- Type: `string`
+- Tier: `detail`
+- Trigger/source: paths: state.StationFaction.Name
+- Sample values: "" (default)
+
+### `station_government`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.StationGovernment
+- Enum values: unknown, $government_anarchy;, $government_communism;, $government_confederacy;, $government_cooperative;, $government_corporate;, $government_democracy;, $government_dictatorship;, $government_feudal;, $government_patronage;, $government_prison;, $government_prisoncolony;, $government_theocracy;, $government_engineer;, $government_carrier;
+
+### `station_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.StationName
+- Sample values: "" (default)
+
+### `station_type`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.StationType
+- Enum values: unknown, coriolis, orbis, ocellus, outpost, crateroutpost, craterport, megaship, asteroidbase, fleetcarrier
+
+### `system_address`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.SystemAddress
+- Sample values: 0
+
+### `system_allegiance`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.SystemAllegiance
+- Enum values: unknown, alliance, empire, federation, independent, pirate
+
+### `system_economy`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.SystemEconomy
+- Enum values: unknown, $economy_agri;, $economy_colony;, $economy_extraction;, $economy_hightech;, $economy_industrial;, $economy_military;, $economy_refinery;, $economy_service;, $economy_terraforming;, $economy_tourism;
 
 ### `system_event`
-Recent game/system events
-- none, journal_started, journal_continued, game_reset, commander_created, game_loaded, commander_info, materials_loaded, cargo_loaded, missions_loaded, passengers_loaded, powerplay_status, rank_progress, ranks_loaded, reputation_loaded, statistics_loaded
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: Cargo (<= 300s), ClearSavedGame (<= 300s), Commander (<= 300s), Continued (<= 300s), FileHeader (<= 300s), LoadGame (<= 300s), Materials (<= 300s), Missions (<= 300s), NewCommander (<= 300s), Passengers (<= 300s), Powerplay (<= 300s), Progress (<= 300s), Rank (<= 300s), Reputation (<= 300s), Shutdown (<= 300s), StartUp (<= 300s), Statistics (<= 300s)
+- Enum values: none, journal_started, journal_continued, game_reset, commander_created, game_loaded, commander_info, materials_loaded, cargo_loaded, missions_loaded, passengers_loaded, powerplay_status, rank_progress, ranks_loaded, reputation_loaded, statistics_loaded, startup, shutdown
 
-### `travel_event`
-Recent location/navigation events
-- none, location, fsd_jump, docked, undocked, liftoff, touchdown, supercruise_entry, supercruise_exit, approach_body, leave_body, docking_requested, docking_granted, docking_denied, docking_cancelled, docking_timeout, supercruise_destination_drop, fsd_target, nav_route, start_jump, jet_cone_boost, uss_drop, jet_cone_damage
+### `system_faction`
+- Type: `string`
+- Tier: `detail`
+- Trigger/source: paths: state.SystemFaction.Name
+- Sample values: "" (default)
 
-### `combat_event`
-Recent combat/threat events
-- none, bounty, died, interdicted, interdiction, pvp_kill, under_attack, cap_ship_bond, faction_kill_bond, escape_interdiction, ship_targetted, crime_victim, resurrect, self_destruct, cockpit_breached
+### `system_government`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.SystemGovernment
+- Enum values: unknown, $government_anarchy;, $government_communism;, $government_confederacy;, $government_cooperative;, $government_corporate;, $government_democracy;, $government_dictatorship;, $government_feudal;, $government_patronage;, $government_theocracy;
+
+### `system_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: events: CarrierJump, FSDJump, Location | paths: state.StarSystem
+- Sample values: "" (default)
+
+### `system_population`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Population
+- Sample values: 0
+
+### `system_security`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: state.SystemSecurity
+- Enum values: unknown, $system_security_low;, $system_security_medium;, $system_security_high;, $galaxy_map_info_state_anarchy;, $system_security_lawless;
+
+### `system_x`
+- Type: `number`
+- Tier: `advanced`
+- Trigger/source: paths: state.StarPos.0
+- Sample values: 0
+
+### `system_y`
+- Type: `number`
+- Tier: `advanced`
+- Trigger/source: paths: state.StarPos.1
+- Sample values: 0
+
+### `system_z`
+- Type: `number`
+- Tier: `advanced`
+- Trigger/source: paths: state.StarPos.2
+- Sample values: 0
+
+### `temperature_state`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: foot_flags[10], foot_flags[11], foot_flags[8], foot_flags[9]
+- Enum values: ok, cold, hot, very_cold, very_hot
+
+### `temperature_value`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Temperature
+- Sample values: 0
+
+## Statistics
+
+### `stat_bounty_hunting_profit`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Combat.Bounty_Hunting_Profit
+- Sample values: 0
+
+### `stat_combat_bonds`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Combat.Combat_Bonds
+- Sample values: 0
+
+### `stat_exploration_profit`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Exploration.Exploration_Profits
+- Sample values: 0
+
+### `stat_hyperspace_jumps`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Exploration.Total_Hyperspace_Jumps
+- Sample values: 0
+
+### `stat_insurance_claims`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Bank_Account.Insurance_Claims
+- Sample values: 0
+
+### `stat_mining_profit`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Mining.Mining_Profits
+- Sample values: 0
+
+### `stat_spent_on_ships`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Bank_Account.Spent_On_Ships
+- Sample values: 0
+
+### `stat_systems_visited`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Exploration.Systems_Visited
+- Sample values: 0
+
+### `stat_time_played`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Exploration.Time_Played
+- Sample values: 0
+
+### `stat_total_wealth`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Bank_Account.Current_Wealth
+- Sample values: 0
+
+### `stat_trading_profit`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Statistics.Trading.Market_Profits
+- Sample values: 0
+
+## On-Foot
+
+### `aim`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: foot_flags[5]
+- Enum values: normal, aiming
+
+### `flag_aim_down_sight`
+- Type: `enum`
+- Tier: `advanced`
+- Trigger/source: flags: foot_flags[5]
+- Enum values: no, yes
+
+### `flag_low_health`
+- Type: `enum`
+- Tier: `advanced`
+- Trigger/source: flags: foot_flags[7]
+- Enum values: normal, low
+
+### `flag_low_oxygen`
+- Type: `enum`
+- Tier: `advanced`
+- Trigger/source: flags: foot_flags[6]
+- Enum values: normal, low
+
+### `health_level`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Health
+- Sample values: 0
+
+### `on_foot_location`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: foot_flags[16], foot_flags[17], foot_flags[18], foot_flags[3], foot_flags[4]
+- Enum values: none, station, planet, hangar, social_space, exterior
+
+### `selected_weapon`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.SelectedWeapon
+- Enum values: none, unarmed, energylink, arc_cutter, profile_analyser, genetic_sampler, kinetic, laser, plasma, rocket, grenades
+
+### `suit`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: BuySuit (<= 1s), SellSuit (<= 1s), UpgradeSuit (<= 1s)
+- Enum values: none, purchased, sold, upgraded
+
+### `transport_activity`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: events: BookDropship (<= 1s), BookTaxi (<= 1s), CancelDropship (<= 1s), CancelTaxi (<= 1s)
+- Enum values: none, taxi_booked, taxi_cancelled, dropship_booked, dropship_cancelled
+
+### `weapon`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: BuyWeapon (<= 1s), SellWeapon (<= 1s), UpgradeWeapon (<= 1s)
+- Enum values: none, purchased, sold, upgraded
+
+## Travel
+
+### `destination_system`
+- Type: `string`
+- Tier: `detail`
+- Trigger/source: paths: dashboard.Destination.System
+- Sample values: "" (default)
 
 ### `exploration_event`
-Recent discovery/scan events
-- none, scan, fss_discovery_scan, fss_signal_discovered, fss_all_bodies_found, saa_scan_complete, saa_signals_found, codex_entry, screenshot, sell_exploration_data, discovery_scan, nav_beacon_scan, scan_bary_centre, material_discarded, material_discovered, buy_exploration_data, multi_sell_exploration_data, sell_organic_data
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: BuyExplorationData (<= 300s), CodexEntry (<= 300s), DiscoveryScan (<= 300s), FSSAllBodiesFound (<= 300s), FSSDiscoveryScan (<= 300s), FSSSignalDiscovered (<= 300s), MaterialDiscarded (<= 300s), MaterialDiscovered (<= 300s), MultiSellExplorationData (<= 300s), NavBeaconScan (<= 300s), SAAScanComplete (<= 300s), SAASignalsFound (<= 300s), Scan (<= 300s), Screenshot (<= 300s), SellExplorationData (<= 300s), SellOrganicData (<= 300s)
+- Enum values: scan, f_s_s_discovery_scan, f_s_s_signal_discovered, f_s_s_all_bodies_found, s_a_a_scan_complete, s_a_a_signals_found, codex_entry, screenshot, discovery_scan, nav_beacon_scan, material_discarded, material_discovered, none, buy_exploration_data, multi_sell_exploration_data, sell_organic_data, sell_exploration_data
 
-### `trading_event`
-Recent trading/cargo events
-- none, market_buy, market_sell, collect_cargo, eject_cargo, mining_refined, cargo_depot, search_and_rescue, buy_trade_data, asteroid_cracked, market
+### `flag_altitude_from_avg_radius`
+- Type: `enum`
+- Tier: `advanced`
+- Trigger/source: flags: ship_flags[29]
+- Enum values: no, yes
+
+### `fsd_target_remaining_jumps`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.FSDTarget.RemainingJumpsInRoute
+- Sample values: 0
+
+### `fsd_target_system`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.FSDTarget.Name
+- Sample values: "" (default)
+
+### `has_route`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `next_system_in_route`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.Route.0.StarSystem
+- Sample values: "" (default)
+
+### `route_length`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
+
+## SRV
+
+### `flag_srv_turret`
+- Type: `enum`
+- Tier: `advanced`
+- Trigger/source: flags: ship_flags[13]
+- Enum values: retracted, deployed
+
+### `srv`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: DockSRV (<= 1s), LaunchSRV (<= 1s), SRVDestroyed (<= 1s)
+- Enum values: none, deployed, docked, destroyed
+
+### `srv_deployed_state`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: DockSRV (<= 3s), LaunchSRV (<= 3s) | flags: ship_flags[26]
+- Enum values: stowed, deployed, just_launched, just_docked
+
+### `srv_drive_assist`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[15]
+- Enum values: off, on
+
+### `srv_handbrake`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[12]
+- Enum values: off, on
+
+### `srv_high_beam`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[31]
+- Enum values: off, on
+
+### `srv_under_ship`
+- Type: `enum`
+- Tier: `detail`
+- Trigger/source: flags: ship_flags[14]
+- Enum values: no, yes
+
+## Fleet Carrier
+
+### `carrier_event`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: CarrierBankTransfer (<= 300s), CarrierBuy (<= 300s), CarrierCancelDecommission (<= 300s), CarrierCrewServices (<= 300s), CarrierDecommission (<= 300s), CarrierDepositFuel (<= 300s), CarrierDockingPermission (<= 300s), CarrierFinance (<= 300s), CarrierJump (<= 300s), CarrierJumpCancelled (<= 300s), CarrierJumpRequest (<= 300s), CarrierModulePack (<= 300s), CarrierNameChanged (<= 300s), CarrierStats (<= 300s), CarrierTradeOrder (<= 300s)
+- Enum values: none, carrier_jump, carrier_buy, carrier_stats, carrier_jump_request, carrier_jump_cancelled, carrier_finance, carrier_bank_transfer, carrier_deposit_fuel, carrier_crew_services, carrier_trade_order, carrier_docking_permission, carrier_name_change, carrier_module_pack, carrier_decommission, carrier_cancel_decommission
+
+### `fleet_carrier_balance`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.FleetCarrier.Balance
+- Sample values: 0
+
+### `fleet_carrier_callsign`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.FleetCarrier.Callsign
+- Sample values: "" (default)
+
+### `fleet_carrier_fuel`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.FleetCarrier.Fuel
+- Sample values: 0
+
+### `fleet_carrier_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.FleetCarrier.Name
+- Sample values: "" (default)
+
+### `has_fleet_carrier`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+## Powerplay
+
+### `powerplay_activity`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: PowerplayCollect (<= 1s), PowerplayDefect (<= 1s), PowerplayDeliver (<= 1s), PowerplayJoin (<= 1s), PowerplayLeave (<= 1s), PowerplaySalary (<= 1s), PowerplayVote (<= 1s), PowerplayVoucher (<= 1s)
+- Enum values: none, joined, left, defected, delivered, collected, voted, received_salary, received_voucher
+
+### `powerplay_merits`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Powerplay.Merits
+- Sample values: 0
+
+### `powerplay_pledged`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `powerplay_power`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: state.Powerplay.Power
+- Enum values: none, aisling_duval, arissa_lavigny-duval, denton_patreus, zemina_torval, edmund_mahon, li_yong-rui, felicia_winters, zachary_hudson, yuri_grom, archon_delaine, pranav_antal
+
+### `powerplay_rank`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Powerplay.Rank
+- Sample values: 0
+
+### `powerplay_time_pledged`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Powerplay.TimePledged
+- Sample values: 0
+
+## Inventory
+
+### `cargo_inventory`
+- Type: `array`
+- Tier: `detail`
+- Trigger/source: paths: state.Cargo
+- Sample values: []
+
+### `encoded_materials_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
+
+### `manufactured_materials_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
+
+### `raw_materials_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
+
+### `total_materials_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
+
+## Squadron
+
+### `in_squadron`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: n/a
+- Enum values: no, yes
+
+### `squadron_activity`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: AppliedToSquadron (<= 1s), DisbandedSquadron (<= 1s), InvitedToSquadron (<= 1s), JoinedSquadron (<= 1s), KickedFromSquadron (<= 1s), LeftSquadron (<= 1s), SharedBookmarkToSquadron (<= 1s), SquadronCreated (<= 1s), SquadronDemotion (<= 1s), SquadronPromotion (<= 1s), SquadronStartup (<= 1s), WonATrophyForSquadron (<= 1s)
+- Enum values: none, created, joined, left, applied, disbanded, invited, kicked, shared_bookmark, demoted, promoted, startup, won_trophy
+
+### `squadron_name`
+- Type: `string`
+- Tier: `core`
+- Trigger/source: paths: state.Squadron.Name
+- Sample values: "" (default)
+
+### `squadron_rank`
+- Type: `number`
+- Tier: `detail`
+- Trigger/source: paths: state.Squadron.Rank
+- Sample values: 0
+
+## HUD
+
+### `gui_focus`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: dashboard.GuiFocus
+- Enum values: NoFocus, InternalPanel, ExternalPanel, CommsPanel, RolePanel, StationServices, GalaxyMap, SystemMap, Orrery, FSS, SAA, Codex
+
+### `hud_mode`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: flags: ship_flags[27]
+- Enum values: combat, analysis
+
+## Missions
 
 ### `mission_event`
-Recent mission events
-- none, mission_accepted, mission_completed, mission_failed, mission_abandoned, community_goal, mission_redirected, community_goal_join, community_goal_discard, community_goal_reward
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: events: CommunityGoal (<= 300s), CommunityGoalDiscard (<= 300s), CommunityGoalJoin (<= 300s), CommunityGoalReward (<= 300s), MissionAbandoned (<= 300s), MissionAccepted (<= 300s), MissionCompleted (<= 300s), MissionFailed (<= 300s), MissionRedirected (<= 300s)
+- Enum values: none, mission_accepted, mission_completed, mission_failed, mission_abandoned, mission_redirected, community_goal, community_goal_join, community_goal_discard, community_goal_reward
 
-### `ship_event`
-Recent ship/module events
-- (see detailed signal reference for ship-related events)
+### `missions_active_count`
+- Type: `number`
+- Tier: `core`
+- Trigger/source: n/a
+- Sample values: 0
 
----
+## Session
 
-## Signal Organization
+### `game_mode`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: state.GameMode
+- Enum values: Open, Solo, Group, shutdown
 
-### By Tier (UI Display)
-
-**Core Tier** - Most commonly used for automation
-- Basic ship status, navigation, commander info, and immediate threats
-
-**Detail Tier** - Additional useful signals
-- Detailed ship specs, faction info, rankings, specific event tracking
-
-**Advanced Tier** - Technical/power users
-- Raw flag values, IDs, specific subsystem data, internal state
-
-### By Category
-
-Signals are organized into logical categories:
-- HUD / UI controls
-- Commander / Personal
-- Location & Navigation
-- Travel & FSD systems
-- Ship Status & Systems
-- Combat & Threats
-- SRV operations
-- On-Foot / Odyssey
-- Inventory & Cargo
-- Reputation & Factions
-- Powerplay
-- Squadron & Fleet
-- Game Session
-- Station & System
-- Statistics & Achievements
-- Passengers & Crew
-- Navigation & Routes
-- Target Intelligence
-- Event tracking
-
----
-
-## Usage Notes
-
-1. **Enum values** - Use with `in` operator or direct comparison
-2. **Number values** - Use with comparison operators (<, >, <=, >=)
-3. **String values** - Use with exact match or contains operators
-4. **Recent events** - Track within 300s (5 mins) by default; adjustable in rules
-5. **Flag values** - Binary (true/false) from Status.json flags
-6. **Array values** - Count, iterate, or test for existence
-7. **Null values** - Use `exists` operator to check presence
-
----
-
-## Last Updated
-
-Generated: February 16, 2026  
-Catalog Version: Current (9385 lines)  
-Total Signals: 700+
-
-For detailed implementation and derivation logic, refer to `signals_catalog.json`.
+### `game_version`
+- Type: `enum`
+- Tier: `core`
+- Trigger/source: paths: state.Horizons, state.Odyssey
+- Enum values: base, horizons, odyssey

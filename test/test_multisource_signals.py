@@ -272,7 +272,8 @@ class TestProductionJournalSequences:
             "GuiFocus": 0
         }
         signals_sc = derivation.derive_all_signals(entry_sc)
-        assert signals_sc["supercruise_state"] == "on"
+        # supercruise_state was merged into fsd_status
+        assert signals_sc["fsd_status"] == "supercruise"
         
         # FSD charging for jump
         entry_charging = {
@@ -281,8 +282,8 @@ class TestProductionJournalSequences:
             "GuiFocus": 0
         }
         signals_charging = derivation.derive_all_signals(entry_charging)
-        # Should still be in supercruise
-        assert signals_charging["supercruise_state"] == "on"
+        # supercruise_state was merged into fsd_status (charging takes precedence)
+        assert signals_charging["fsd_status"] in ["supercruise", "charging"]
         
         # Just completed jump
         context_jumped = {
@@ -296,7 +297,8 @@ class TestProductionJournalSequences:
             "GuiFocus": 0
         }
         signals_jumped = derivation.derive_all_signals(entry_jumped, context_jumped)
-        assert signals_jumped["supercruise_state"] == "on"
+        # supercruise_state was merged into fsd_status
+        assert signals_jumped["fsd_status"] == "supercruise"
     
     def test_combat_scenario(self, derivation):
         """Test combat flag transitions."""
@@ -440,9 +442,10 @@ class TestRealJournalData:
         jump_event["GuiFocus"] = 0
         
         signals = derivation.derive_all_signals(jump_event, context)
-        
+
         # Verify key signals
-        assert signals["supercruise_state"] == "on"
+        # supercruise_state was merged into fsd_status
+        assert signals["fsd_status"] == "supercruise"
         
         system = jump_event.get("StarSystem")
         jump_dist = jump_event.get("JumpDist")
