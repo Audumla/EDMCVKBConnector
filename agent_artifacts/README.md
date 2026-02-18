@@ -2,7 +2,11 @@
 
 This directory is reserved for AI agent execution outputs.
 
-Required structure:
+## Changelog
+
+`CHANGELOG.json` and `CHANGELOG.md` live at the **repo root**, not here. They are the shared cross-agent record of all changes. Every agent reads them at session start and appends to them at session end.
+
+## Per-agent workspace
 
 - `agent_artifacts/codex/reports/`
 - `agent_artifacts/codex/temp/`

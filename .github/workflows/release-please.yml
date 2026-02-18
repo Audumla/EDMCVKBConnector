@@ -1,0 +1,47 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Checkout
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build plugin zip
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: python scripts/package_plugin.py
+
+      - name: Upload release asset
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag_name }}
+          files: dist/EDMCVKBConnector-${{ steps.release.outputs.version }}.zip
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(steps.release.outputs.version, '-alpha') || contains(steps.release.outputs.version, '-beta') || contains(steps.release.outputs.version, '-rc') }}

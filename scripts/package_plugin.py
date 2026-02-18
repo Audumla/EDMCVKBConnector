@@ -23,9 +23,9 @@ INCLUDE = [
     "PLUGIN_REGISTRY.py",
     "LICENSE",
     "README.md",
-    "rules.json.example",
-
-    "signals_catalog.json",
+    "data/rules.json.example",
+    "data/signals_catalog.json",
+    "data/icon_map.json",
     "src/edmcruleengine/__init__.py",
     "src/edmcruleengine/version.py",
     "src/edmcruleengine/config.py",
@@ -85,7 +85,7 @@ def package() -> Path:
             print(f"  + {PLUGIN_NAME}/rules.json")
             count += 1
         else:
-            rules_example = PROJECT_ROOT / "rules.json.example"
+            rules_example = PROJECT_ROOT / "data" / "rules.json.example"
             if rules_example.exists():
                 zf.write(rules_example, f"{PLUGIN_NAME}/rules.json")
                 print(f"  + {PLUGIN_NAME}/rules.json (from rules.json.example)")

@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 from . import plugin_logger
+from .paths import data_path
 
 logger = plugin_logger(__name__)
 
@@ -101,7 +102,7 @@ class SignalsCatalog:
         else:
             plugin_dir = Path(plugin_dir)
         
-        catalog_path = plugin_dir / "signals_catalog.json"
+        catalog_path = data_path(plugin_dir, "signals_catalog.json")
         return cls.from_file(catalog_path)
     
     def _validate_catalog(self, data: Dict[str, Any]) -> None:

@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from . import plugin_logger
 from .signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
 from .ui_components import IconButton, create_colored_button
+from .paths import data_path
 
 logger = plugin_logger(__name__)
 
@@ -219,7 +220,7 @@ class RuleEditorUI:
         self.parent = parent
         self.rules_file = rules_file
         self.plugin_dir = plugin_dir
-        self.catalog_path = Path(plugin_dir) / "signals_catalog.json"
+        self.catalog_path = data_path(plugin_dir, "signals_catalog.json")
         self.catalog_mtime = self._get_catalog_mtime()
         self.pending_catalog_reload = False
         self.catalog_poll_ms = 1500
@@ -661,7 +662,7 @@ class RuleEditor:
         self.icon_map: Dict[str, str] = {}
 
         try:
-            icon_map_path = Path(__file__).parent.parent.parent / "icon_map.json"
+            icon_map_path = data_path(self.plugin_dir, "icon_map.json")
             if icon_map_path.exists():
                 with open(icon_map_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)

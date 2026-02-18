@@ -24,7 +24,7 @@ from typing import Any, Dict, Iterable, List, Set, Tuple
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CATALOG = PROJECT_ROOT / "signals_catalog.json"
+DEFAULT_CATALOG = PROJECT_ROOT / "data" / "signals_catalog.json"
 DEFAULT_EVENTS_MD = PROJECT_ROOT / "docs" / "EDMC_EVENTS_CATALOG.md"
 
 SUPPORTED_OPS: Set[str] = {

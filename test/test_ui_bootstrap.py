@@ -20,7 +20,7 @@ def test_rule_editor_ui_bootstrap():
         pytest.skip("Set UI_BOOTSTRAP=1 to run the UI bootstrap test.")
 
     plugin_root = Path(__file__).parent.parent
-    rules_source = Path(os.environ.get("UI_RULES_FILE", plugin_root / "rules.json.example"))
+    rules_source = Path(os.environ.get("UI_RULES_FILE", str(plugin_root / "data" / "rules.json.example")))
 
     if not rules_source.exists():
         pytest.skip(f"Rules file not found: {rules_source}")

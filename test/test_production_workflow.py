@@ -34,7 +34,7 @@ class TestProductionWorkflow:
     @pytest.fixture
     def catalog(self):
         """Load catalog."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         return SignalsCatalog.from_file(catalog_path)
     
     @pytest.fixture

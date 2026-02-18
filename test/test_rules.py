@@ -18,7 +18,7 @@ class TestSignalsCatalog:
     
     def test_load_catalog_from_file(self):
         """Test loading catalog from signals_catalog.json."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
         assert "core" in catalog.ui_tiers
@@ -40,7 +40,7 @@ class TestSignalsCatalog:
     
     def test_catalog_signal_exists(self):
         """Test signal existence checking."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
         assert catalog.signal_exists("hardpoints")
@@ -49,7 +49,7 @@ class TestSignalsCatalog:
     
     def test_catalog_get_signal_type(self):
         """Test getting signal type."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
         assert catalog.get_signal_type("hardpoints") == "enum"
@@ -58,7 +58,7 @@ class TestSignalsCatalog:
     
     def test_catalog_get_signal_values(self):
         """Test getting enum signal values."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
         hardpoints_values = catalog.get_signal_values("hardpoints")
@@ -70,7 +70,7 @@ class TestSignalsCatalog:
     
     def test_catalog_core_and_detail_signals(self):
         """Test filtering signals by tier."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         catalog = SignalsCatalog.from_file(catalog_path)
         
         core_signals = catalog.get_core_signals()
@@ -120,7 +120,7 @@ class TestSignalDerivation:
     @pytest.fixture
     def catalog(self):
         """Load catalog for tests."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         return SignalsCatalog.from_file(catalog_path)
     
     @pytest.fixture
@@ -281,7 +281,7 @@ class TestRuleValidator:
     @pytest.fixture
     def catalog(self):
         """Load catalog for tests."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         return SignalsCatalog.from_file(catalog_path)
     
     @pytest.fixture
@@ -435,7 +435,7 @@ class TestRuleEngine:
     @pytest.fixture
     def catalog(self):
         """Load catalog."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         return SignalsCatalog.from_file(catalog_path)
     
     def test_rule_matching_simple(self, catalog):
@@ -774,7 +774,7 @@ class TestUnknownDataPolicy:
     @pytest.fixture
     def catalog(self):
         return SignalsCatalog.from_file(
-            Path(__file__).parent.parent / "signals_catalog.json"
+            Path(__file__).parent.parent / "data" / "signals_catalog.json"
         )
 
     def _make_engine(self, catalog, signal, op, value):

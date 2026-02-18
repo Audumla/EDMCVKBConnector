@@ -17,7 +17,7 @@ from edmcruleengine.rule_editor import RuleEditorUI
 
 def main() -> int:
     plugin_root = PLUGIN_ROOT
-    rules_source = Path(plugin_root / "rules.json.example")
+    rules_source = Path(plugin_root) / "data" / "rules.json.example"
 
     if not rules_source.exists():
         print(f"Rules file not found: {rules_source}")

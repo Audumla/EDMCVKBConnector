@@ -76,24 +76,8 @@ analysis_*.md
 debug_*.txt
 debug_*.md
 
-# Agent and CI config files — local only, not published
-.github/
-AGENTS.md
-CLAUDE.md
-
-# Agent workspace artifacts (Codex, Copilot, Claude)
-agent_artifacts/**
-!agent_artifacts/
-!agent_artifacts/README.md
-!agent_artifacts/codex/
-!agent_artifacts/codex/reports/
-!agent_artifacts/codex/temp/
-!agent_artifacts/copilot/
-!agent_artifacts/copilot/reports/
-!agent_artifacts/copilot/temp/
-!agent_artifacts/claude/
-!agent_artifacts/claude/reports/
-!agent_artifacts/claude/temp/
-!agent_artifacts/**/.gitkeep
-
+# Per-agent runtime scratch dirs — local only, not committed
+agent_artifacts/claude/
+agent_artifacts/codex/
+agent_artifacts/copilot/
 

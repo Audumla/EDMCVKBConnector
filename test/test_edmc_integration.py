@@ -673,7 +673,7 @@ class TestSignalResolutionWithRealData:
     def test_event_signals_are_generated(self, handler):
         """Test that event-type signals are properly generated."""
         # Ensure rules load for the rule engine
-        rules_path = Path(__file__).parent.parent / "rules.json.example"
+        rules_path = Path(__file__).parent.parent / "data" / "rules.json.example"
         original_get = handler.config.get
 
         def get_with_rules_path(key, default=None):

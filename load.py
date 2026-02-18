@@ -42,6 +42,7 @@ except Exception:
 
 # Plugin metadata (single-source version from package module)
 from edmcruleengine.version import __version__ as VERSION
+from edmcruleengine.paths import PLUGIN_DATA_DIR
 
 # Logger setup per EDMC plugin requirements
 # The plugin_name MUST be the plugin folder name.
@@ -136,7 +137,7 @@ def _ensure_rules_file_exists(plugin_dir: str) -> None:
         plugin_dir: The plugin installation directory.
     """
     rules_path = os.path.join(plugin_dir, "rules.json")
-    rules_example_path = os.path.join(plugin_dir, "rules.json.example")
+    rules_example_path = os.path.join(plugin_dir, PLUGIN_DATA_DIR, "rules.json.example")
     
     # If rules.json already exists, user has configured it - don't touch it
     if os.path.exists(rules_path):

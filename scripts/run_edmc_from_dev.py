@@ -23,12 +23,13 @@ from pathlib import Path
 
 from dev_paths import (
     PROJECT_ROOT,
+    DATA_DIR,
     default_python,
     load_dev_config,
     resolve_path,
 )
 
-DEFAULT_CONFIG_FILE = PROJECT_ROOT / "dev_paths.json"
+DEFAULT_CONFIG_FILE = DATA_DIR / "dev_paths.json"
 PLUGIN_NAME = "EDMCVKBConnector"
 
 

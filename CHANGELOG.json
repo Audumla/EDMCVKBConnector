@@ -1,0 +1,18 @@
+[
+  {
+    "id": "CHG-001",
+    "plugin_version": "0.2.0",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": ["Configuration Cleanup", "Code Refactoring"],
+    "summary": "Moved bundled data files to data/ subdirectory and centralised path references",
+    "details": [
+      "Created data/ directory to hold all bundled plugin data and example files",
+      "Moved signals_catalog.json, rules.json.example, icon_map.json, dev_paths.json.example to data/ via git mv",
+      "Created src/edmcruleengine/paths.py as single source of truth: PLUGIN_DATA_DIR constant and data_path() helper",
+      "Added DATA_DIR = PROJECT_ROOT / 'data' to scripts/dev_paths.py for script-side consistency",
+      "Updated 18 files across src/, scripts/, and test/ to reference new data/ paths",
+      "Fixed packaging bug: icon_map.json was previously not included in the distributable ZIP"
+    ]
+  }
+]

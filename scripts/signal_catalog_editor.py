@@ -2261,7 +2261,7 @@ def main():
     # Find catalog file
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
-    catalog_path = project_root / "signals_catalog.json"
+    catalog_path = project_root / "data" / "signals_catalog.json"
     
     if not catalog_path.exists():
         print(f"Error: signals_catalog.json not found at {catalog_path}")

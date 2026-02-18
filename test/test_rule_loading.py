@@ -30,8 +30,9 @@ def _copy_catalog_to_plugin_dir(plugin_dir: Path) -> None:
     """Copy signals catalog to plugin directory for tests."""
     # Find catalog in repository root
     repo_root = Path(__file__).parent.parent
-    catalog_src = repo_root / "signals_catalog.json"
-    catalog_dst = plugin_dir / "signals_catalog.json"
+    catalog_src = repo_root / "data" / "signals_catalog.json"
+    catalog_dst = plugin_dir / "data" / "signals_catalog.json"
+    catalog_dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(catalog_src, catalog_dst)
 
 

@@ -23,9 +23,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-from dev_paths import PROJECT_ROOT, load_dev_config, resolve_path
+from dev_paths import PROJECT_ROOT, DATA_DIR, load_dev_config, resolve_path
 
-DEFAULT_CONFIG_FILE = PROJECT_ROOT / "dev_paths.json"
+DEFAULT_CONFIG_FILE = DATA_DIR / "dev_paths.json"
 EDMC_REPO_URL = "https://github.com/EDCD/EDMarketConnector.git"
 PLUGIN_NAME = "EDMCVKBConnector"
 

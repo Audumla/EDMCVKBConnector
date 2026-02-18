@@ -41,7 +41,7 @@ class TestRulesWithRealEvents:
     @pytest.fixture
     def catalog(self):
         """Load signals catalog."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         return SignalsCatalog.from_file(catalog_path)
 
     def test_combat_mode_rule_triggering(self, test_events, catalog):
@@ -400,7 +400,7 @@ class TestEdgeTriggeringBehavior:
     @pytest.fixture
     def catalog(self):
         """Load signals catalog."""
-        catalog_path = Path(__file__).parent.parent / "signals_catalog.json"
+        catalog_path = Path(__file__).parent.parent / "data" / "signals_catalog.json"
         return SignalsCatalog.from_file(catalog_path)
 
     def test_no_action_spam_on_repeated_state(self, test_events, catalog):
