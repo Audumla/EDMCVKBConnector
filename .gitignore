@@ -76,6 +76,11 @@ analysis_*.md
 debug_*.txt
 debug_*.md
 
+# Agent and CI config files — local only, not published
+.github/
+AGENTS.md
+CLAUDE.md
+
 # Agent workspace artifacts (Codex, Copilot, Claude)
 agent_artifacts/**
 !agent_artifacts/
