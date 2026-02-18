@@ -9,6 +9,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-005 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Adopted `unreleased` version sentinel so changelog entries always track the next release, not the last |
 | CHG-004 | 2026-02-19 | copilot | Build / Packaging, New Feature | Added release notes generation script and wired it into the release workflow and ZIP packaging |
 | CHG-003 | 2026-02-19 | copilot | Documentation Update | Strengthened changelog policy: recording is now required after every task, not at end of session |
 | CHG-002 | 2026-02-19 | copilot | Documentation Update, Configuration Cleanup | Established cross-agent changelog infrastructure committed to the repository |
@@ -18,7 +19,20 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 ## Detail
 
-### CHG-004 — 2026-02-19 · copilot · plugin v0.2.0
+### CHG-005 — 2026-02-19 · copilot · unreleased
+
+**Tags:** Build / Packaging, Documentation Update
+
+**Summary:** Adopted `unreleased` version sentinel so changelog entries always track the next release, not the last
+
+**Changes:**
+- Changed agent instructions: `plugin_version` must always be `"unreleased"`, never read from `version.py`
+- Rewrote `generate_release_notes.py`: default mode previews unreleased entries; `--stamp <VERSION>` stamps them in-place and writes `RELEASE_NOTES.md`
+- Updated `release-please.yml`: use `--stamp` so CI stamps and commits `CHANGELOG.json` on every release
+- Added `commit-stamped-changelog` step to workflow so stamps persist in the repo after each release
+- Backfilled all existing entries (CHG-001 to CHG-004) from `"0.2.0"` to `"unreleased"`
+
+### CHG-004 — 2026-02-19 · copilot · unreleased
 
 **Tags:** Build / Packaging, New Feature
 
@@ -30,7 +44,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 - Updated `package_plugin.py` to include `dist/RELEASE_NOTES.md` in the distributable ZIP when present
 - Updated `.github/workflows/release-please.yml` to generate release notes before packaging and use them as the GitHub release body
 
-### CHG-003 — 2026-02-19 · copilot · plugin v0.2.0
+### CHG-003 — 2026-02-19 · copilot · unreleased
 
 **Tags:** Documentation Update
 
@@ -41,7 +55,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 - Added explicit instruction: do not skip, do not wait for the user to ask
 - Updated `CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md` with new wording
 
-### CHG-002 — 2026-02-19 · copilot · plugin v0.2.0
+### CHG-002 — 2026-02-19 · copilot · unreleased
 
 **Tags:** Documentation Update, Configuration Cleanup
 
@@ -55,7 +69,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 - Per-agent runtime scratch dirs (`agent_artifacts/claude|codex|copilot/`) remain gitignored
 - Updated `agent_artifacts/README.md` to reflect new structure
 
-### CHG-001 — 2026-02-19 · copilot · plugin v0.2.0
+### CHG-001 — 2026-02-19 · copilot · unreleased
 
 **Tags:** Configuration Cleanup, Code Refactoring
 

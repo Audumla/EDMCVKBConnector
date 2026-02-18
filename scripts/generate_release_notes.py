@@ -1,32 +1,48 @@
 """
 Generate release notes from CHANGELOG.json.
 
-Reads the shared agent changelog, filters entries for a specific plugin
-version (or all entries since a previous version), groups them by
-summary tag, and writes a human-readable RELEASE_NOTES.md.
+Reads the shared agent changelog and outputs a human-readable RELEASE_NOTES.md
+grouped by summary tag.
 
-The generated file is:
-  - Included in the distributable ZIP by package_plugin.py
-  - Used as the GitHub release body by the release-please workflow
+------------------------------------------------------------------------------
+How versioning works
+------------------------------------------------------------------------------
+Agents always write  "plugin_version": "unreleased"  in new CHANGELOG.json
+entries.  version.py holds the LAST RELEASED version, so agents must never
+read it for changelog purposes.
 
-Usage (local):
-    python scripts/generate_release_notes.py
-        Uses the current version from src/edmcruleengine/version.py.
+At release time, this script:
+  1. Collects all "unreleased" entries.
+  2. Writes RELEASE_NOTES.md for the release body.
+  3. With --stamp, updates CHANGELOG.json in-place: replaces every
+     "unreleased" with the real version string so the history is permanent.
 
-    python scripts/generate_release_notes.py --version 0.3.0
-        Generates notes for a specific version.
+------------------------------------------------------------------------------
+Usage
+------------------------------------------------------------------------------
 
-    python scripts/generate_release_notes.py --since 0.2.0 --version 0.3.0
-        Generates notes for all changelog entries between two versions.
-
-    python scripts/generate_release_notes.py --all
-        Generates notes for every entry in CHANGELOG.json.
-
-    python scripts/generate_release_notes.py --output path/to/file.md
-        Write to a custom path (default: dist/RELEASE_NOTES.md).
-
+Preview unreleased changes (no file writes to CHANGELOG.json):
     python scripts/generate_release_notes.py --stdout
-        Print to stdout instead of writing a file (useful for CI piping).
+
+Write release notes for the current unreleased batch:
+    python scripts/generate_release_notes.py
+    # -> dist/RELEASE_NOTES.md
+
+Stamp and release (used by the CI workflow):
+    python scripts/generate_release_notes.py --stamp 0.3.0
+    # writes dist/RELEASE_NOTES.md AND updates CHANGELOG.json in-place
+
+Show all historical entries:
+    python scripts/generate_release_notes.py --all --stdout
+
+Show entries for a specific already-released version:
+    python scripts/generate_release_notes.py --version 0.2.0 --stdout
+
+Show entries between two released versions:
+    python scripts/generate_release_notes.py --since 0.1.0 --version 0.2.0 --stdout
+
+Custom output path:
+    python scripts/generate_release_notes.py --output path/to/file.md
 """
 
 import argparse
@@ -38,7 +54,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG_PATH = PROJECT_ROOT / "CHANGELOG.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "dist" / "RELEASE_NOTES.md"
 
-# Display order and human labels for approved summary tags
+# Display order for approved summary tags
 TAG_ORDER = [
     "New Feature",
     "Bug Fix",
@@ -67,8 +83,13 @@ def load_changelog() -> list[dict]:
         return json.load(f)
 
 
+def save_changelog(entries: list[dict]) -> None:
+    with open(CHANGELOG_PATH, "w", encoding="utf-8") as f:
+        json.dump(entries, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
 def _version_tuple(v: str) -> tuple[int, ...]:
-    """Convert '1.2.3' to (1, 2, 3) for comparison. Non-numeric parts sort last."""
     parts = []
     for p in v.split("."):
         try:
@@ -80,37 +101,38 @@ def _version_tuple(v: str) -> tuple[int, ...]:
 
 def filter_entries(
     entries: list[dict],
-    version: str,
+    version: str | None,
     since: str | None,
     all_entries: bool,
+    unreleased_only: bool,
 ) -> list[dict]:
     if all_entries:
         return list(entries)
 
-    target = _version_tuple(version)
+    if unreleased_only:
+        return [e for e in entries if e.get("plugin_version") == "unreleased"]
+
+    # Historical version filter — never includes "unreleased" entries
+    target = _version_tuple(version) if version else None
     since_t = _version_tuple(since) if since else None
 
     result = []
     for entry in entries:
-        ev = _version_tuple(entry.get("plugin_version", "0.0.0"))
-        if since_t:
-            # entries strictly between since (exclusive) and version (inclusive)
+        ev_raw = entry.get("plugin_version", "0.0.0")
+        if ev_raw == "unreleased":
+            continue
+        ev = _version_tuple(ev_raw)
+        if target and since_t:
             if since_t < ev <= target:
                 result.append(entry)
-        else:
-            # entries for exactly this version
+        elif target:
             if ev == target:
                 result.append(entry)
-
     return result
 
 
 def group_by_tag(entries: list[dict]) -> dict[str, list[str]]:
-    """Collect all detail bullets, each filed under the entry's primary tag.
-
-    Secondary tags on an entry are shown in the section header only (via the
-    summary table at the bottom); they do not duplicate bullets across sections.
-    """
+    """File each entry's detail bullets under its primary summary tag only."""
     buckets: dict[str, list[str]] = {}
     for entry in entries:
         tags = entry.get("summary_tags", ["Other"])
@@ -120,25 +142,23 @@ def group_by_tag(entries: list[dict]) -> dict[str, list[str]]:
     return buckets
 
 
-def build_markdown(version: str, entries: list[dict], all_entries: bool) -> str:
+def build_markdown(version: str, entries: list[dict]) -> str:
     if not entries:
-        return f"# Release Notes — v{version}\n\nNo changelog entries found for this version.\n"
+        return f"# Release Notes — v{version}\n\nNo changelog entries found.\n"
 
     buckets = group_by_tag(entries)
 
-    # Determine date range
     dates = [e.get("date", "") for e in entries if e.get("date")]
     date_range = ""
     if dates:
         lo, hi = min(dates), max(dates)
-        date_range = lo if lo == hi else f"{lo} – {hi}"
+        date_range = lo if lo == hi else f"{lo} - {hi}"
 
-    lines = [f"# Release Notes — v{version}"]
+    lines = [f"# Release Notes - v{version}"]
     if date_range:
         lines.append(f"\n_{date_range}_")
     lines.append("")
 
-    # Ordered sections
     ordered_tags = [t for t in TAG_ORDER if t in buckets]
     remaining = [t for t in sorted(buckets) if t not in TAG_ORDER]
 
@@ -148,41 +168,89 @@ def build_markdown(version: str, entries: list[dict], all_entries: bool) -> str:
             lines.append(f"- {bullet}")
         lines.append("")
 
-    # Summary table of included CHG entries
     lines.append("---")
     lines.append("")
     lines.append("| ID | Date | Agent | Summary |")
     lines.append("|----|------|-------|---------|")
     for e in sorted(entries, key=lambda x: x.get("id", "")):
         lines.append(
-            f"| {e.get('id','')} | {e.get('date','')} | {e.get('agent','')} | {e.get('summary','')} |"
+            f"| {e.get('id','')} | {e.get('date','')} "
+            f"| {e.get('agent','')} | {e.get('summary','')} |"
         )
     lines.append("")
 
     return "\n".join(lines)
 
 
+def stamp_changelog(entries: list[dict], version: str) -> int:
+    """Replace 'unreleased' with *version* in-place. Returns count stamped."""
+    count = 0
+    for entry in entries:
+        if entry.get("plugin_version") == "unreleased":
+            entry["plugin_version"] = version
+            count += 1
+    return count
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate release notes from CHANGELOG.json")
-    parser.add_argument("--version", default=None, help="Plugin version to generate notes for (default: current)")
-    parser.add_argument("--since", default=None, help="Include entries for versions > SINCE up to --version")
-    parser.add_argument("--all", dest="all_entries", action="store_true", help="Include all changelog entries regardless of version")
-    parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help=f"Output path (default: {DEFAULT_OUTPUT})")
-    parser.add_argument("--stdout", action="store_true", help="Print to stdout instead of writing a file")
+
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--stamp", metavar="VERSION",
+        help=(
+            "Stamp all 'unreleased' entries with VERSION, write notes, "
+            "and update CHANGELOG.json in-place. Used by CI."
+        ),
+    )
+    mode.add_argument(
+        "--version", metavar="VERSION",
+        help="Show notes for a specific already-released version",
+    )
+    mode.add_argument(
+        "--all", dest="all_entries", action="store_true",
+        help="Include all changelog entries regardless of version",
+    )
+
+    parser.add_argument(
+        "--since", metavar="VERSION",
+        help="With --version: include entries > SINCE up to --version",
+    )
+    parser.add_argument(
+        "--output", default=str(DEFAULT_OUTPUT),
+        help=f"Output path (default: {DEFAULT_OUTPUT})",
+    )
+    parser.add_argument(
+        "--stdout", action="store_true",
+        help="Print to stdout instead of writing a file",
+    )
     args = parser.parse_args()
 
-    version = args.version or get_current_version()
     entries = load_changelog()
-    filtered = filter_entries(entries, version, args.since, args.all_entries)
 
-    if not filtered and not args.all_entries:
-        print(
-            f"WARNING: No changelog entries found for version {version}. "
-            "Use --since <prev_version> to widen the range, or --all for everything.",
-            file=sys.stderr,
-        )
+    if args.stamp:
+        display_version = args.stamp
+        filtered = filter_entries(entries, None, None, False, unreleased_only=True)
+        if not filtered:
+            print("WARNING: No 'unreleased' entries found in CHANGELOG.json.", file=sys.stderr)
+    elif args.all_entries:
+        display_version = get_current_version()
+        filtered = filter_entries(entries, None, None, True, False)
+    elif args.version:
+        display_version = args.version
+        filtered = filter_entries(entries, args.version, args.since, False, False)
+    else:
+        # Default: preview unreleased entries
+        display_version = get_current_version()
+        filtered = filter_entries(entries, None, None, False, unreleased_only=True)
+        if not filtered:
+            print(
+                "WARNING: No 'unreleased' entries found. "
+                "Use --version <ver> for historical notes or --all for everything.",
+                file=sys.stderr,
+            )
 
-    md = build_markdown(version, filtered, args.all_entries)
+    md = build_markdown(display_version, filtered)
 
     if args.stdout:
         print(md)
@@ -191,6 +259,12 @@ def main() -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(md, encoding="utf-8")
         print(f"Release notes written to {output}")
+
+    # Stamp CHANGELOG.json only when explicitly requested
+    if args.stamp and filtered:
+        n = stamp_changelog(entries, args.stamp)
+        save_changelog(entries)
+        print(f"Stamped {n} entries in CHANGELOG.json as v{args.stamp}")
 
 
 if __name__ == "__main__":

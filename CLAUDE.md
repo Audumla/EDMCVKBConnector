@@ -26,7 +26,7 @@ Append a new JSON object to the array:
 ```json
 {
   "id": "CHG-NNN",
-  "plugin_version": "<read from src/edmcruleengine/version.py>",
+  "plugin_version": "unreleased",
   "date": "<YYYY-MM-DD>",
   "agent": "claude",
   "summary_tags": ["<tag1>", "<tag2>"],
@@ -39,6 +39,8 @@ Append a new JSON object to the array:
 ```
 
 Increment `NNN` from the last entry in the file (e.g. if last is CHG-003, use CHG-004).
+
+`plugin_version` must always be `"unreleased"`. It will be stamped with the real version number automatically when a release is cut. Do not read `version.py` for this field.
 
 ### 2. `CHANGELOG.md`
 

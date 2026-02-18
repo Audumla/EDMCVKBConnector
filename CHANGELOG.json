@@ -1,10 +1,13 @@
 [
   {
     "id": "CHG-001",
-    "plugin_version": "0.2.0",
+    "plugin_version": "unreleased",
     "date": "2026-02-19",
     "agent": "copilot",
-    "summary_tags": ["Configuration Cleanup", "Code Refactoring"],
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
     "summary": "Moved bundled data files to data/ subdirectory and centralised path references",
     "details": [
       "Created data/ directory to hold all bundled plugin data and example files",
@@ -17,10 +20,13 @@
   },
   {
     "id": "CHG-002",
-    "plugin_version": "0.2.0",
+    "plugin_version": "unreleased",
     "date": "2026-02-19",
     "agent": "copilot",
-    "summary_tags": ["Documentation Update", "Configuration Cleanup"],
+    "summary_tags": [
+      "Documentation Update",
+      "Configuration Cleanup"
+    ],
     "summary": "Established cross-agent changelog infrastructure committed to the repository",
     "details": [
       "Created CHANGELOG.json at repo root as structured machine-readable history for all agents",
@@ -33,10 +39,12 @@
   },
   {
     "id": "CHG-003",
-    "plugin_version": "0.2.0",
+    "plugin_version": "unreleased",
     "date": "2026-02-19",
     "agent": "copilot",
-    "summary_tags": ["Documentation Update"],
+    "summary_tags": [
+      "Documentation Update"
+    ],
     "summary": "Strengthened changelog policy: recording is now required after every task, not at end of session",
     "details": [
       "Changed trigger from 'end of session' to 'after completing any task that modifies files'",
@@ -46,16 +54,37 @@
   },
   {
     "id": "CHG-004",
-    "plugin_version": "0.2.0",
+    "plugin_version": "unreleased",
     "date": "2026-02-19",
     "agent": "copilot",
-    "summary_tags": ["Build / Packaging", "New Feature"],
+    "summary_tags": [
+      "Build / Packaging",
+      "New Feature"
+    ],
     "summary": "Added release notes generation script and wired it into the release workflow and ZIP packaging",
     "details": [
       "Created scripts/generate_release_notes.py: reads CHANGELOG.json, filters by version, groups by summary tag, outputs RELEASE_NOTES.md",
       "Supports --version, --since, --all, --output, --stdout flags for flexible local and CI use",
       "Updated package_plugin.py to include dist/RELEASE_NOTES.md in the distributable ZIP when present",
       "Updated .github/workflows/release-please.yml to generate release notes before packaging and use them as the GitHub release body"
+    ]
+  },
+  {
+    "id": "CHG-005",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": [
+      "Build / Packaging",
+      "Documentation Update"
+    ],
+    "summary": "Adopted unreleased version sentinel so changelog entries always track the next release, not the last",
+    "details": [
+      "Changed agent instructions: plugin_version must always be unreleased, never read from version.py",
+      "Rewrote generate_release_notes.py: default mode previews unreleased entries; --stamp <VERSION> stamps them and writes RELEASE_NOTES.md",
+      "Updated release-please.yml: use --stamp so CI stamps and commits CHANGELOG.json on every release",
+      "Added commit-stamped-changelog step to workflow so stamps persist in the repo after each release",
+      "Backfilled all existing CHANGELOG.json entries (CHG-001 to CHG-004) from 0.2.0 to unreleased"
     ]
   }
 ]
