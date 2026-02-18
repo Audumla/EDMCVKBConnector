@@ -1,7 +1,7 @@
 """
-Test nested signal structure and backward compatibility aliases.
-Verifies that refactored signals can be accessed via both new nested names
-and old flat names.
+Test nested signal structure.
+Verifies that signals organised in the nested dot-notation hierarchy
+are accessible and carry the expected metadata.
 """
 
 import pytest
@@ -28,26 +28,6 @@ def test_nested_signals_flattened():
     assert catalog.signal_exists("commander_progress.by_faction.federation")
 
 
-def test_backward_compatibility_aliases():
-    """Verify old signal names still work via aliases."""
-    catalog = SignalsCatalog.from_plugin_dir(".")
-    
-    # Old flat names should still work
-    assert catalog.signal_exists("commander_rank_combat")
-    assert catalog.signal_exists("commander_rank_trade")
-    assert catalog.signal_exists("commander_rank_explore")
-    assert catalog.signal_exists("commander_rank_empire")
-    assert catalog.signal_exists("commander_rank_federation")
-    
-    assert catalog.signal_exists("commander_progress_combat")
-    assert catalog.signal_exists("commander_progress_trade")
-    assert catalog.signal_exists("commander_progress_explore")
-    assert catalog.signal_exists("commander_progress_cqc")
-    
-    assert catalog.signal_exists("commander_progress_empire")
-    assert catalog.signal_exists("commander_progress_federation")
-
-
 def test_signal_retrieval_via_new_names():
     """Verify signals can be retrieved using new nested names."""
     catalog = SignalsCatalog.from_plugin_dir(".")
@@ -62,37 +42,6 @@ def test_signal_retrieval_via_new_names():
     assert combat_progress is not None
     assert combat_progress["type"] == "number"
     assert combat_progress["title"] == "Combat rank progress"
-
-
-def test_signal_retrieval_via_old_names():
-    """Verify signals can still be retrieved using old flat names."""
-    catalog = SignalsCatalog.from_plugin_dir(".")
-    
-    # Get signals using old flat names (should work via aliases)
-    combat_rank = catalog.get_signal("commander_rank_combat")
-    assert combat_rank is not None
-    assert combat_rank["type"] == "enum"
-    assert combat_rank["title"] == "Combat rank"
-    
-    combat_progress = catalog.get_signal("commander_progress_combat")
-    assert combat_progress is not None
-    assert combat_progress["type"] == "number"
-    assert combat_progress["title"] == "Combat rank progress"
-
-
-def test_signal_name_resolution():
-    """Verify signal names can be resolved to canonical form."""
-    catalog = SignalsCatalog.from_plugin_dir(".")
-    
-    # Old names should resolve to new names
-    assert catalog.resolve_signal_name("commander_rank_combat") == "commander_ranks.combat"
-    assert catalog.resolve_signal_name("commander_rank_trade") == "commander_ranks.trade"
-    assert catalog.resolve_signal_name("commander_progress_combat") == "commander_progress.by_rank_type.combat"
-    assert catalog.resolve_signal_name("commander_progress_empire") == "commander_progress.by_faction.empire"
-    
-    # New names should stay the same
-    assert catalog.resolve_signal_name("commander_ranks.explore") == "commander_ranks.explore"
-    assert catalog.resolve_signal_name("commander_progress.by_faction.federation") == "commander_progress.by_faction.federation"
 
 
 def test_all_refactored_signals_have_metadata():

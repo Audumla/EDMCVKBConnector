@@ -657,9 +657,9 @@ class RuleEditor:
         self.tiers = self.catalog.ui_tiers
 
     def _load_icon_map(self):
-        """Load icon name to character mapping from icon_map.json and ansi_icon_map.json."""
+        """Load icon name to character mapping from icon_map.json."""
         self.icon_map: Dict[str, str] = {}
-        self.ansi_icon_map: Dict[str, str] = {}
+
         try:
             icon_map_path = Path(__file__).parent.parent.parent / "icon_map.json"
             if icon_map_path.exists():
@@ -680,19 +680,6 @@ class RuleEditor:
             logger.error(f"Failed to load icon map: {e}")
             self.icon_map = {}
         
-        # Load ANSI icon map
-        try:
-            ansi_icon_path = Path(__file__).parent.parent.parent / "ansi_icon_map.json"
-            if ansi_icon_path.exists():
-                with open(ansi_icon_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                self.ansi_icon_map = data.get("icons", {})
-                logger.debug(f"Loaded {len(self.ansi_icon_map)} ANSI icon mappings")
-            else:
-                logger.debug(f"ANSI icon map not found at {ansi_icon_path}")
-        except Exception as e:
-            logger.error(f"Failed to load ANSI icon map: {e}")
-
     def _build_signal_display_maps(self):
         """Build display labels for signals and ensure uniqueness."""
         display_counts: Dict[str, int] = {}

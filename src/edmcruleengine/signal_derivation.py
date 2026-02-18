@@ -100,11 +100,9 @@ class SignalDerivation:
         
         value = self._execute_derive_op(derive_spec, entry, context)
         
-        # Ensure value matches signal type
-        if value is None:
-            return "unknown"
-        if value == "unknown":
-            return "unknown"
+        if value is None or value == "unknown":
+            default = derive_spec.get("default")
+            return default if default is not None else "unknown"
         if signal_type == "bool":
             return bool(value)
         elif signal_type == "enum":
@@ -125,7 +123,7 @@ class SignalDerivation:
         self,
         derive_spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> Any:
         """
         Execute a derivation operation.
@@ -138,9 +136,6 @@ class SignalDerivation:
         Returns:
             Derived value
         """
-        if context is None:
-            context = {}
-        
         op = derive_spec.get("op")
         
         if op == "flag":
@@ -241,7 +236,7 @@ class SignalDerivation:
         self,
         spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> Any:
         """
         Derive value by mapping input to output.
@@ -254,9 +249,7 @@ class SignalDerivation:
         Returns:
             Mapped value
         """
-        if context is None:
-            context = {}
-        
+
         # First derive the input value
         from_spec = spec.get("from", {})
         input_value = self._execute_derive_op(from_spec, entry, context)
@@ -284,7 +277,7 @@ class SignalDerivation:
         self,
         spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> Any:
         """
         Derive value from first matching case.
@@ -297,9 +290,7 @@ class SignalDerivation:
         Returns:
             First matching case value or default
         """
-        if context is None:
-            context = {}
-        
+
         cases = spec.get("cases", [])
         default = spec.get("default")
         
@@ -315,7 +306,7 @@ class SignalDerivation:
         self,
         condition_spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> bool:
         """
         Check if a condition matches.
@@ -328,9 +319,7 @@ class SignalDerivation:
         Returns:
             True if condition matches
         """
-        if context is None:
-            context = {}
-        
+
         op = condition_spec.get("op")
         
         if op == "flag":
@@ -355,7 +344,7 @@ class SignalDerivation:
         self,
         operand: Any,
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> Any:
         """
         Resolve an operand that may be a literal or nested derive spec.
@@ -368,8 +357,6 @@ class SignalDerivation:
         Returns:
             Resolved operand value
         """
-        if context is None:
-            context = {}
 
         if isinstance(operand, dict) and "op" in operand:
             op = operand.get("op")
@@ -383,7 +370,7 @@ class SignalDerivation:
         self,
         spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> bool:
         """
         Compare two values using a comparison operator.
@@ -392,9 +379,6 @@ class SignalDerivation:
         - {"op":"eq","left":{...},"right":...}
         - {"op":"eq","path":"state.Rank.Empire","value":3}
         """
-        if context is None:
-            context = {}
-
         op = spec.get("op")
         left_spec = spec.get("left")
         right_spec = spec.get("right")
@@ -430,7 +414,7 @@ class SignalDerivation:
         self,
         spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> bool:
         """
         Negate a condition.
@@ -443,8 +427,6 @@ class SignalDerivation:
         Returns:
             Logical negation of the child condition
         """
-        if context is None:
-            context = {}
 
         condition = spec.get("condition", {})
         return not self._check_condition(condition, entry, context)
@@ -551,7 +533,7 @@ class SignalDerivation:
         self,
         spec: Dict[str, Any],
         entry: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Dict[str, Any],
     ) -> bool:
         """
         Check if an event property matches a specific value.

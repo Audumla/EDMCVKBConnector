@@ -46,6 +46,7 @@ Thumbs.db
 config.json
 rules.json
 dev_paths.json
+recordings/
 *.log
 .edmc_dev_config/
 unregistered_events.json

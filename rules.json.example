@@ -1,80 +1,6 @@
 [
   {
-    "title": "Hardpoints Deployed",
-    "enabled": true,
-    "when": {
-      "all": [
-        {
-          "signal": "hardpoints",
-          "op": "eq",
-          "value": "deployed"
-        }
-      ]
-    },
-    "then": [
-      {
-        "vkb_set_shift": ["Shift1"]
-      }
-    ],
-    "else": [
-      {
-        "vkb_clear_shift": ["Shift1"]
-      }
-    ]
-  },
-  {
-    "title": "Galaxy Map Opened",
-    "enabled": true,
-    "when": {
-      "all": [
-        {
-          "signal": "gui_focus",
-          "op": "eq",
-          "value": "GalaxyMap"
-        }
-      ]
-    },
-    "then": [
-      {
-        "vkb_set_shift": ["Shift2"]
-      }
-    ],
-    "else": [
-      {
-        "vkb_clear_shift": ["Shift2"]
-      }
-    ]
-  },
-  {
-    "title": "Emergency Situation",
-    "enabled": true,
-    "when": {
-      "any": [
-        {
-          "signal": "oxygen",
-          "op": "eq",
-          "value": "low"
-        },
-        {
-          "signal": "heat_status",
-          "op": "eq",
-          "value": "overheating"
-        }
-      ]
-    },
-    "then": [
-      {
-        "vkb_set_shift": ["Subshift1"]
-      }
-    ],
-    "else": [
-      {
-        "vkb_clear_shift": ["Subshift1"]
-      }
-    ]
-  },
-  {
-    "title": "Combat Mode with Shields",
+    "title": "Combat Mode",
     "enabled": true,
     "when": {
       "all": [
@@ -82,24 +8,54 @@
           "signal": "hud_mode",
           "op": "eq",
           "value": "combat"
-        },
-        {
-          "signal": "shield_state",
-          "op": "eq",
-          "value": "up"
         }
-      ]
+      ],
+      "any": []
     },
     "then": [
       {
-        "vkb_set_shift": ["Subshift2"]
+        "vkb_set_shift": [
+          "Shift1"
+        ]
       }
     ],
     "else": [
       {
-        "vkb_clear_shift": ["Subshift2"]
+        "vkb_clear_shift": [
+          "Shift1"
+        ]
       }
-    ]
+    ],
+    "id": "combat-mode"
+  },
+  {
+    "title": "Landing Gear Deployed",
+    "enabled": true,
+    "when": {
+      "all": [
+        {
+          "signal": "landing_gear",
+          "op": "eq",
+          "value": "deployed"
+        }
+      ],
+      "any": []
+    },
+    "then": [
+      {
+        "vkb_set_shift": [
+          "Subshift3"
+        ]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": [
+          "Subshift3"
+        ]
+      }
+    ],
+    "id": "landing-gear-deployed"
   },
   {
     "title": "Docked or Landed",
@@ -109,13 +65,48 @@
         {
           "signal": "docking_state",
           "op": "in",
-          "value": ["docked", "landed"]
+          "value": [
+            "docked",
+            "landed"
+          ]
         }
-      ]
+      ],
+      "any": []
     },
     "then": [
       {
-        "vkb_set_shift": ["Subshift3"]
+        "vkb_set_shift": [
+          "Subshift3"
+        ]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": [
+          "Subshift3"
+        ]
+      }
+    ],
+    "id": "docked-or-landed"
+  },
+  {
+    "title": "Fighter Deployed",
+    "enabled": true,
+    "when": {
+      "all": [
+        {
+          "signal": "fighter",
+          "op": "eq",
+          "value": "launched"
+        }
+      ],
+      "any": []
+    },
+    "then": [
+      {
+        "vkb_set_shift": [
+          "Subshift2"
+        ]
       },
       {
         "log": "Ship is docked or landed"
@@ -123,66 +114,11 @@
     ],
     "else": [
       {
-        "vkb_clear_shift": ["Subshift3"]
-      }
-    ]
-  },
-  {
-    "title": "SRV Mode",
-    "enabled": true,
-    "when": {
-      "all": [
-        {
-          "signal": "srv_deployed_state",
-          "op": "eq",
-          "value": "deployed"
-        }
-      ]
-    },
-    "then": [
-      {
-        "vkb_set_shift": ["Shift1", "Subshift4"]
+        "vkb_clear_shift": [
+          "Subshift2"
+        ]
       }
     ],
-    "else": [
-      {
-        "vkb_clear_shift": ["Subshift4"]
-      }
-    ]
-  },
-  {
-    "title": "Combined Condition: All and Any",
-    "enabled": true,
-    "when": {
-      "all": [
-        {
-          "signal": "srv_deployed_state",
-          "op": "eq",
-          "value": "stowed"
-        }
-      ],
-      "any": [
-        {
-          "signal": "fsd_status",
-          "op": "eq",
-          "value": "charging"
-        },
-        {
-          "signal": "fsd_status",
-          "op": "eq",
-          "value": "jump_active"
-        }
-      ]
-    },
-    "then": [
-      {
-        "vkb_set_shift": ["Subshift5"]
-      }
-    ],
-    "else": [
-      {
-        "vkb_clear_shift": ["Subshift5"]
-      }
-    ]
+    "id": "docked-or-landed-copy"
   }
 ]

@@ -4,12 +4,22 @@ Pytest configuration and shared fixtures for edmcruleengine tests.
 Path setup is handled by pyproject.toml [tool.pytest.ini_options] pythonpath.
 """
 
+import sys
+import io
 import json
 import time
 import threading
 from pathlib import Path
 
 import pytest
+
+
+def pytest_configure(config):
+    """Ensure stdout/stderr use UTF-8 on Windows so Unicode test output works."""
+    if sys.stdout and hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    if sys.stderr and hasattr(sys.stderr, "buffer"):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 from test.mock_vkb_server import MockVKBServer
 from edmcruleengine.config import Config

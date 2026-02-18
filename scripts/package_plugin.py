@@ -24,7 +24,7 @@ INCLUDE = [
     "LICENSE",
     "README.md",
     "rules.json.example",
-    "config.json.example",
+
     "signals_catalog.json",
     "src/edmcruleengine/__init__.py",
     "src/edmcruleengine/version.py",
@@ -77,8 +77,8 @@ def package() -> Path:
             print(f"  + {arcname}")
             count += 1
 
-        # Include concrete rules.json/config.json for out-of-the-box usability.
-        # Prefer user-provided files, otherwise fall back to the example files.
+        # Include rules.json for out-of-the-box usability.
+        # Prefers user-provided file, otherwise falls back to the example.
         rules = PROJECT_ROOT / "rules.json"
         if rules.exists():
             zf.write(rules, f"{PLUGIN_NAME}/rules.json")
@@ -89,18 +89,6 @@ def package() -> Path:
             if rules_example.exists():
                 zf.write(rules_example, f"{PLUGIN_NAME}/rules.json")
                 print(f"  + {PLUGIN_NAME}/rules.json (from rules.json.example)")
-                count += 1
-
-        config = PROJECT_ROOT / "config.json"
-        if config.exists():
-            zf.write(config, f"{PLUGIN_NAME}/config.json")
-            print(f"  + {PLUGIN_NAME}/config.json")
-            count += 1
-        else:
-            config_example = PROJECT_ROOT / "config.json.example"
-            if config_example.exists():
-                zf.write(config_example, f"{PLUGIN_NAME}/config.json")
-                print(f"  + {PLUGIN_NAME}/config.json (from config.json.example)")
                 count += 1
 
     print(f"\nPackaged {count} files -> {zip_path} ({zip_path.stat().st_size:,} bytes)")

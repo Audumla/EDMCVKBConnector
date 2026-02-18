@@ -11,7 +11,6 @@ Implements the rule schema with:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from . import plugin_logger
@@ -26,19 +25,12 @@ class RuleValidationError(Exception):
     pass
 
 
-class RuleMatchResult(str, Enum):
-    """Result of evaluating a rule."""
-    MATCH = "match"
-    NO_MATCH = "no_match"
-
-
 @dataclass
 class MatchResult:
     """Result of evaluating a rule against current state."""
     rule_id: str
     rule_title: str
     matched: bool
-    prev_matched: Optional[bool]
     actions_to_execute: List[Dict[str, Any]]
 
 
@@ -263,7 +255,6 @@ class RuleEngine:
         # Validate and normalize rules
         validator = RuleValidator(catalog)
         self.rules = []
-        self.skipped_rules = []  # Track rules that failed validation
         used_ids: Set[str] = set()
         
         for i, rule in enumerate(rules):
@@ -273,9 +264,6 @@ class RuleEngine:
                 self.rules.append(normalized)
             except RuleValidationError as e:
                 logger.error(f"Rule validation failed: {e}")
-                # Track skipped rule
-                rule_title = rule.get("title", f"<rule at index {i}>")
-                self.skipped_rules.append((i, rule_title, str(e)))
                 # Skip invalid rules but continue loading others
         
         # Track previous match state for edge triggering
@@ -404,45 +392,31 @@ class RuleEngine:
         self._prev_match_state[state_key] = current_matched
         
         # Edge triggering: only execute actions on actual state transitions
-        actions_to_execute = []
+        actions_to_execute: List[Dict[str, Any]] = []
         
         if prev_matched is None:
             # First evaluation
-            if current_matched:
-                actions_to_execute = rule.get("then", [])
-            else:
-                actions_to_execute = rule.get("else", [])
+            actions_to_execute = rule.get("then" if current_matched else "else", [])
         elif prev_matched != current_matched:
-            if current_matched:
-                # Transition: false -> true, execute 'then'
-                actions_to_execute = rule.get("then", [])
-            else:
-                # Transition: true -> false, execute 'else'
-                actions_to_execute = rule.get("else", [])
+            actions_to_execute = rule.get("then" if current_matched else "else", [])
         
         # Only return result if there are actions to execute
-        if actions_to_execute:
-            if prev_matched is None:
-                transition = "initial"
-            elif current_matched:
-                transition = "activated"
-            else:
-                transition = "deactivated"
-            branch = "then" if current_matched else "else"
-            logger.info(
-                f"Rule '{rule_title}' [{rule_id}] {transition} "
-                f"(matched={current_matched}), executing {branch} "
-                f"with {len(actions_to_execute)} action(s)"
-            )
-            return MatchResult(
-                rule_id=rule_id,
-                rule_title=rule_title,
-                matched=current_matched,
-                prev_matched=prev_matched,
-                actions_to_execute=actions_to_execute,
-            )
-        
-        return None
+        if not actions_to_execute:
+            return None
+
+        transition = "initial" if prev_matched is None else ("activated" if current_matched else "deactivated")
+        branch = "then" if current_matched else "else"
+        logger.info(
+            f"Rule '{rule_title}' [{rule_id}] {transition} "
+            f"(matched={current_matched}), executing {branch} "
+            f"with {len(actions_to_execute)} action(s)"
+        )
+        return MatchResult(
+            rule_id=rule_id,
+            rule_title=rule_title,
+            matched=current_matched,
+            actions_to_execute=actions_to_execute,
+        )
     
     def _check_rule_conditions(
         self,

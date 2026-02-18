@@ -60,20 +60,12 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     _event_recorder = deps.get_event_recorder()
     _plugin_dir = deps.get_plugin_dir()
 
-    def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]:
-        return deps.compute_test_shift_bitmaps_from_ui()
-
-    def _apply_test_shift_from_ui() -> None:
-        deps.apply_test_shift_from_ui()
-
-    def _resolve_rules_file_path() -> str:
-        return deps.resolve_rules_file_path()
-
-    def _load_rules_file_for_ui() -> tuple[list[dict], bool, str]:
-        return deps.load_rules_file_for_ui()
-
-    def _save_rules_file_from_ui(rules: list[dict], wrapped: bool, rules_path: str) -> bool:
-        return deps.save_rules_file_from_ui(rules, wrapped, rules_path)
+    # Alias deps callbacks as locals for concise use inside closures
+    _compute_test_shift_bitmaps_from_ui = deps.compute_test_shift_bitmaps_from_ui
+    _apply_test_shift_from_ui = deps.apply_test_shift_from_ui
+    _resolve_rules_file_path = deps.resolve_rules_file_path
+    _load_rules_file_for_ui = deps.load_rules_file_for_ui
+    _save_rules_file_from_ui = deps.save_rules_file_from_ui
 
     try:
         import tkinter as tk

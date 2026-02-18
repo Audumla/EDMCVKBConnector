@@ -234,8 +234,13 @@ class EventHandler:
 
         # Track journal events with timestamps for recent operator
         if source == "journal":
-            self._track_event(event_type)
-            self._prune_old_events()
+            current_time = time.time()
+            self._recent_events[event_type] = current_time
+            # Prune events older than the tracking window
+            cutoff = current_time - self._event_window_seconds
+            self._recent_events = {
+                k: v for k, v in self._recent_events.items() if v >= cutoff
+            }
 
         # Run rule engine for all EDMC notifications.
         # Only rule actions (vkb_set_shift / vkb_clear_shift) trigger VKB sends.
@@ -278,32 +283,6 @@ class EventHandler:
         Re-apply current shift/subshift state after any socket reconnect.
         """
         self._send_shift_state_if_changed(force=True)
-
-    def _track_event(self, event_name: str) -> None:
-        """
-        Track an event with current timestamp for recent operator.
-        
-        Args:
-            event_name: Name of the event to track
-        """
-        self._recent_events[event_name] = time.time()
-    
-    def _prune_old_events(self) -> None:
-        """
-        Remove events older than the tracking window.
-        """
-        current_time = time.time()
-        cutoff_time = current_time - self._event_window_seconds
-        
-        # Remove old events
-        events_to_remove = [
-            event_name
-            for event_name, timestamp in self._recent_events.items()
-            if timestamp < cutoff_time
-        ]
-        
-        for event_name in events_to_remove:
-            del self._recent_events[event_name]
 
     def _handle_rule_action(self, result: MatchResult) -> None:
         """
@@ -401,20 +380,6 @@ class EventHandler:
             active_subshifts = [i + 1 for i in range(7) if payload["subshift"] & (1 << i)]
             logger.info(f"VKB-Link <- Shift {active_shifts} Subshift {active_subshifts}")
 
-    def enable(self) -> None:
-        """Enable event forwarding."""
-        self.enabled = True
-        logger.info("Event forwarding enabled")
-
-    def disable(self) -> None:
-        """Disable event forwarding."""
-        self.enabled = False
-        logger.info("Event forwarding disabled")
-
-    def set_debug(self, enabled: bool) -> None:
-        """Enable or disable debug logging."""
-        self.debug = enabled
-        logger.info(f"Debug logging {'enabled' if enabled else 'disabled'}")    
     # ==== Unregistered Events Management ====
     
     def get_unregistered_events(self) -> List[Dict[str, Any]]:

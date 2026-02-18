@@ -252,13 +252,11 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
         vkb_host = _config.get("vkb_host", "127.0.0.1")
         vkb_port = _config.get("vkb_port", 50995)
-        rules_override = (_config.get("rules_path", "") or "").strip()
-        rules_path = rules_override if rules_override else os.path.join(_plugin_dir, "rules.json")
         logger.info(
             "Startup self-check: "
             f"plugin_dir={_plugin_dir}, "
             f"module_file={__file__}, "
-            f"rules_path={rules_path}, "
+            f"rules_path={_resolve_rules_file_path()}, "
             f"logger={plugin_logger_name}"
         )
         logger.info(
@@ -509,48 +507,37 @@ def dashboard_entry(cmdr: str, is_beta: bool, entry: dict) -> None:
         logger.error(f"Error handling dashboard entry: {e}", exc_info=True)
 
 
-def cmdr_data(data: dict, is_beta: bool) -> Optional[str]:
-    """
-    Called when EDMC receives CAPI commander profile data.
-    """
+def _capi_cmdr_dispatch(data: dict, is_beta: bool, source: str, event_type: str) -> Optional[str]:
+    """Shared handler for cmdr_data and cmdr_data_legacy CAPI hooks."""
     try:
         cmdr_name = ""
         commander = data.get("commander")
         if isinstance(commander, dict):
             cmdr_name = str(commander.get("name") or "")
-
         _dispatch_notification(
-            source="capi",
-            event_type="CmdrData",
+            source=source,
+            event_type=event_type,
             payload=data,
             cmdr=cmdr_name,
             is_beta=is_beta,
         )
     except Exception as e:
-        logger.error(f"Error handling cmdr_data: {e}", exc_info=True)
+        logger.error(f"Error handling {event_type}: {e}", exc_info=True)
     return None
+
+
+def cmdr_data(data: dict, is_beta: bool) -> Optional[str]:
+    """
+    Called when EDMC receives CAPI commander profile data.
+    """
+    return _capi_cmdr_dispatch(data, is_beta, source="capi", event_type="CmdrData")
 
 
 def cmdr_data_legacy(data: dict, is_beta: bool) -> Optional[str]:
     """
     Called when EDMC receives Legacy CAPI commander profile data.
     """
-    try:
-        cmdr_name = ""
-        commander = data.get("commander")
-        if isinstance(commander, dict):
-            cmdr_name = str(commander.get("name") or "")
-
-        _dispatch_notification(
-            source="capi_legacy",
-            event_type="CmdrDataLegacy",
-            payload=data,
-            cmdr=cmdr_name,
-            is_beta=is_beta,
-        )
-    except Exception as e:
-        logger.error(f"Error handling cmdr_data_legacy: {e}", exc_info=True)
-    return None
+    return _capi_cmdr_dispatch(data, is_beta, source="capi_legacy", event_type="CmdrDataLegacy")
 
 
 # Note: capi_shipyard() and capi_outfitting() are NOT standard EDMC plugin hooks.

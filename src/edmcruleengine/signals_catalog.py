@@ -48,10 +48,8 @@ class SignalsCatalog:
         """
         self._validate_catalog(catalog_data)
         self._data = catalog_data
-        # Flatten nested signals for backward compatibility
+        # Flatten nested signals into dot-notation keys
         self._flattened_signals: Dict[str, Any] = self._flatten_signals(catalog_data["signals"])
-        # Create compatibility mappings from old names to new nested names
-        self._signal_name_aliases = self._create_signal_aliases()
         # Build hierarchical structure for UI navigation
         self._signal_hierarchy: Dict[str, Any] = self._build_signal_hierarchy(catalog_data["signals"])
         
@@ -230,55 +228,6 @@ class SignalsCatalog:
         
         return flattened
     
-    def _create_signal_aliases(self) -> Dict[str, str]:
-        """
-        Create compatibility mappings from old flat names to new nested names.
-        
-        Example:
-            "commander_rank_combat" -> "commander_ranks.combat"
-            "commander_progress_combat" -> "commander_progress.by_rank_type.combat"
-        
-        Returns:
-            Dict mapping old signal names to new nested names
-        """
-        aliases = {}
-        
-        # Hand-coded mappings for refactored signals
-        # Commander ranks
-        for old_name, new_name in [
-            ("commander_rank_combat", "commander_ranks.combat"),
-            ("commander_rank_trade", "commander_ranks.trade"),
-            ("commander_rank_explore", "commander_ranks.explore"),
-            ("commander_rank_empire", "commander_ranks.empire"),
-            ("commander_rank_federation", "commander_ranks.federation"),
-            ("commander_rank_soldier", "commander_ranks.soldier"),
-            ("commander_rank_exobiologist", "commander_ranks.exobiologist"),
-            ("commander_rank_mercenary", "commander_ranks.mercenary"),
-            ("commander_rank_cqc", "commander_ranks.cqc"),
-        ]:
-            aliases[old_name] = new_name
-        
-        # Commander progress by rank type
-        for old_name, new_name in [
-            ("commander_progress_combat", "commander_progress.by_rank_type.combat"),
-            ("commander_progress_trade", "commander_progress.by_rank_type.trade"),
-            ("commander_progress_explore", "commander_progress.by_rank_type.explore"),
-            ("commander_progress_cqc", "commander_progress.by_rank_type.cqc"),
-            ("commander_progress_soldier", "commander_progress.by_rank_type.soldier"),
-            ("commander_progress_exobiologist", "commander_progress.by_rank_type.exobiologist"),
-            ("commander_progress_mercenary", "commander_progress.by_rank_type.mercenary"),
-        ]:
-            aliases[old_name] = new_name
-        
-        # Commander progress by faction
-        for old_name, new_name in [
-            ("commander_progress_empire", "commander_progress.by_faction.empire"),
-            ("commander_progress_federation", "commander_progress.by_faction.federation"),
-        ]:
-            aliases[old_name] = new_name
-        
-        return aliases
-    
     def _build_signal_hierarchy(self, signals: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
         """
         Build a hierarchical tree structure for UI navigation.
@@ -372,49 +321,20 @@ class SignalsCatalog:
         """
         Get signal definition by name.
         
-        Supports both new nested names (e.g., 'commander_ranks.combat')
-        and old flat names (e.g., 'commander_rank_combat') for backward compatibility.
-        
         Args:
             name: Signal name
             
         Returns:
             Signal definition dict, or None if not found
         """
-        # Try direct lookup first
-        if name in self._flattened_signals:
-            return self._flattened_signals[name]
-        
-        # Try alias mapping for backward compatibility
-        if name in self._signal_name_aliases:
-            new_name = self._signal_name_aliases[name]
-            return self._flattened_signals.get(new_name)
-        
-        return None
+        return self._flattened_signals.get(name)
     
     def signal_exists(self, name: str) -> bool:
-        """
-        Check if a signal exists in the catalog.
-        
-        Supports both new nested names and old flat names for backward compatibility.
-        """
-        return name in self._flattened_signals or name in self._signal_name_aliases
-    
+        """Check if a signal exists in the catalog."""
+        return name in self._flattened_signals
+
     def resolve_signal_name(self, name: str) -> str:
-        """
-        Resolve a signal name to its canonical (flattened) form.
-        
-        If name is an old alias, returns the new nested name.
-        Otherwise returns the name as-is.
-        
-        Args:
-            name: Signal name (old or new format)
-            
-        Returns:
-            Canonical signal name
-        """
-        if name in self._signal_name_aliases:
-            return self._signal_name_aliases[name]
+        """Return the signal name as-is (dot-notation canonical form)."""
         return name
     
     def operator_exists(self, op: str) -> bool:
@@ -443,20 +363,21 @@ class SignalsCatalog:
         values = signal.get("values", [])
         return [v["value"] for v in values if isinstance(v, dict) and "value" in v]
     
+    def get_signals_by_tier(self, tier: str) -> List[str]:
+        """Get list of signal names for the given UI tier (e.g. 'core', 'detail')."""
+        return [
+            name for name, sig in self.signals.items()
+            if not name.startswith("_") and isinstance(sig, dict) and sig.get("ui", {}).get("tier") == tier
+        ]
+
     def get_core_signals(self) -> List[str]:
         """Get list of core-tier signal names."""
-        return [
-            name for name, sig in self.signals.items()
-            if not name.startswith("_") and isinstance(sig, dict) and sig.get("ui", {}).get("tier") == "core"
-        ]
-    
+        return self.get_signals_by_tier("core")
+
     def get_detail_signals(self) -> List[str]:
         """Get list of detail-tier signal names."""
-        return [
-            name for name, sig in self.signals.items()
-            if not name.startswith("_") and isinstance(sig, dict) and sig.get("ui", {}).get("tier") == "detail"
-        ]
-    
+        return self.get_signals_by_tier("detail")
+
     def get_signals_by_category(self, category: str) -> List[str]:
         """Get signal names filtered by UI category."""
         return [
@@ -526,10 +447,6 @@ class SignalsCatalog:
                                         known_events.add(event_name)
         
         return known_events
-    
-    def has_signal(self, name: str) -> bool:
-        """Check if a signal exists in the catalog (alias for signal_exists)."""
-        return self.signal_exists(name)
 
 
 # Maximum length for readable part of generated ID

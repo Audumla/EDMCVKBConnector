@@ -31,22 +31,36 @@ def set_plugin_logger_name(name: str) -> None:
     # This matters in EDMC because load.py imports set_plugin_logger_name
     # from this package before plugin_start3 runs, which imports submodules
     # that create logger globals immediately.
-    for module_name in (
-        "src.edmcruleengine.config",
-        "src.edmcruleengine.vkb_client",
-        "src.edmcruleengine.event_handler",
-        "src.edmcruleengine.rules_engine",
-        "src.edmcruleengine.unregistered_events_tracker",
-        "edmcruleengine.config",
-        "edmcruleengine.vkb_client",
-        "edmcruleengine.event_handler",
-        "edmcruleengine.rules_engine",
-        "edmcruleengine.unregistered_events_tracker",
-    ):
-        module = sys.modules.get(module_name)
-        if module is None or not hasattr(module, "logger"):
-            continue
-        module.logger = plugin_logger(module.__name__)
+    _submodule_names = (
+        "config", "vkb_client", "event_handler",
+        "rules_engine", "unregistered_events_tracker",
+    )
+    for suffix in _submodule_names:
+        for prefix in ("edmcruleengine", "src.edmcruleengine"):
+            module_name = f"{prefix}.{suffix}"
+            module = sys.modules.get(module_name)
+            if module is not None and hasattr(module, "logger"):
+                module.logger = plugin_logger(module.__name__)
+                break  # only rebind once per submodule
+
+
+def _apply_edmc_context_filter(log: logging.Logger) -> None:
+    """Attach EDMCContextFilter to *log* if available and not already present.
+
+    EDMCContextFilter adds ``osthreadid`` and ``qualname`` fields that EDMC's
+    log formatter expects.  EDMC only attaches it to the top-level plugin
+    logger returned by ``get_plugin_logger()``, but Python's propagation model
+    means it never runs for records emitted by *child* loggers.  We therefore
+    attach it directly to each child logger so every record is stamped before
+    reaching the EDMC file handler.
+    """
+    try:
+        from EDMCLogging import EDMCContextFilter  # type: ignore
+        # Avoid adding duplicate filters on repeated calls (e.g. logger rebind).
+        if not any(isinstance(f, EDMCContextFilter) for f in log.filters):
+            log.addFilter(EDMCContextFilter())
+    except Exception:
+        pass  # Not running inside EDMC – no-op.
 
 
 def plugin_logger(module: str) -> logging.Logger:
@@ -60,11 +74,21 @@ def plugin_logger(module: str) -> logging.Logger:
     Inside EDMC this yields e.g. ``EDMarketConnector.edmcruleengine.config``.
     During tests it yields ``edmcruleengine.config``.
     """
-    # Always return the base plugin logger.
-    # In EDMC this logger has EDMCContextFilter attached by
-    # EDMCLogging.get_plugin_logger(), which adds fields like
-    # osthreadid/qualname used by EDMC's log formatter.
-    return logging.getLogger(_PLUGIN_LOGGER_NAME)
+    # Derive a child name by stripping any package prefix and appending to
+    # the managed root so EDMC context filters are inherited.
+    # e.g. module="edmcruleengine.config" -> child="EDMarketConnector.<folder>.config"
+    base = _PLUGIN_LOGGER_NAME
+    # Strip known package prefixes so we get just the leaf module name
+    for pkg in ("src.edmcruleengine.", "edmcruleengine."):
+        if module.startswith(pkg):
+            leaf = module[len(pkg):]
+            log = logging.getLogger(f"{base}.{leaf}")
+            _apply_edmc_context_filter(log)
+            return log
+    # Caller is the root package itself or an unknown path
+    log = logging.getLogger(base)
+    _apply_edmc_context_filter(log)
+    return log
 
 from .vkb_client import VKBClient
 from .event_handler import EventHandler

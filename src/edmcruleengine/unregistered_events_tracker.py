@@ -235,24 +235,7 @@ class UnregisteredEventsTracker:
     def get_events_count(self) -> int:
         """Get the count of tracked unregistered events."""
         return len(self.unregistered_events)
-    
-    def delete_tracker_file(self) -> bool:
-        """
-        Delete the tracker file from disk.
-        
-        Returns:
-            True if file was deleted, False if it didn't exist
-        """
-        if self.tracker_file.exists():
-            try:
-                self.tracker_file.unlink()
-                logger.info(f"Deleted tracker file: {self.tracker_file}")
-                return True
-            except Exception as e:
-                logger.error(f"Failed to delete tracker file: {e}")
-                return False
-        return False
-    
+
     def _sanitize_event_data(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a sanitized copy of event data for storage.
@@ -306,11 +289,7 @@ class UnregisteredEventsTracker:
                 data = json.load(f)
             
             if isinstance(data, dict) and "events" in data:
-                # New format: {"metadata": {...}, "events": {...}}
                 self.unregistered_events = data.get("events", {})
-            elif isinstance(data, dict):
-                # Legacy format: direct dict
-                self.unregistered_events = data
             else:
                 logger.warning(f"Invalid tracker file format: {self.tracker_file}")
                 self.unregistered_events = {}
