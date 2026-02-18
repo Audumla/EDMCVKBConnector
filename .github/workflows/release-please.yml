@@ -44,3 +44,4 @@ jobs:
           tag_name: ${{ steps.release.outputs.tag_name }}
           files: dist/EDMCVKBConnector-${{ steps.release.outputs.version }}.zip
           fail_on_unmatched_files: true
+          prerelease: true
