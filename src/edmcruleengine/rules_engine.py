@@ -338,15 +338,20 @@ class RuleEngine:
         if context is None:
             context = {}
         
+        logger.debug(f"Raw event payload: {entry}")
+
         # Enrich payload with notification metadata so catalog signals can
         # target source/event uniformly across journal, dashboard, and CAPI.
         enriched_entry = dict(entry)
         enriched_entry.setdefault("event", event_type)
         enriched_entry["__edmc_source"] = source
         enriched_entry["__edmc_event_type"] = event_type
+        logger.debug(f"Enriched event payload: {enriched_entry}")
+        logger.debug(f"Derivation context: {context}")
 
         # Derive all signals from entry (pass context for recent operator)
         signals = self.signal_derivation.derive_all_signals(enriched_entry, context)
+        logger.debug(f"Derived signals: {signals}")
         
         # Evaluate each rule
         for rule in self.rules:
@@ -383,6 +388,11 @@ class RuleEngine:
         rule_id = rule["id"]
         rule_title = rule["title"]
         
+        # Debug: log rule conditions
+        when = rule.get("when", {})
+        logger.debug(f"Evaluating rule '{rule_title}' [{rule_id}]")
+        logger.debug(f"  Conditions: {when}")
+        
         # Check current match state
         current_matched = self._check_rule_conditions(rule, signals)
         
@@ -393,20 +403,21 @@ class RuleEngine:
         # Update state
         self._prev_match_state[state_key] = current_matched
         
-        # Edge triggering: only execute actions on state transitions
+        # Edge triggering: only execute actions on actual state transitions
         actions_to_execute = []
         
-        if prev_matched is False and current_matched:
-            # Transition: false -> true, execute 'then'
-            actions_to_execute = rule.get("then", [])
-        elif prev_matched is True and not current_matched:
-            # Transition: true -> false, execute 'else'
-            actions_to_execute = rule.get("else", [])
-        elif prev_matched is None:
+        if prev_matched is None:
             # First evaluation
             if current_matched:
                 actions_to_execute = rule.get("then", [])
             else:
+                actions_to_execute = rule.get("else", [])
+        elif prev_matched != current_matched:
+            if current_matched:
+                # Transition: false -> true, execute 'then'
+                actions_to_execute = rule.get("then", [])
+            else:
+                # Transition: true -> false, execute 'else'
                 actions_to_execute = rule.get("else", [])
         
         # Only return result if there are actions to execute
@@ -492,31 +503,43 @@ class RuleEngine:
         # Get current signal value
         signal_value = signals.get(signal)
         
+        # Debug: log condition evaluation
+        logger.debug(f"  Condition: {signal} {op} {value}")
+        logger.debug(f"    Signal value: {signal_value} (type: {type(signal_value).__name__})")
+        
+        if signal_value is None or signal_value == "unknown":
+            logger.debug("    Result: False (unknown signal value)")
+            return False
+
         # Apply operator
         if op == "eq":
-            return signal_value == value
+            result = signal_value == value
         elif op == "ne":
-            return signal_value != value
+            result = signal_value != value
         elif op == "in":
-            return signal_value in value
+            result = signal_value in value
         elif op == "nin":
-            return signal_value not in value
+            result = signal_value not in value
         elif op == "lt":
-            return signal_value < value
+            result = signal_value < value
         elif op == "lte":
-            return signal_value <= value
+            result = signal_value <= value
         elif op == "gt":
-            return signal_value > value
+            result = signal_value > value
         elif op == "gte":
-            return signal_value >= value
+            result = signal_value >= value
         elif op == "contains":
             if isinstance(signal_value, (list, str)):
-                return value in signal_value
-            return False
+                result = value in signal_value
+            else:
+                result = False
         elif op == "exists":
             # Signal always exists in our derived signals dict
-            return True
+            result = True
         else:
             logger.warning(f"Unknown operator: {op}")
-            return False
+            result = False
+        
+        logger.debug(f"    Result: {result}")
+        return result
 

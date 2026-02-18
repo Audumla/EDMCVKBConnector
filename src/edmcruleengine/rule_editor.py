@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from . import plugin_logger
 from .signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
+from .ui_components import IconButton, create_colored_button
 
 logger = plugin_logger(__name__)
 
@@ -26,121 +27,6 @@ SHIFT_TOKENS = ["Shift1", "Shift2"]
 SUBSHIFT_TOKENS = [f"Subshift{i}" for i in range(1, 8)]
 ALL_SHIFT_TOKENS = SHIFT_TOKENS + SUBSHIFT_TOKENS
 
-# Canvas-drawn icon button size
-ICON_SIZE = 20
-
-
-class IconButton(tk.Canvas):
-    """A small canvas-drawn colored icon button.
-
-    Draws crisp vector icons that render identically across platforms
-    without relying on emoji font support.
-    """
-
-    # Colour palette
-    PALETTES = {
-        "delete":    {"bg": "#e74c3c", "fg": "white", "hover": "#c0392b"},
-        "add":       {"bg": "#27ae60", "fg": "white", "hover": "#1e8449"},
-        "up":        {"bg": "#3498db", "fg": "white", "hover": "#2980b9"},
-        "down":      {"bg": "#3498db", "fg": "white", "hover": "#2980b9"},
-        "duplicate": {"bg": "#8e44ad", "fg": "white", "hover": "#6c3483"},
-    }
-
-    def __init__(self, parent, icon_type: str, command=None, size=ICON_SIZE, tooltip: str = "", **kw):
-        super().__init__(parent, width=size, height=size, highlightthickness=0, bd=0, **kw)
-        self._icon_type = icon_type
-        self._command = command
-        self._size = size
-        self._palette = self.PALETTES.get(icon_type, {"bg": "#95a5a6", "fg": "white", "hover": "#7f8c8d"})
-        self._hovering = False
-
-        self._draw()
-        self.bind("<Button-1>", self._on_click)
-        self.bind("<Enter>", self._on_enter)
-        self.bind("<Leave>", self._on_leave)
-
-        if tooltip:
-            self._tooltip = tooltip
-            self.bind("<Enter>", self._show_tip, add="+")
-            self.bind("<Leave>", self._hide_tip, add="+")
-            self._tip_window = None
-
-    # -- drawing -------------------------------------------------------
-
-    def _draw(self):
-        self.delete("all")
-        s = self._size
-        bg = self._palette["hover"] if self._hovering else self._palette["bg"]
-        fg = self._palette["fg"]
-
-        # Rounded-rect background
-        r = 3
-        self.create_rectangle(r, r, s - r, s - r, fill=bg, outline="", width=0)
-        self.create_rectangle(0, r, s, s - r, fill=bg, outline="")
-        self.create_rectangle(r, 0, s - r, s, fill=bg, outline="")
-        # Fill corners with small ovals for a rounded look
-        for cx, cy in [(r, r), (s - r, r), (r, s - r), (s - r, s - r)]:
-            self.create_oval(cx - r, cy - r, cx + r, cy + r, fill=bg, outline="")
-
-        m = s // 2  # midpoint
-        p = 5       # padding from edges
-
-        if self._icon_type == "delete":
-            # X cross
-            self.create_line(p, p, s - p, s - p, fill=fg, width=2)
-            self.create_line(s - p, p, p, s - p, fill=fg, width=2)
-
-        elif self._icon_type == "add":
-            # + cross
-            self.create_line(m, p, m, s - p, fill=fg, width=2)
-            self.create_line(p, m, s - p, m, fill=fg, width=2)
-
-        elif self._icon_type == "up":
-            # Up triangle
-            self.create_polygon(m, p, s - p, s - p, p, s - p, fill=fg, outline="")
-
-        elif self._icon_type == "down":
-            # Down triangle
-            self.create_polygon(m, s - p, s - p, p, p, p, fill=fg, outline="")
-
-        elif self._icon_type == "duplicate":
-            # Two overlapping rectangles
-            off = 3
-            self.create_rectangle(p + off, p, s - p, s - p - off, outline=fg, width=1.5, fill="")
-            self.create_rectangle(p, p + off, s - p - off, s - p, outline=fg, width=1.5, fill="")
-
-    # -- interaction ----------------------------------------------------
-
-    def _on_click(self, event=None):
-        if self._command:
-            self._command()
-
-    def _on_enter(self, event=None):
-        self._hovering = True
-        self._draw()
-
-    def _on_leave(self, event=None):
-        self._hovering = False
-        self._draw()
-
-    # -- tooltip --------------------------------------------------------
-
-    def _show_tip(self, event=None):
-        if self._tip_window:
-            return
-        x = self.winfo_rootx() + self._size + 2
-        y = self.winfo_rooty()
-        tw = tk.Toplevel(self)
-        tw.wm_overrideredirect(True)
-        tw.wm_geometry(f"+{x}+{y}")
-        tk.Label(tw, text=getattr(self, "_tooltip", ""), bg="#333", fg="white",
-                 font=("TkDefaultFont", 8), padx=4, pady=2).pack()
-        self._tip_window = tw
-
-    def _hide_tip(self, event=None):
-        if self._tip_window:
-            self._tip_window.destroy()
-            self._tip_window = None
 
 
 def _centered_yesno(parent, title, message):
@@ -165,8 +51,8 @@ def _centered_yesno(parent, title, message):
     def on_no():
         dlg.destroy()
 
-    tk.Button(btn_frame, text="Yes", command=on_yes, width=8, bg="#27ae60", fg="white").pack(side=tk.LEFT, padx=5)
-    tk.Button(btn_frame, text="No", command=on_no, width=8, bg="#e74c3c", fg="white").pack(side=tk.LEFT, padx=5)
+    create_colored_button(btn_frame, text="Yes", command=on_yes, style="success", width=8).pack(side=tk.LEFT, padx=5)
+    create_colored_button(btn_frame, text="No", command=on_no, style="danger", width=8).pack(side=tk.LEFT, padx=5)
 
     dlg.update_idletasks()
     # Center on parent
@@ -196,7 +82,7 @@ def _centered_info(parent, title, message):
 
     btn_frame = ttk.Frame(dlg, padding=(10, 0, 10, 10))
     btn_frame.pack()
-    tk.Button(btn_frame, text="OK", command=dlg.destroy, width=8, bg="#3498db", fg="white").pack()
+    create_colored_button(btn_frame, text="OK", command=dlg.destroy, style="info", width=8).pack()
 
     dlg.update_idletasks()
     pw = parent.winfo_width()
@@ -224,7 +110,7 @@ def _centered_error(parent, title, message):
 
     btn_frame = ttk.Frame(dlg, padding=(10, 0, 10, 10))
     btn_frame.pack()
-    tk.Button(btn_frame, text="OK", command=dlg.destroy, width=8, bg="#e74c3c", fg="white").pack()
+    create_colored_button(btn_frame, text="OK", command=dlg.destroy, style="danger", width=8).pack()
 
     dlg.update_idletasks()
     pw = parent.winfo_width()
@@ -517,7 +403,7 @@ class RuleEditorUI:
             foreground="red"
         ).pack(pady=(0, 10))
         
-        ttk.Button(error_frame, text="Close", command=self.window.destroy).pack()
+        create_colored_button(error_frame, text="Close", command=self.window.destroy, style="info").pack()
     
     def _get_catalog_mtime(self) -> Optional[float]:
         """Return the catalog file mtime or None if unavailable."""
@@ -852,31 +738,27 @@ class RuleEditor:
         button_frame_right.pack(side=tk.RIGHT, fill=tk.X)
         
         # Create styled buttons with colors
-        cancel_btn = tk.Button(
-            button_frame_right, 
-            text="Cancel", 
+        cancel_btn = create_colored_button(
+            button_frame_right,
+            text="Cancel",
             command=self._on_back,
-            bg="#e74c3c",
-            fg="white",
+            style="danger",
             padx=12,
             pady=6,
             font=("TkDefaultFont", 10),
-            relief=tk.RAISED,
-            bd=2
+            bd=2,
         )
         cancel_btn.pack(side=tk.LEFT, padx=5)
         
-        save_btn = tk.Button(
-            button_frame_right, 
+        save_btn = create_colored_button(
+            button_frame_right,
             text="Save",
             command=self._save,
-            bg="#27ae60",
-            fg="white",
+            style="success",
             padx=12,
             pady=6,
             font=("TkDefaultFont", 10),
-            relief=tk.RAISED,
-            bd=2
+            bd=2,
         )
         save_btn.pack(side=tk.LEFT, padx=5)
         

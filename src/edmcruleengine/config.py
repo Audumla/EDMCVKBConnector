@@ -41,7 +41,6 @@ DEFAULTS = {
     "test_shift_bitmap": 0,
     "test_subshift_bitmap": 0,
     "vkb_ini_path": "",
-    "recorder_anonymize": True,
     "recorder_mock_commander": "CMDR",
     "recorder_mock_fid": "F0000000",
 }

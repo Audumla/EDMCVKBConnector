@@ -7,7 +7,7 @@ Comprehensive catalog of rule signals with trigger/source mapping.
 - Total signals: 196
 - Signal types: array=1, enum=106, number=73, string=16
 - UI tiers: advanced=10, core=73, detail=113
-- Sample source: `recorded_events.jsonl` (277 records)
+- Sample source: `recordings/recorded_events_YYYYMMDD_HHMMSS.jsonl` (277 records)
 
 For each signal:
 - `Trigger/source` lists journal event triggers and/or state/status paths used for derivation.

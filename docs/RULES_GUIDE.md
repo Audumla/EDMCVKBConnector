@@ -12,6 +12,10 @@ Each rule has:
 
 Rules are edge-triggered, so actions run on state transitions, not every update.
 
+If a signal cannot be derived due to missing data, its value is set to `unknown`.
+Rules do not trigger when any required signal is `unknown`, so conditions only
+fire with conclusive data.
+
 ## Creating Rules in the UI
 1. Open `File -> Settings -> Plugins`.
 2. Find **VKB Connector**.

@@ -65,19 +65,8 @@ class SignalDerivation:
                 result[signal_name] = value
             except Exception as e:
                 logger.warning(f"Failed to derive signal '{signal_name}': {type(e).__name__}: {e}")
-                # Use default for failed derivation
-                signal_type = signal_def.get("type")
-                if signal_type == "bool":
-                    result[signal_name] = False
-                elif signal_type == "enum":
-                    # Use first enum value as fallback
-                    values = signal_def.get("values", [])
-                    if values:
-                        result[signal_name] = values[0].get("value", "unknown")
-                    else:
-                        result[signal_name] = "unknown"
-                else:
-                    result[signal_name] = None
+                # Use explicit unknown for failed derivation to avoid acting on missing data
+                result[signal_name] = "unknown"
         
         return result
     
@@ -112,6 +101,10 @@ class SignalDerivation:
         value = self._execute_derive_op(derive_spec, entry, context)
         
         # Ensure value matches signal type
+        if value is None:
+            return "unknown"
+        if value == "unknown":
+            return "unknown"
         if signal_type == "bool":
             return bool(value)
         elif signal_type == "enum":
@@ -206,18 +199,24 @@ class SignalDerivation:
         # For now, handle dashboard.Flags and dashboard.Flags2 directly
         # Entry structure depends on source (dashboard vs journal)
         if bitfield_path == "dashboard.Flags":
-            flags_value = entry.get("Flags", 0)
+            if "Flags" not in entry:
+                return None
+            flags_value = entry.get("Flags")
         elif bitfield_path == "dashboard.Flags2":
-            flags_value = entry.get("Flags2", 0)
+            if "Flags2" not in entry:
+                return None
+            flags_value = entry.get("Flags2")
         else:
             # Generic path extraction
             flags_value = self._extract_path(entry, bitfield_path)
+            if flags_value is None:
+                return None
         
         # Check bit
         if isinstance(flags_value, int):
             return bool(flags_value & (1 << bit_num))
-        
-        return False
+
+        return None
     
     def _derive_path(self, spec: Dict[str, Any], entry: Dict[str, Any]) -> Any:
         """
@@ -235,7 +234,7 @@ class SignalDerivation:
         
         value = self._extract_path(entry, path)
         if value is None:
-            return default
+            return None
         return value
     
     def _derive_map(
@@ -262,6 +261,9 @@ class SignalDerivation:
         from_spec = spec.get("from", {})
         input_value = self._execute_derive_op(from_spec, entry, context)
         
+        if input_value is None:
+            return None
+
         # Convert to string for map lookup
         map_dict = spec.get("map", {})
         default = spec.get("default")

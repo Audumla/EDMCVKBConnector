@@ -3,9 +3,16 @@
     "python.terminal.activateEnvironment": true,
     "python.testing.pytestPath": "${workspaceFolder}\\.venv\\Scripts\\pytest.exe",
     "python.testing.pytestArgs": [
-        "test"
+        "test",
+        "-v",
+        "-s",
+        "--log-cli-level=DEBUG"
     ],
+    "python.testing.pytestDiscoverInstance": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "[python]": {
+        "testing.pytestArgs": ["test"]
+    },
     "chatgpt.openOnStartup": true
 }

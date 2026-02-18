@@ -3,7 +3,7 @@ Event Recorder for EDMC VKB Connector.
 
 Records all incoming EDMC events to a JSONL file for debugging and analysis.
 Each line is a self-contained JSON object with timestamp, source, event type,
-and the full event payload.  Optionally anonymizes identifying information.
+and the anonymized event payload. Personal information is automatically redacted.
 """
 
 import copy
@@ -50,8 +50,7 @@ class EventRecorder:
         self._last_event_type: str = ""
         self._recording: bool = False
 
-        # Anonymization settings
-        self.anonymize: bool = True
+        # Anonymization is mandatory
         self.mock_commander: str = "CMDR_Redacted"
         self.mock_fid: str = "F0000000"
 
@@ -109,19 +108,18 @@ class EventRecorder:
             )
 
     def record(self, source: str, event_type: str, event_data: Dict[str, Any]) -> None:
-        """Record a single event. No-op if not recording."""
+        """Record a single event with mandatory anonymization. No-op if not recording."""
         if not self._recording:
             return
         with self._lock:
             if not self._recording or not self._file:
                 return
             try:
-                data = self._anonymize_data(event_data) if self.anonymize else event_data
                 record = {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "source": source,
                     "event": event_type,
-                    "data": data,
+                    "data": self._anonymize_data(event_data),  # Always anonymize
                 }
                 self._file.write(json.dumps(record, default=str) + "\n")
                 self._file.flush()

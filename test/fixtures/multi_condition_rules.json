@@ -1,0 +1,45 @@
+[
+  {
+    "title": "Combat Ready - Hardpoints Deployed",
+    "enabled": true,
+    "description": "Combat is active when hardpoints are deployed",
+    "when": {
+      "all": [
+        {
+          "signal": "hardpoints",
+          "op": "eq",
+          "value": "deployed"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Shift4"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Shift4"]
+      }
+    ]
+  },
+  {
+    "title": "Any Deployed Hardpoints",
+    "enabled": true,
+    "description": "Trigger if hardpoints are deployed",
+    "when": {
+      "any": [
+        {
+          "signal": "hardpoints",
+          "op": "eq",
+          "value": "deployed"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Shift5"]
+      }
+    ]
+  }
+]

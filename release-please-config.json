@@ -1,0 +1,11 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "extra-files": [
+        "pyproject.toml",
+        "src/edmcruleengine/version.py"
+      ]
+    }
+  }
+}
