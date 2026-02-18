@@ -83,6 +83,16 @@ class EventHandler:
             self.plugin_dir,
             catalog=self.catalog
         )
+        self._track_unregistered_events: bool = False
+
+    @property
+    def track_unregistered_events(self) -> bool:
+        """Whether unregistered event tracking is enabled."""
+        return self._track_unregistered_events
+
+    @track_unregistered_events.setter
+    def track_unregistered_events(self, value: bool) -> None:
+        self._track_unregistered_events = bool(value)
 
     def _resolve_rules_path(self) -> Path:
         override = self.config.get("rules_path", "") or ""
@@ -273,10 +283,11 @@ class EventHandler:
         
         # Track unregistered events (events not found in the signals catalog)
         # This helps identify missing events that should be added to the catalog
-        try:
-            self.unregistered_events_tracker.track_event(event_type, event_data, source=source)
-        except Exception as e:
-            logger.debug(f"Error tracking unregistered event: {e}", exc_info=True)
+        if self._track_unregistered_events:
+            try:
+                self.unregistered_events_tracker.track_event(event_type, event_data, source=source)
+            except Exception as e:
+                logger.debug(f"Error tracking unregistered event: {e}", exc_info=True)
 
     def _on_socket_connected(self) -> None:
         """

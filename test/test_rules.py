@@ -850,6 +850,80 @@ class TestUnknownDataPolicy:
                                 {"Flags": 0, "Flags2": 0})
         assert len(fired) == 1, "reverting to unknown must not re-trigger"
 
+    # -----------------------------------------------------------------------
+    # Signal-availability pre-filter tests
+    # -----------------------------------------------------------------------
+
+    def test_rule_skipped_when_required_signal_unknown(self, catalog):
+        """A rule must be skipped entirely when any required signal is 'unknown'."""
+        # gui_focus is derived from GuiFocus; omitting it yields 'unknown'
+        engine, fired = self._make_engine(catalog, "gui_focus", "eq", "GalaxyMap")
+
+        entry_no_focus = {"Flags": 0, "Flags2": 0}   # GuiFocus absent
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry_no_focus)
+
+        assert fired == [], (
+            "rule must be skipped (not evaluated) when required signal is unknown"
+        )
+
+    def test_only_rules_with_available_signals_are_evaluated(self, catalog):
+        """Only the rule whose signals are present should fire; others stay silent."""
+        # Rule A needs gui_focus (requires GuiFocus field)
+        # Rule B needs hardpoints (derived from Flags bit 6, always available)
+        rules = [
+            {
+                "title": "NeedsFocus",
+                "when": {"all": [{"signal": "gui_focus", "op": "eq", "value": "GalaxyMap"}]},
+                "then": [{"log": "focus"}],
+            },
+            {
+                "title": "NeedsHardpoints",
+                "when": {"all": [{"signal": "hardpoints", "op": "eq", "value": "deployed"}]},
+                "then": [{"log": "hardpoints"}],
+            },
+        ]
+        fired_titles = []
+
+        def handler(result):
+            if result.matched:
+                fired_titles.append(result.rule_title)
+
+        engine = RuleEngine(rules, catalog, action_handler=handler)
+
+        # Entry: hardpoints deployed (bit 6 set), but no GuiFocus → gui_focus unknown
+        entry = {"Flags": 0b01000000, "Flags2": 0}
+        engine.on_notification("Cmdr", False, "dashboard", "Status", entry)
+
+        assert "NeedsHardpoints" in fired_titles, "hardpoints rule should fire"
+        assert "NeedsFocus" not in fired_titles, (
+            "focus rule must be skipped because gui_focus is unknown"
+        )
+
+    def test_rule_fires_when_signals_become_available(self, catalog):
+        """A skipped rule must fire correctly once its signals become available."""
+        engine, fired = self._make_engine(catalog, "gui_focus", "eq", "GalaxyMap")
+
+        # First event: signal absent – skipped
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0})
+        assert fired == []
+
+        # Second event: signal present and matches
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0, "GuiFocus": 6})
+        assert len(fired) == 1
+
+    def test_rule_with_no_conditions_is_not_filtered(self, catalog):
+        """A rule with no conditions (always-match) must never be filtered out."""
+        rules = [{"title": "Always", "then": [{"log": "x"}]}]
+        fired = []
+        engine = RuleEngine(rules, catalog,
+                            action_handler=lambda r: fired.append(r) if r.matched else None)
+
+        engine.on_notification("Cmdr", False, "dashboard", "Status",
+                                {"Flags": 0, "Flags2": 0})
+        assert len(fired) == 1, "unconditional rule must always be evaluated"
+
 
 class TestRuleLoader:
     """Test rule file loading."""

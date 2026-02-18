@@ -95,7 +95,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     settings_tab = ttk.Frame(notebook)
     events_tab = ttk.Frame(notebook)
     notebook.add(settings_tab, text="Settings")
-    notebook.add(events_tab, text="Unregistered Events")
+    notebook.add(events_tab, text="Events")
 
     settings_tab.columnconfigure(0, weight=0)  # Don't expand VKB-Link
     settings_tab.columnconfigure(1, weight=1)  # Expand shift flags box
@@ -260,7 +260,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     frame.after(500, _poll_vkb_status)
 
     static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=8)
-    static_shift_frame.grid(row=0, column=1, sticky="new", padx=(6, 4), pady=2)
+    static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2)
     
     # Configure columns for shift flags
     static_shift_frame.columnconfigure(0, weight=0)  # Shift label
@@ -289,11 +289,10 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         )
         cb.grid(row=0, column=4 + i, sticky="w", padx=2, pady=2)
 
-    settings_tab.rowconfigure(2, weight=1)
+    settings_tab.rowconfigure(1, weight=1)
 
-    # --- Event Recording section ---
-    recording_frame = ttk.LabelFrame(settings_tab, text="Event Recording", padding=6)
-    recording_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=4, pady=(6, 2))
+    # --- Event Recording section (lives in events_tab, built here for code locality) ---
+    recording_frame = ttk.LabelFrame(events_tab, text="Event Recording", padding=6)
     recording_frame.columnconfigure(1, weight=1)
 
     rec_status_var = tk.StringVar(value="Idle")
@@ -640,7 +639,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     rules_frame = ttk.LabelFrame(settings_tab, text="Rules", padding=6)
-    rules_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
+    rules_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
     rules_frame.columnconfigure(0, weight=1)
     rules_frame.rowconfigure(1, weight=1)
 
@@ -717,20 +716,43 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     # Status indicator for unsaved changes in preferences
     ttk.Label(settings_tab, textvariable=unsaved_status_var, foreground="#e74c3c", font=("TkDefaultFont", 9)).grid(
-        row=3, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 0)
+        row=2, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 0)
     )
 
-    # Events Tab - Unregistered Events Tracker
+    # Events Tab
     events_tab.columnconfigure(0, weight=1)
-    events_tab.rowconfigure(3, weight=1)
+    events_tab.rowconfigure(4, weight=1)
 
-    ttk.Label(events_tab, text="Unregistered Events", font=("TkDefaultFont", 12, "bold")).grid(
-        row=0, column=0, sticky="w", padx=8, pady=(8, 4)
+    # --- Record section (moved from settings_tab) ---
+    recording_frame.grid(row=0, column=0, sticky="ew", padx=4, pady=(6, 2))
+
+    # --- Track unregistered events checkbox ---
+    track_unregistered_var = tk.BooleanVar(
+        value=bool(_config.get("track_unregistered_events", False)) if _config else False
     )
+    if _event_handler:
+        _event_handler.track_unregistered_events = track_unregistered_var.get()
+
+    def _on_track_unregistered_changed(*_args):
+        enabled = track_unregistered_var.get()
+        if _event_handler:
+            _event_handler.track_unregistered_events = enabled
+        if _config:
+            _config.set("track_unregistered_events", enabled)
+
+    track_unregistered_var.trace_add("write", _on_track_unregistered_changed)
+
+    ttk.Checkbutton(
+        events_tab,
+        text="Capture missed events (track events not in catalog)",
+        variable=track_unregistered_var,
+    ).grid(row=1, column=0, sticky="w", padx=8, pady=(8, 0))
+
     ttk.Label(
         events_tab,
-        text="Events received that are not registered in signals_catalog.json\nThese may need to be added to the catalog for future use."
-    ).grid(row=1, column=0, sticky="w", padx=8, pady=(0, 6))
+        text="Unregistered Events",
+        font=("TkDefaultFont", 11, "bold"),
+    ).grid(row=2, column=0, sticky="w", padx=8, pady=(8, 2))
 
     # Variables for events display
     events_status_var = tk.StringVar(value="")
@@ -1005,11 +1027,11 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     # Events tab content
     ttk.Label(events_tab, textvariable=events_count_var, font=("TkDefaultFont", 10, "bold")).grid(
-        row=2, column=0, sticky="w", padx=8, pady=(6, 4)
+        row=3, column=0, sticky="w", padx=8, pady=(6, 4)
     )
 
     events_buttons = ttk.Frame(events_tab)
-    events_buttons.grid(row=3, column=0, sticky="nw", padx=8, pady=(0, 6))
+    events_buttons.grid(row=4, column=0, sticky="nw", padx=8, pady=(0, 6))
 
     create_colored_button(events_buttons, text="View Details", command=_show_unregistered_events_list, style="info").grid(
         row=0, column=0, sticky="w", padx=(0, 6)
@@ -1022,7 +1044,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     )
 
     ttk.Label(events_tab, textvariable=events_status_var, foreground="gray").grid(
-        row=4, column=0, sticky="w", padx=8, pady=(0, 6)
+        row=5, column=0, sticky="w", padx=8, pady=(0, 6)
     )
 
     # Initial population of event counts

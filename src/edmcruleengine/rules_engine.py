@@ -266,10 +266,28 @@ class RuleEngine:
                 logger.error(f"Rule validation failed: {e}")
                 # Skip invalid rules but continue loading others
         
+        # Pre-compute the set of signals each rule requires so we can
+        # quickly skip rules whose signals are not available at evaluation time.
+        self._rule_required_signals: Dict[str, Set[str]] = {
+            rule["id"]: self._extract_required_signals(rule)
+            for rule in self.rules
+        }
+        
         # Track previous match state for edge triggering
         # Key: (commander, is_beta, rule_id)
         self._prev_match_state: Dict[Tuple[str, bool, str], bool] = {}
     
+    def _extract_required_signals(self, rule: Dict[str, Any]) -> Set[str]:
+        """Return the set of signal names referenced by a rule's conditions."""
+        signals: Set[str] = set()
+        when = rule.get("when", {})
+        for block in (when.get("all", []), when.get("any", [])):
+            for condition in block:
+                sig = condition.get("signal")
+                if sig:
+                    signals.add(sig)
+        return signals
+
     def _normalize_rule(self, rule: Dict[str, Any], used_ids: Set[str]) -> Dict[str, Any]:
         """
         Normalize a rule to standard format.
@@ -340,10 +358,25 @@ class RuleEngine:
         # Derive all signals from entry (pass context for recent operator)
         signals = self.signal_derivation.derive_all_signals(enriched_entry, context)
         logger.debug(f"Derived signals: {signals}")
-        
-        # Evaluate each rule
+
+        # Build the set of signals that are resolved (not 'unknown') so we can
+        # quickly skip rules that reference unavailable signals.
+        available_signals: Set[str] = {
+            k for k, v in signals.items() if v != "unknown" and v is not None
+        }
+
+        # Evaluate each rule whose required signals are all available
         for rule in self.rules:
             if not rule.get("enabled", True):
+                continue
+
+            required = self._rule_required_signals.get(rule["id"], set())
+            if not required.issubset(available_signals):
+                missing = required - available_signals
+                logger.debug(
+                    f"Skipping rule '{rule['title']}' [{rule['id']}]: "
+                    f"signals not yet available: {missing}"
+                )
                 continue
             
             try:
