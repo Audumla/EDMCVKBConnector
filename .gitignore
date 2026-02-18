@@ -75,4 +75,19 @@ analysis_*.md
 debug_*.txt
 debug_*.md
 
+# Agent workspace artifacts (Codex, Copilot, Claude)
+agent_artifacts/**
+!agent_artifacts/
+!agent_artifacts/README.md
+!agent_artifacts/codex/
+!agent_artifacts/codex/reports/
+!agent_artifacts/codex/temp/
+!agent_artifacts/copilot/
+!agent_artifacts/copilot/reports/
+!agent_artifacts/copilot/temp/
+!agent_artifacts/claude/
+!agent_artifacts/claude/reports/
+!agent_artifacts/claude/temp/
+!agent_artifacts/**/.gitkeep
+
 

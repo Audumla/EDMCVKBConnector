@@ -23,3 +23,12 @@ Python extension for Elite Dangerous Market Connector (EDMC) that forwards game 
   - TCP/IP socket client for VKB communication
   - Event forwarding and serialization
   - Configuration management
+
+## Agent Workspace Policy
+
+All GitHub Copilot execution artifacts must stay under `agent_artifacts/copilot/`.
+
+- Reports: `agent_artifacts/copilot/reports/`
+- Temporary scripts and scratch files: `agent_artifacts/copilot/temp/`
+
+Do not write Copilot-generated reports or temp files anywhere else in this repository.
