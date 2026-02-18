@@ -5,7 +5,9 @@
       "extra-files": [
         "pyproject.toml",
         "src/edmcruleengine/version.py"
-      ]
+      ],
+      "changelog-path": ""
     }
-  }
+  },
+  "changelog": null
 }
