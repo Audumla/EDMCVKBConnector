@@ -9,11 +9,26 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-002 | 2026-02-19 | copilot | Documentation Update, Configuration Cleanup | Established cross-agent changelog infrastructure committed to the repository |
 | CHG-001 | 2026-02-19 | copilot | Configuration Cleanup, Code Refactoring | Moved bundled data files to `data/` subdirectory and centralised path references |
 
 ---
 
 ## Detail
+
+### CHG-002 — 2026-02-19 · copilot · plugin v0.2.0
+
+**Tags:** Documentation Update, Configuration Cleanup
+
+**Summary:** Established cross-agent changelog infrastructure committed to the repository
+
+**Changes:**
+- Created `CHANGELOG.json` at repo root as structured machine-readable history for all agents
+- Created `CHANGELOG.md` at repo root as human-readable summary table and detail sections
+- Added changelog policy (read at session start, write at session end) to `CLAUDE.md`, `AGENTS.md`, and `.github/copilot-instructions.md`
+- Removed `CLAUDE.md`, `AGENTS.md`, and `.github/` from `.gitignore` so agent instructions travel with the repo across machines
+- Per-agent runtime scratch dirs (`agent_artifacts/claude|codex|copilot/`) remain gitignored
+- Updated `agent_artifacts/README.md` to reflect new structure
 
 ### CHG-001 — 2026-02-19 · copilot · plugin v0.2.0
 

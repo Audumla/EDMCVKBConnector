@@ -14,5 +14,21 @@
       "Updated 18 files across src/, scripts/, and test/ to reference new data/ paths",
       "Fixed packaging bug: icon_map.json was previously not included in the distributable ZIP"
     ]
+  },
+  {
+    "id": "CHG-002",
+    "plugin_version": "0.2.0",
+    "date": "2026-02-19",
+    "agent": "copilot",
+    "summary_tags": ["Documentation Update", "Configuration Cleanup"],
+    "summary": "Established cross-agent changelog infrastructure committed to the repository",
+    "details": [
+      "Created CHANGELOG.json at repo root as structured machine-readable history for all agents",
+      "Created CHANGELOG.md at repo root as human-readable summary table and detail sections",
+      "Added changelog policy (read at session start, write at session end) to CLAUDE.md, AGENTS.md, and .github/copilot-instructions.md",
+      "Removed CLAUDE.md, AGENTS.md, and .github/ from .gitignore so agent instructions travel with the repo across machines",
+      "Per-agent runtime scratch dirs (agent_artifacts/claude|codex|copilot/) remain gitignored",
+      "Updated agent_artifacts/README.md to reflect new structure"
+    ]
   }
 ]
