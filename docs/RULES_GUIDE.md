@@ -1,6 +1,8 @@
 # Rules Guide
 
-This guide covers creating and editing rules for EDMCVKBConnector.
+This guide is the rule format reference for EDMCVKBConnector.
+
+For a step-by-step UI walkthrough, see `docs/RULE_EDITOR_TUTORIAL.md`.
 
 ## Rule Model
 Each rule has:
@@ -17,13 +19,14 @@ Rules do not trigger when any required signal is `unknown`, so conditions only
 fire with conclusive data.
 
 ## Creating Rules in the UI
-1. Open `File -> Settings -> Plugins`.
-2. Find **VKB Connector**.
-3. In the **Rules** panel, click **New Rule**.
-4. Set title, conditions, and actions.
-5. Save and confirm the rule appears in the rules list.
+Use the in-app editor at `File -> Settings -> Plugins -> VKB Connector -> Rules`.
 
-You can also edit, duplicate, delete, and toggle rule enablement from the same panel.
+Supported rule operations:
+- Create
+- Edit
+- Duplicate
+- Delete
+- Enable/disable
 
 ## Condition Format
 Conditions are objects:
@@ -106,3 +109,8 @@ At load time, the engine validates:
 - condition and action structure.
 
 Invalid rules are skipped with log errors; valid rules continue to load.
+
+## Related Docs
+- `README.md`
+- `docs/RULE_EDITOR_TUTORIAL.md`
+- `docs/SIGNALS_REFERENCE.md`

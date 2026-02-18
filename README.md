@@ -1,20 +1,21 @@
 # EDMCVKBConnector
 
-EDMC plugin that converts Elite Dangerous state into VKB-Link `VKBShiftBitmap` actions using catalog-driven rules.
+EDMC plugin that turns Elite Dangerous state into VKB-Link `VKBShiftBitmap` actions using rule-based automation.
 
-## Install
+## Quick Start
+
+### 1. Install
 1. Close EDMC.
 2. Download the latest plugin release ZIP.
 3. Extract the `EDMCVKBConnector` folder into your EDMC `plugins` directory.
-4. Start EDMC and open `File -> Settings -> Plugins`.
+4. Start EDMC.
 
-## Required Configuration
-In the **VKB Connector** plugin settings:
-- Set `Host` and `Port` to match VKB-Link TCP settings.
-- Create or edit automation rules in the built-in **Rules** section.
-- If needed, set a custom `rules_path` (otherwise `<plugin_dir>/rules.json` is used).
+### 2. Connect to VKB-Link
+1. Open `File -> Settings -> Plugins`.
+2. Select **VKB Connector**.
+3. Set `Host` and `Port` to match your VKB-Link TCP settings.
 
-VKB-Link TCP settings must match the plugin target:
+Example VKB-Link config:
 
 ```ini
 [TCP]
@@ -22,13 +23,20 @@ Adress=127.0.0.1
 Port=50995
 ```
 
-## Rule Setup
-- Open `File -> Settings -> Plugins -> VKB Connector`.
-- Use **New Rule** / **Edit** to manage rule logic.
-- Rules are edge-triggered (`then` on false->true, `else` on true->false).
+### 3. Add Your First Rule
+1. In **VKB Connector**, open the **Rules** section.
+2. Click **New Rule**.
+3. Add a condition and `then` action.
+4. Save and verify the rule is enabled.
 
-Rule authoring guide: `docs/RULES_GUIDE.md`  
-Signal reference: `docs/SIGNALS_REFERENCE.md`
+Rules are edge-triggered:
+- `then` runs when condition changes from false to true.
+- `else` runs when condition changes from true to false.
 
-## Development Docs
-Developer workflows are documented in `docs/DEVELOPMENT.md`.
+## Documentation
+
+- `docs/RULE_EDITOR_TUTORIAL.md`: full step-by-step tutorial for the built-in rule editor.
+- `docs/RULES_GUIDE.md`: rule format reference (conditions, operators, actions, validation).
+- `docs/SIGNALS_REFERENCE.md`: complete signal catalog with source and trigger mapping.
+- `docs/EDMC_EVENTS_CATALOG.md`: raw EDMC/Journal event reference and status flags.
+- `docs/DEVELOPMENT.md`: contributor workflow, runtime architecture, and test commands.

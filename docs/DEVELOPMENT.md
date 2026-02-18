@@ -53,7 +53,8 @@ python -m pytest
 - `scripts/dev_paths.py`: shared path resolution for dev scripts.
 
 ## Documentation Set
-- `README.md`: install and required config.
-- `docs/RULES_GUIDE.md`: how to create/edit rules.
+- `README.md`: quick start and documentation map.
+- `docs/RULE_EDITOR_TUTORIAL.md`: detailed rule editor walkthrough.
+- `docs/RULES_GUIDE.md`: rule model and syntax reference.
 - `docs/SIGNALS_REFERENCE.md`: complete signal catalog reference (sources/triggers/samples).
 - `docs/EDMC_EVENTS_CATALOG.md`: raw event catalog used for validation and reference.
