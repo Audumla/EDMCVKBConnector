@@ -2,8 +2,6 @@
 Event handler for forwarding Elite Dangerous events to VKB hardware.
 """
 
-import json
-import logging
 import re
 import socket
 import threading

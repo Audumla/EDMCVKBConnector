@@ -978,5 +978,36 @@
       "plugin_stop now calls shutdown clear-state send before disconnecting VKB client.",
       "Added shutdown and event-handler tests to verify clear-state send occurs on plugin exit and skips recovery side effects."
     ]
+  },
+  {
+    "id": "CHG-068",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Simplify README and add dedicated VKB-Link setup guide with managed/manual workflows",
+    "details": [
+      "Reworked README quick start to stay concise and emphasize plugin-managed VKB-Link for users not already running it.",
+      "Added docs/VKB_LINK_SETUP.md covering VKBDevCfg master-device setup, VKB-Link TCP setup, and both Auto-manage and manual operation paths.",
+      "Updated documentation cross-links in docs/DEVELOPMENT.md and docs/RULE_EDITOR_TUTORIAL.md to reflect Auto-manage and the new setup guide."
+    ]
+  },
+  {
+    "id": "CHG-069",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Code Refactoring",
+      "Performance Improvement"
+    ],
+    "summary": "High-level code cleanup: removed redundant imports and constants",
+    "details": [
+      "Removed duplicate VKB_LINK_VERSION_RE regex (MEGA_VKB_LINK_RE was identical)",
+      "Removed unused struct import from vkb_link_manager.py",
+      "Removed redundant sys.platform check in _find_running_processes_windows",
+      "Removed unused json and logging imports from event_handler.py",
+      "Replaced json.loads(json.dumps()) deep copy antipattern with copy.deepcopy() in prefs_panel.py"
+    ]
   }
 ]

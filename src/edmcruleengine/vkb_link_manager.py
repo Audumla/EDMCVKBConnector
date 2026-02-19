@@ -8,7 +8,6 @@ import base64
 import json
 import re
 import shutil
-import struct
 import subprocess
 import sys
 import tempfile
@@ -31,7 +30,6 @@ VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNOREC
 MEGA_API_URL = "https://g.api.mega.co.nz/cs"
 MEGA_FOLDER_NODE = "980CgDDL"
 MEGA_FOLDER_KEY_B64 = "AuSb0tItSbEQCmIIcA8U7w"
-MEGA_VKB_LINK_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 MEGA_API_HEADERS = {
     "User-Agent": "Mozilla/5.0",
     "Content-Type": "application/json",
@@ -264,7 +262,7 @@ def _mega_list_folder(folder_node: str, folder_key: bytes) -> list[VKBLinkReleas
         name = _mega_decrypt_attr(enc_a, attr_key)
         if not name:
             continue
-        m = MEGA_VKB_LINK_RE.search(name)
+        m = VKB_LINK_VERSION_RE.search(name)
         if not m:
             continue
         version = m.group(1)
@@ -1075,81 +1073,80 @@ class VKBLinkManager:
             seen.add(key)
             results.append(VKBLinkProcessInfo(pid=pid, exe_path=normalized_path))
 
-        if sys.platform == "win32":
-            operation_timeout = self._cfg_float(
-                "vkb_link_operation_timeout_seconds",
-                10.0,
-                minimum=1.0,
-            )
-            # Attempt PowerShell first for PID+Path
+        operation_timeout = self._cfg_float(
+            "vkb_link_operation_timeout_seconds",
+            10.0,
+            minimum=1.0,
+        )
+        # Attempt PowerShell first for PID+Path
+        try:
+            cmd = [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-Process -Name 'VKB-Link' -ErrorAction SilentlyContinue | "
+                "Select-Object Id,Path | ConvertTo-Json -Compress",
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
+            output = result.stdout.strip()
+            if output:
+                data = json.loads(output)
+                if isinstance(data, dict):
+                    data = [data]
+                if isinstance(data, list):
+                    for entry in data:
+                        pid = entry.get("Id")
+                        path = entry.get("Path")
+                        parsed_pid = int(pid) if pid else None
+                        _append_result(parsed_pid, path)
+        except Exception:
+            pass
+
+        # Fallback to WMIC only when PowerShell didn't yield actionable PIDs.
+        if not any(entry.pid is not None for entry in results):
             try:
                 cmd = [
-                    "powershell",
-                    "-NoProfile",
-                    "-Command",
-                    "Get-Process -Name 'VKB-Link' -ErrorAction SilentlyContinue | "
-                    "Select-Object Id,Path | ConvertTo-Json -Compress",
+                    "wmic",
+                    "process",
+                    "where",
+                    "name='VKB-Link.exe'",
+                    "get",
+                    "ExecutablePath,ProcessId",
+                    "/FORMAT:LIST",
                 ]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
-                output = result.stdout.strip()
-                if output:
-                    data = json.loads(output)
-                    if isinstance(data, dict):
-                        data = [data]
-                    if isinstance(data, list):
-                        for entry in data:
-                            pid = entry.get("Id")
-                            path = entry.get("Path")
-                            parsed_pid = int(pid) if pid else None
-                            _append_result(parsed_pid, path)
+                if result.stdout:
+                    blocks = re.split(r"(?:\r?\n){2,}", result.stdout)
+                    for block in blocks:
+                        if not block.strip():
+                            continue
+                        path: Optional[str] = None
+                        pid: Optional[str] = None
+                        for raw_line in block.splitlines():
+                            line = raw_line.strip().strip("\r")
+                            if not line:
+                                continue
+                            if line.lower().startswith("executablepath="):
+                                path = line.split("=", 1)[1].strip() or None
+                            elif line.lower().startswith("processid="):
+                                pid = line.split("=", 1)[1].strip() or None
+                        if pid:
+                            _append_result(int(pid), path)
+                        elif path and not results:
+                            # Keep a path-only entry only as a last resort.
+                            _append_result(None, path)
             except Exception:
                 pass
 
-            # Fallback to WMIC only when PowerShell didn't yield actionable PIDs.
-            if not any(entry.pid is not None for entry in results):
-                try:
-                    cmd = [
-                        "wmic",
-                        "process",
-                        "where",
-                        "name='VKB-Link.exe'",
-                        "get",
-                        "ExecutablePath,ProcessId",
-                        "/FORMAT:LIST",
-                    ]
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
-                    if result.stdout:
-                        blocks = re.split(r"(?:\r?\n){2,}", result.stdout)
-                        for block in blocks:
-                            if not block.strip():
-                                continue
-                            path: Optional[str] = None
-                            pid: Optional[str] = None
-                            for raw_line in block.splitlines():
-                                line = raw_line.strip().strip("\r")
-                                if not line:
-                                    continue
-                                if line.lower().startswith("executablepath="):
-                                    path = line.split("=", 1)[1].strip() or None
-                                elif line.lower().startswith("processid="):
-                                    pid = line.split("=", 1)[1].strip() or None
-                            if pid:
-                                _append_result(int(pid), path)
-                            elif path and not results:
-                                # Keep a path-only entry only as a last resort.
-                                _append_result(None, path)
-                except Exception:
-                    pass
-
-            # Fallback to tasklist to detect running process
-            if not results:
-                try:
-                    cmd = ["tasklist", "/FI", "IMAGENAME eq VKB-Link.exe", "/FO", "CSV"]
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
-                    if "VKB-Link.exe" in (result.stdout or ""):
-                        _append_result(None, None)
-                except Exception:
-                    pass
+        # Fallback to tasklist to detect running process
+        if not results:
+            try:
+                cmd = ["tasklist", "/FI", "IMAGENAME eq VKB-Link.exe", "/FO", "CSV"]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
+                if "VKB-Link.exe" in (result.stdout or ""):
+                    _append_result(None, None)
+            except Exception:
+                pass
 
         # Normalize partial duplicates: when we have PID-based entries, prefer only those.
         pid_results = [entry for entry in results if entry.pid is not None]

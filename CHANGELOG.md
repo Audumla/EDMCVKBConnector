@@ -20,6 +20,8 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Tags | Summary |
 |----|------|------|---------|
+| CHG-069 | 2026-02-20 | Code Refactoring, Performance Improvement | High-level code cleanup: removed redundant imports and constants |
+| CHG-068 | 2026-02-20 | Documentation Update | Simplify README and add dedicated VKB-Link setup guide with managed/manual workflows |
 | CHG-067 | 2026-02-20 | Bug Fix, Test Update | Send zero VKB shift state before plugin disconnect/shutdown |
 | CHG-066 | 2026-02-20 | Bug Fix, Configuration Cleanup, Test Update | Disable pre-connect listener probing by default to avoid VKB-Link UI stalls |
 | CHG-065 | 2026-02-20 | Bug Fix, Test Update | Do not stop pre-existing VKB-Link processes on plugin shutdown |
@@ -98,6 +100,30 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-069 — 2026-02-20 · unreleased
+
+**Tags:** Code Refactoring, Performance Improvement
+
+**Summary:** High-level code cleanup: removed redundant imports and constants
+
+**Changes:**
+- Removed duplicate VKB_LINK_VERSION_RE regex (MEGA_VKB_LINK_RE was identical)
+- Removed unused struct import from vkb_link_manager.py
+- Removed redundant sys.platform check in _find_running_processes_windows
+- Removed unused json and logging imports from event_handler.py
+- Replaced json.loads(json.dumps()) deep copy antipattern with copy.deepcopy() in prefs_panel.py
+
+### CHG-068 — 2026-02-20 · unreleased
+
+**Tags:** Documentation Update
+
+**Summary:** Simplify README and add dedicated VKB-Link setup guide with managed/manual workflows
+
+**Changes:**
+- Reworked README quick start to stay concise and emphasize plugin-managed VKB-Link for users not already running it.
+- Added docs/VKB_LINK_SETUP.md covering VKBDevCfg master-device setup, VKB-Link TCP setup, and both Auto-manage and manual operation paths.
+- Updated documentation cross-links in docs/DEVELOPMENT.md and docs/RULE_EDITOR_TUTORIAL.md to reflect Auto-manage and the new setup guide.
 
 ### CHG-067 — 2026-02-20 · unreleased
 

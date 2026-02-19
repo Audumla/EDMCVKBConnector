@@ -4,7 +4,7 @@ Preferences panel construction for the EDMC VKB Connector plugin.
 
 from __future__ import annotations
 
-import json
+import copy
 import sys
 import threading
 import time
@@ -916,7 +916,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         if index < 0 or index >= len(rules_cache):
             return
         original = rules_cache[index]
-        duplicate = json.loads(json.dumps(original))
+        duplicate = copy.deepcopy(original)
         title = duplicate.get("title", "Rule")
         duplicate["title"] = f"{title} (copy)"
         duplicate.pop("id", None)
