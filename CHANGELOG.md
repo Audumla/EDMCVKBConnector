@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.4.0...v0.5.0) (2026-02-19)
+
+
+### Features
+
+* Repaired deployment scripts ([1e4b58f](https://github.com/Audumla/EDMCVKBConnector/commit/1e4b58fdbbfc072109f1f26e910c5607ce1ba54f))
+
 ## [0.4.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.3.0...v0.4.0) (2026-02-19)
 
 
