@@ -385,6 +385,17 @@ class EventHandler:
         """Disconnect from VKB hardware."""
         self.vkb_client.disconnect()
 
+    def clear_shift_state_for_shutdown(self) -> bool:
+        """Send a zero shift/subshift state before shutdown without recovery side effects."""
+        self._shift_bitmap = 0
+        self._subshift_bitmap = 0
+        sent = self._send_shift_state_if_changed(force=True, allow_recovery=False)
+        if sent:
+            logger.info("VKB-Link shutdown clear state sent")
+        else:
+            logger.warning("VKB-Link shutdown clear state send failed")
+        return sent
+
     def handle_event(
         self,
         event_type: str,
@@ -551,7 +562,7 @@ class EventHandler:
             return bitmap | mask
         return bitmap & ~mask
 
-    def _send_shift_state_if_changed(self, *, force: bool = False) -> bool:
+    def _send_shift_state_if_changed(self, *, force: bool = False, allow_recovery: bool = True) -> bool:
         payload = {
             "shift": self._shift_bitmap & 0x03,      # Shift1/Shift2 only (bits 0-1)
             "subshift": self._subshift_bitmap & 0x7F,  # 7 subshift codes (bits 0-6)
@@ -559,7 +570,8 @@ class EventHandler:
         if force or payload["shift"] != self._last_sent_shift or payload["subshift"] != self._last_sent_subshift:
             if not self.vkb_client.send_event("VKBShiftBitmap", payload):
                 logger.warning("Failed to send VKB shift/subshift bitmap")
-                self._attempt_vkb_link_recovery(reason="send_failed")
+                if allow_recovery:
+                    self._attempt_vkb_link_recovery(reason="send_failed")
                 return False
             self._last_sent_shift = payload["shift"]
             self._last_sent_subshift = payload["subshift"]

@@ -248,3 +248,35 @@ def test_connect_does_not_probe_listener_by_default(tmp_path, monkeypatch):
     assert handler.connect() is True
     ready_mock.assert_not_called()
     handler.vkb_client.connect.assert_called_once()
+
+
+def test_clear_shift_state_for_shutdown_sends_zero_without_recovery(tmp_path, monkeypatch):
+    handler, _ = _make_handler(tmp_path, monkeypatch)
+    handler._shift_bitmap = 0x03
+    handler._subshift_bitmap = 0x04
+    handler.vkb_client.send_event = Mock(return_value=True)
+    recovery_mock = Mock()
+    monkeypatch.setattr(handler, "_attempt_vkb_link_recovery", recovery_mock)
+
+    assert handler.clear_shift_state_for_shutdown() is True
+    handler.vkb_client.send_event.assert_called_once_with(
+        "VKBShiftBitmap",
+        {"shift": 0, "subshift": 0},
+    )
+    recovery_mock.assert_not_called()
+
+
+def test_clear_shift_state_for_shutdown_send_failure_skips_recovery(tmp_path, monkeypatch):
+    handler, _ = _make_handler(tmp_path, monkeypatch)
+    handler._shift_bitmap = 0x02
+    handler._subshift_bitmap = 0x01
+    handler.vkb_client.send_event = Mock(return_value=False)
+    recovery_mock = Mock()
+    monkeypatch.setattr(handler, "_attempt_vkb_link_recovery", recovery_mock)
+
+    assert handler.clear_shift_state_for_shutdown() is False
+    handler.vkb_client.send_event.assert_called_once_with(
+        "VKBShiftBitmap",
+        {"shift": 0, "subshift": 0},
+    )
+    recovery_mock.assert_not_called()

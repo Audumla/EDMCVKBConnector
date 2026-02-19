@@ -20,6 +20,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Tags | Summary |
 |----|------|------|---------|
+| CHG-067 | 2026-02-20 | Bug Fix, Test Update | Send zero VKB shift state before plugin disconnect/shutdown |
 | CHG-066 | 2026-02-20 | Bug Fix, Configuration Cleanup, Test Update | Disable pre-connect listener probing by default to avoid VKB-Link UI stalls |
 | CHG-065 | 2026-02-20 | Bug Fix, Test Update | Do not stop pre-existing VKB-Link processes on plugin shutdown |
 | CHG-064 | 2026-02-20 | Bug Fix, Test Update | Harden VKB-Link post-start settle handling for connect and recovery flows |
@@ -97,6 +98,17 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-067 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Send zero VKB shift state before plugin disconnect/shutdown
+
+**Changes:**
+- Added EventHandler.clear_shift_state_for_shutdown() to send Shift/Subshift zeros without triggering recovery on send failure.
+- plugin_stop now calls shutdown clear-state send before disconnecting VKB client.
+- Added shutdown and event-handler tests to verify clear-state send occurs on plugin exit and skips recovery side effects.
 
 ### CHG-066 — 2026-02-20 · unreleased
 

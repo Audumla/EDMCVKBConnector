@@ -34,6 +34,7 @@ def test_plugin_stop_does_not_stop_preexisting_vkb_link(monkeypatch):
 
     handler = Mock()
     handler.vkb_link_manager = manager
+    handler.clear_shift_state_for_shutdown = Mock(return_value=True)
 
     monkeypatch.setattr(plugin_load, "_config", DictConfig(vkb_link_auto_manage=True))
     monkeypatch.setattr(plugin_load, "_event_handler", handler)
@@ -42,6 +43,7 @@ def test_plugin_stop_does_not_stop_preexisting_vkb_link(monkeypatch):
 
     plugin_load.plugin_stop()
 
+    handler.clear_shift_state_for_shutdown.assert_called_once()
     handler.disconnect.assert_called_once()
     manager.stop_running.assert_not_called()
 
@@ -53,6 +55,7 @@ def test_plugin_stop_stops_only_when_started_by_plugin(monkeypatch):
 
     handler = Mock()
     handler.vkb_link_manager = manager
+    handler.clear_shift_state_for_shutdown = Mock(return_value=True)
 
     monkeypatch.setattr(plugin_load, "_config", DictConfig(vkb_link_auto_manage=False))
     monkeypatch.setattr(plugin_load, "_event_handler", handler)
@@ -61,5 +64,6 @@ def test_plugin_stop_stops_only_when_started_by_plugin(monkeypatch):
 
     plugin_load.plugin_stop()
 
+    handler.clear_shift_state_for_shutdown.assert_called_once()
     handler.disconnect.assert_called_once()
     manager.stop_running.assert_called_once_with(reason="plugin_shutdown")

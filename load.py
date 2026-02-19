@@ -379,6 +379,10 @@ def plugin_stop() -> None:
         if _event_recorder and _event_recorder.is_recording:
             _event_recorder.stop()
         if _event_handler:
+            try:
+                _event_handler.clear_shift_state_for_shutdown()
+            except Exception as e:
+                logger.warning(f"Shutdown: failed to send VKB-Link clear state: {e}")
             _event_handler.disconnect()
             manager = getattr(_event_handler, "vkb_link_manager", None)
             if manager:

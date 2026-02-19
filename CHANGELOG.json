@@ -963,5 +963,20 @@
       "EventHandler now probes listener readiness only when that config flag is enabled; normal connect/recovery uses warmup-delay then direct connect.",
       "Updated event-handler tests to validate no probe by default and probe behavior when explicitly enabled."
     ]
+  },
+  {
+    "id": "CHG-067",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Send zero VKB shift state before plugin disconnect/shutdown",
+    "details": [
+      "Added EventHandler.clear_shift_state_for_shutdown() to send Shift/Subshift zeros without triggering recovery on send failure.",
+      "plugin_stop now calls shutdown clear-state send before disconnecting VKB client.",
+      "Added shutdown and event-handler tests to verify clear-state send occurs on plugin exit and skips recovery side effects."
+    ]
   }
 ]
