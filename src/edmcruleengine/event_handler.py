@@ -5,6 +5,7 @@ Event handler for forwarding Elite Dangerous events to VKB hardware.
 import json
 import logging
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -16,6 +17,7 @@ from .rules_engine import RuleEngine, MatchResult
 from .signals_catalog import SignalsCatalog, CatalogError
 from .unregistered_events_tracker import UnregisteredEventsTracker
 from .vkb_client import VKBClient
+from .vkb_link_manager import VKBLinkManager
 
 logger = plugin_logger(__name__)
 
@@ -92,6 +94,10 @@ class EventHandler:
             catalog=self.catalog
         )
         self._track_unregistered_events: bool = False
+        self.vkb_link_manager = VKBLinkManager(config, self.plugin_dir)
+        self._vkb_link_recovery_lock = threading.Lock()
+        self._vkb_link_recovery_inflight = False
+        self._last_vkb_link_recovery = 0.0
 
     @property
     def track_unregistered_events(self) -> bool:
@@ -190,12 +196,14 @@ class EventHandler:
         Returns:
             True if initial connection successful, False otherwise.
         """
-        if self.enabled:
-            success = self.vkb_client.connect()
-            # Start reconnection attempts regardless of initial success
-            self.vkb_client.start_reconnection()
-            return success
-        return False
+        if not self.enabled:
+            return False
+        success = self.vkb_client.connect()
+        # Start reconnection attempts regardless of initial success
+        self.vkb_client.start_reconnection()
+        if not success:
+            self._attempt_vkb_link_recovery(reason="connect_failed")
+        return success
 
     def _refresh_vkb_endpoint(self) -> None:
         """
@@ -388,6 +396,7 @@ class EventHandler:
         if force or payload["shift"] != self._last_sent_shift or payload["subshift"] != self._last_sent_subshift:
             if not self.vkb_client.send_event("VKBShiftBitmap", payload):
                 logger.warning("Failed to send VKB shift/subshift bitmap")
+                self._attempt_vkb_link_recovery(reason="send_failed")
                 return
             self._last_sent_shift = payload["shift"]
             self._last_sent_subshift = payload["subshift"]
@@ -445,3 +454,36 @@ class EventHandler:
             Number of events cleared
         """
         return self.unregistered_events_tracker.clear_all_events()
+
+    def _attempt_vkb_link_recovery(self, *, reason: str) -> None:
+        """Attempt to recover VKB-Link process/INI when connection fails."""
+        if not self.config or not self.vkb_link_manager:
+            return
+        if not bool(self.config.get("vkb_link_auto_manage", True)):
+            return
+
+        cooldown = int(self.config.get("vkb_link_recovery_cooldown", 60) or 60)
+        now = time.time()
+        if now - self._last_vkb_link_recovery < cooldown:
+            return
+
+        with self._vkb_link_recovery_lock:
+            if self._vkb_link_recovery_inflight:
+                return
+            self._vkb_link_recovery_inflight = True
+            self._last_vkb_link_recovery = now
+
+        host = self.config.get("vkb_host", "127.0.0.1")
+        port = self.config.get("vkb_port", 50995)
+
+        def _worker() -> None:
+            try:
+                result = self.vkb_link_manager.ensure_running(host=host, port=port, reason=reason)
+                logger.info(f"VKB-Link recovery result: {result.message}")
+            except Exception as e:
+                logger.error(f"VKB-Link recovery error: {e}")
+            finally:
+                with self._vkb_link_recovery_lock:
+                    self._vkb_link_recovery_inflight = False
+
+        threading.Thread(target=_worker, daemon=True).start()

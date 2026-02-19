@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "id": "CHG-001",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "agent": "claude",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Release notes now show only one-line summaries, not detail bullets",
+    "details": [
+      "Changed group_by_tag() to use entry 'summary' field instead of 'details' list",
+      "Keeps the tag-grouped sections and summary table; removes verbose bullet points"
+    ]
+  },
+  {
+    "id": "CHG-002",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "agent": "codex",
+    "summary_tags": [
+      "New Feature",
+      "UI Improvement"
+    ],
+    "summary": "Added VKB-Link auto-management with download/update and UI controls",
+    "details": [
+      "Added VKB-Link manager for process detection, INI sync, and download/update flows",
+      "Hooked recovery into connection failures with configurable auto-manage and cooldown",
+      "Extended preferences UI with VKB-Link management, update, locate, and relocate controls"
+    ]
+  }
+]

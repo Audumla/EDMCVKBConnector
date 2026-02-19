@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
@@ -246,6 +247,174 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     # Initially hidden; shown when disconnected
     ini_btn_visible = [False]
 
+    vkb_app_status_var = tk.StringVar(value="VKB-Link app: unknown")
+    vkb_app_status_label = tk.Label(
+        vkb_link_frame,
+        textvariable=vkb_app_status_var,
+        foreground="gray",
+        font=("TkDefaultFont", 8),
+    )
+    vkb_app_status_label.grid(row=2, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(2, 0))
+
+    vkb_app_buttons = ttk.Frame(vkb_link_frame)
+    vkb_app_buttons.grid(row=3, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(4, 2))
+
+    def _get_vkb_manager():
+        if _event_handler and hasattr(_event_handler, "vkb_link_manager"):
+            return _event_handler.vkb_link_manager
+        return None
+
+    def _refresh_vkb_app_status(check_running: bool = False) -> None:
+        manager = _get_vkb_manager()
+        if not manager:
+            vkb_app_status_var.set("VKB-Link app: manager unavailable")
+            return
+        status = manager.get_status(check_running=check_running)
+        parts = []
+        if status.exe_path:
+            parts.append(Path(status.exe_path).name)
+        else:
+            parts.append("Not configured")
+        if status.version:
+            parts.append(f"v{status.version}")
+        if status.running is True:
+            parts.append("running")
+        elif status.running is False:
+            parts.append("stopped")
+        vkb_app_status_var.set("VKB-Link app: " + " / ".join(parts))
+
+    def _parse_port_value() -> int:
+        try:
+            return int(port_var.get())
+        except Exception:
+            return 50995
+
+    def _run_manager_action(action_fn, busy_text: str) -> None:
+        manager = _get_vkb_manager()
+        if not manager:
+            vkb_app_status_var.set("VKB-Link app: manager unavailable")
+            return
+        vkb_app_status_var.set(busy_text)
+
+        def _worker():
+            try:
+                result = action_fn(manager)
+            except Exception as e:
+                result = None
+                logger.error(f"VKB-Link action failed: {e}")
+
+            def _apply_result():
+                if result is None:
+                    vkb_app_status_var.set("VKB-Link action failed")
+                else:
+                    vkb_app_status_var.set(result.message)
+                _refresh_vkb_app_status(check_running=True)
+
+            frame.after(0, _apply_result)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _manage_vkb_link() -> None:
+        host = host_var.get().strip() or "127.0.0.1"
+        port_value = _parse_port_value()
+        _run_manager_action(
+            lambda mgr: mgr.ensure_running(host=host, port=port_value, reason="manual"),
+            "Managing VKB-Link...",
+        )
+
+    def _check_updates() -> None:
+        host = host_var.get().strip() or "127.0.0.1"
+        port_value = _parse_port_value()
+        _run_manager_action(
+            lambda mgr: mgr.update_to_latest(host=host, port=port_value),
+            "Checking for updates...",
+        )
+
+    def _locate_vkb_link() -> None:
+        from tkinter import filedialog
+
+        exe_path = filedialog.askopenfilename(
+            title="Select VKB-Link executable",
+            filetypes=[("VKB-Link", "*.exe"), ("All files", "*.*")],
+        )
+        if not exe_path:
+            return
+
+        manager = _get_vkb_manager()
+        if not manager:
+            vkb_app_status_var.set("VKB-Link app: manager unavailable")
+            return
+        result = manager.set_known_exe_path(exe_path)
+        vkb_app_status_var.set(result.message)
+        _refresh_vkb_app_status(check_running=True)
+
+    def _relocate_vkb_link() -> None:
+        from tkinter import filedialog
+
+        destination = filedialog.askdirectory(title="Relocate VKB-Link to folder")
+        if not destination:
+            return
+
+        _run_manager_action(
+            lambda mgr: mgr.relocate_install(Path(destination)),
+            "Relocating VKB-Link...",
+        )
+
+    create_colored_button(
+        vkb_app_buttons,
+        text="Manage",
+        command=_manage_vkb_link,
+        style="info",
+        padx=8,
+        pady=4,
+        font=("TkDefaultFont", 8, "bold"),
+    ).pack(side=tk.LEFT, padx=(0, 6))
+
+    create_colored_button(
+        vkb_app_buttons,
+        text="Check Updates",
+        command=_check_updates,
+        style="info",
+        padx=8,
+        pady=4,
+        font=("TkDefaultFont", 8),
+    ).pack(side=tk.LEFT, padx=(0, 6))
+
+    create_colored_button(
+        vkb_app_buttons,
+        text="Locate...",
+        command=_locate_vkb_link,
+        style="default",
+        padx=8,
+        pady=4,
+        font=("TkDefaultFont", 8),
+    ).pack(side=tk.LEFT, padx=(0, 6))
+
+    create_colored_button(
+        vkb_app_buttons,
+        text="Relocate...",
+        command=_relocate_vkb_link,
+        style="default",
+        padx=8,
+        pady=4,
+        font=("TkDefaultFont", 8),
+    ).pack(side=tk.LEFT, padx=(0, 6))
+
+    auto_manage_var = tk.BooleanVar(
+        value=bool(_config.get("vkb_link_auto_manage", True)) if _config else True
+    )
+
+    def _on_auto_manage_changed(*_args):
+        if _config:
+            _config.set("vkb_link_auto_manage", auto_manage_var.get())
+
+    auto_manage_var.trace_add("write", _on_auto_manage_changed)
+    ttk.Checkbutton(
+        vkb_link_frame,
+        text="Auto-manage VKB-Link (download/update if needed)",
+        variable=auto_manage_var,
+    ).grid(row=4, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(2, 0))
+
     def _poll_vkb_status():
         """Poll VKB-Link connection status and update UI."""
         if not frame.winfo_exists():
@@ -269,7 +438,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             if not ini_btn_visible[0]:
                 ini_btn.grid(row=1, column=2, columnspan=2, sticky="e", padx=(4, 4), pady=(2, 0))
                 ini_btn_visible[0] = True
-
+        _refresh_vkb_app_status(check_running=False)
         frame.after(2000, _poll_vkb_status)
 
     # Start polling

@@ -20,6 +20,8 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-002 | 2026-02-19 | codex | New Feature, UI Improvement | Added VKB-Link auto-management with download/update and UI controls |
+| CHG-001 | 2026-02-19 | claude | Documentation Update | Release notes now show only one-line summaries, not detail bullets |
 | CHG-007 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Added log_change.py script so agents run one command to record changes instead of editing files manually |
 | CHG-006 | 2026-02-19 | copilot | Build / Packaging | Added `CHANGELOG.archive.json` to keep `CHANGELOG.json` small for agent reads |
 | CHG-005 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Adopted `unreleased` version sentinel so changelog entries always track the next release, not the last |
@@ -31,6 +33,27 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-002 — 2026-02-19 · codex · unreleased
+
+**Tags:** New Feature, UI Improvement
+
+**Summary:** Added VKB-Link auto-management with download/update and UI controls
+
+**Changes:**
+- Added VKB-Link manager for process detection, INI sync, and download/update flows
+- Hooked recovery into connection failures with configurable auto-manage and cooldown
+- Extended preferences UI with VKB-Link management, update, locate, and relocate controls
+
+### CHG-001 — 2026-02-19 · claude · unreleased
+
+**Tags:** Documentation Update
+
+**Summary:** Release notes now show only one-line summaries, not detail bullets
+
+**Changes:**
+- Changed group_by_tag() to use entry 'summary' field instead of 'details' list
+- Keeps the tag-grouped sections and summary table; removes verbose bullet points
 
 ### CHG-007 — 2026-02-19 · copilot · unreleased
 

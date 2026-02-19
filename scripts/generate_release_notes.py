@@ -133,13 +133,14 @@ def filter_entries(
 
 
 def group_by_tag(entries: list[dict]) -> dict[str, list[str]]:
-    """File each entry's detail bullets under its primary summary tag only."""
+    """File each entry's summary under its primary summary tag only."""
     buckets: dict[str, list[str]] = {}
     for entry in entries:
         tags = entry.get("summary_tags", ["Other"])
         primary_tag = tags[0] if tags else "Other"
-        details = entry.get("details", [entry.get("summary", "")])
-        buckets.setdefault(primary_tag, []).extend(details)
+        summary = entry.get("summary", "")
+        if summary:
+            buckets.setdefault(primary_tag, []).append(summary)
     return buckets
 
 
