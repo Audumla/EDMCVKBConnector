@@ -343,6 +343,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
                 if _event_handler:
                     # Apply post-start delay if VKB-Link was started or restarted (no countdown)
                     _event_handler._apply_post_start_delay(vkb_start_action[0], countdown=False)
+                    _event_handler._wait_for_vkb_listener_ready(vkb_host, vkb_port)
                 if _event_handler:
                     _event_handler.set_connection_status_override("Connecting to VKB-Link...")
                 if _event_handler.connect():

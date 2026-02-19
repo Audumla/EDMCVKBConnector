@@ -20,6 +20,41 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Tags | Summary |
 |----|------|------|---------|
+| CHG-063 | 2026-02-20 | Bug Fix, Test Update | Suppressed send-failed VKB recovery before first successful connection to prevent startup restart loops |
+| CHG-062 | 2026-02-20 | Bug Fix, Test Update | Fixed Windows VKB process discovery normalization to stop false duplicate-instance restarts |
+| CHG-061 | 2026-02-20 | Bug Fix, Test Update | Prevented duplicate VKB-Link launches by serializing lifecycle operations and closing safety-start race |
+| CHG-060 | 2026-02-20 | Bug Fix, Test Update | Added VKB-Link TCP listener readiness wait before reconnect attempts after start/restart |
+| CHG-059 | 2026-02-20 | Bug Fix, Test Update | Enforced VKB-Link single-instance behavior by stopping all detected duplicates before restart/stop/update actions |
+| CHG-058 | 2026-02-20 | Bug Fix, Configuration Cleanup | Harden VKB-Link restart shutdown timing so low operation timeout does not cause premature force-kill |
+| CHG-057 | 2026-02-20 | New Feature, Bug Fix, Test Update | Added configurable VKB-Link launch mode and restored legacy startup behavior by default |
+| CHG-056 | 2026-02-19 | Bug Fix, Test Update | Config helper lookups now honor config_defaults values instead of hardcoded fallback literals |
+| CHG-055 | 2026-02-19 | Bug Fix, Configuration Cleanup | Start VKB-Link as a detached child process while preserving clean stop behavior |
+| CHG-054 | 2026-02-19 | Configuration Cleanup, Test Update | Consolidated VKB-Link and UI timer settings into a smaller shared set |
+| CHG-053 | 2026-02-19 | Test Update | Validated Codex delegation script updates with a live test_scripts run |
+| CHG-052 | 2026-02-19 | Configuration Cleanup, Test Update, Build / Packaging | Externalized VKB-Link timing defaults to config_defaults and wired runtime modules to config-driven values |
+| CHG-051 | 2026-02-19 | Code Refactoring | Fixed pricing and cost calculation approach: no duplication, minimal tokens |
+| CHG-050 | 2026-02-19 | Bug Fix | Fixed script issues: --refresh persistence and duplicate pricing table |
+| CHG-049 | 2026-02-19 | Test Update | Extend live VKB-Link test to execute real UI endpoint-change flow |
+| CHG-048 | 2026-02-19 | New Feature, Documentation Update | Added formatted /codex-results reporting with Codex token and estimated-cost visibility |
+| CHG-047 | 2026-02-19 | Test Update, Code Refactoring | Add thorough VKB-Link control tests for UI endpoint-change flow and live stop/start cycle |
+| CHG-046 | 2026-02-19 | Bug Fix, Test Update | Use graceful VKB-Link shutdown with forced fallback and wait for INI creation after shutdown |
+| CHG-045 | 2026-02-19 | Test Update, Code Refactoring | Move INI patch assertions to pure text tests so tests do not write INI files directly |
+| CHG-044 | 2026-02-19 | Bug Fix, Test Update | Update VKB-Link INI in place without overwriting unrelated settings |
+| CHG-043 | 2026-02-19 | Performance Improvement, Documentation Update | Optimized Codex delegation token estimates and event parsing |
+| CHG-042 | 2026-02-19 | Bug Fix, Test Update | Bootstrap VKB-Link once after fresh install before applying managed INI settings |
+| CHG-041 | 2026-02-19 | Documentation Update | Comprehensive code review completed identifying critical security and correctness issues |
+| CHG-040 | 2026-02-19 | Test Update | Live VKB-Link test now uses a repo-local runtime directory under test/ |
+| CHG-039 | 2026-02-19 | Test Update | Made VKB-Link live integration test run by default on Windows |
+| CHG-038 | 2026-02-19 | Documentation Update | Added /codex label convention to CLAUDE.md for delegating tasks to Codex via claude_run_plan.py |
+| CHG-037 | 2026-02-19 | New Feature | Added claude_run_plan.py wrapper that appends claude_report.json to Codex run directories |
+| CHG-036 | 2026-02-19 | Bug Fix, Test Update | Removed OneDrive/homepage fallback and made VKB-Link release discovery MEGA-only with explicit live-test artifact cleanup |
+| CHG-035 | 2026-02-19 | New Feature | Verified run_codex_plan.py live end-to-end with VSCode-bundled codex binary |
+| CHG-034 | 2026-02-19 | Bug Fix, Test Update | Force first-run INI targeting to the downloaded executable directory before VKB-Link start |
+| CHG-033 | 2026-02-19 | Bug Fix, Test Update | Write VKB-Link INI before starting process after install/download flows |
+| CHG-032 | 2026-02-19 | Test Update | Added comprehensive VKB-Link manager tests including an opt-in live production integration path |
+| CHG-031 | 2026-02-19 | Bug Fix, New Feature, Documentation Update | Auto-discover VS Code bundled Codex CLI when codex is missing from PATH |
+| CHG-030 | 2026-02-19 | Documentation Update | Created test plan and dry-ran run_codex_plan.py to verify plan handoff |
+| CHG-029 | 2026-02-19 | New Feature, Documentation Update | Added a Codex plan runner script that writes monitorable run artifacts under agent outputs |
 | CHG-028 | 2026-02-19 | Bug Fix, UI Improvement | Fix countdown logs, wrong endpoint on reconnect, and disconnected vs reconnecting status mismatch |
 | CHG-027 | 2026-02-19 | Bug Fix | Fix VKB-Link restart blocking main thread and status messages never rendering |
 | CHG-026 | 2026-02-19 | Bug Fix, UI Improvement | Add diagnostic logging and safety auto-start for VKB-Link during polling |
@@ -59,6 +94,393 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-063 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Suppressed send-failed VKB recovery before first successful connection to prevent startup restart loops
+
+**Changes:**
+- Added EventHandler connection state flag that is set on first successful socket connection
+- _attempt_vkb_link_recovery now skips send_failed-triggered process recovery until a successful connection has been established
+- Added unit test for suppressed early send_failed recovery and reran event-handler + manager suites
+
+### CHG-062 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Fixed Windows VKB process discovery normalization to stop false duplicate-instance restarts
+
+**Changes:**
+- Changed _find_running_processes_windows to prefer unique PID-based results and only run WMIC fallback when PowerShell yields no actionable PID entries
+- Hardened WMIC parsing against malformed blank-line blocks so path-only/pid-only partial records no longer create phantom duplicate processes
+- Added Windows unit test covering duplicate partial discovery output and verified test_vkb_link_manager.py passes
+
+### CHG-061 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Prevented duplicate VKB-Link launches by serializing lifecycle operations and closing safety-start race
+
+**Changes:**
+- Added a manager lifecycle lock so ensure_running/update_to_latest/stop_running cannot run concurrently and race into duplicate starts
+- Added pre-start recheck paths in ensure_running so if another path starts VKB-Link first, duplicate launch is skipped
+- Moved prefs-panel safety inflight flag assignment before thread start and updated manager tests to fully mock multi-process discovery without touching live processes
+
+### CHG-060 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Added VKB-Link TCP listener readiness wait before reconnect attempts after start/restart
+
+**Changes:**
+- EventHandler now probes host:port readiness (using vkb_link_operation_timeout_seconds and vkb_link_poll_interval_ms) before attempting connect after warmup
+- Wired readiness wait into startup connect flow, endpoint-change restart flow, recovery flow, and polling safety auto-start flow
+- Updated endpoint-change tests to account for listener readiness probe and re-ran event-handler + manager test suites
+
+### CHG-059 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Enforced VKB-Link single-instance behavior by stopping all detected duplicates before restart/stop/update actions
+
+**Changes:**
+- Added multi-process discovery helpers for Windows and POSIX so manager can enumerate all running VKB-Link instances
+- Updated ensure_running/update_to_latest/stop_running to stop all detected processes when needed and then continue with a single controlled start
+- Added regression tests for duplicate-process cleanup in ensure_running and stop_running; test/test_vkb_link_manager.py passes
+
+### CHG-058 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Configuration Cleanup
+
+**Summary:** Harden VKB-Link restart shutdown timing so low operation timeout does not cause premature force-kill
+
+**Changes:**
+- Found restart oddness correlated with vkb_link_operation_timeout_seconds set to 2 in config_defaults
+- Updated _stop_process to use minimum command timeout 10s and minimum graceful exit wait 8s before escalation
+- Validated manager test suite after change
+
+### CHG-057 — 2026-02-20 · unreleased
+
+**Tags:** New Feature, Bug Fix, Test Update
+
+**Summary:** Added configurable VKB-Link launch mode and restored legacy startup behavior by default
+
+**Changes:**
+- Introduced vkb_link_launch_mode config key (legacy|detached), defaulting to legacy so plugin-launched behavior matches prior implementation
+- Detached startup remains available for troubleshooting via config without code edits
+- Updated config helper fallback behavior tests and endpoint-change assertions to follow configured warmup values
+
+### CHG-056 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Config helper lookups now honor config_defaults values instead of hardcoded fallback literals
+
+**Changes:**
+- Updated EventHandler, VKBLinkManager, and prefs panel config helper methods to call config.get(key) first and only apply literal fallback when missing/invalid
+- This fixes warmup/timer overrides from config_defaults.json not taking effect (e.g., vkb_link_warmup_delay_seconds)
+- Updated affected tests to assert configured defaults rather than hardcoded timer literals and re-ran targeted suites
+
+### CHG-055 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Configuration Cleanup
+
+**Summary:** Start VKB-Link as a detached child process while preserving clean stop behavior
+
+**Changes:**
+- Updated VKBLinkManager._start_process to launch VKB-Link with detached process flags and DEVNULL stdio so it runs independently from the plugin host
+- Kept graceful shutdown first and adjusted stop wait window to at least 5 seconds before force termination to improve clean exits
+- Validated with test_vkb_link_manager.py and live start/stop/restart integration test
+
+### CHG-054 — 2026-02-19 · unreleased
+
+**Tags:** Configuration Cleanup, Test Update
+
+**Summary:** Consolidated VKB-Link and UI timer settings into a smaller shared set
+
+**Changes:**
+- Replaced multiple VKB-Link timer keys with warmup/operation-timeout/poll/restart settings and updated event handler and manager call sites
+- Replaced multiple preferences timer keys with UI apply/poll/feedback settings and derived follow-up delay from feedback interval
+- Updated defaults/tests and re-ran unit plus live VKB-Link test suites successfully
+
+### CHG-053 — 2026-02-19 · unreleased
+
+**Tags:** Test Update
+
+**Summary:** Validated Codex delegation script updates with a live test_scripts run
+
+**Changes:**
+- Executed scripts/claude_run_plan.py with agent_artifacts/claude/temp/test_scripts.md and completed successfully
+- Verified status.json cost_estimate matched claude_report.json codex_execution.cost_estimate exactly
+- Confirmed scripts/codex_results.py --refresh rewrites codex_results.md and persists regenerated content
+
+### CHG-052 — 2026-02-19 · unreleased
+
+**Tags:** Configuration Cleanup, Test Update, Build / Packaging
+
+**Summary:** Externalized VKB-Link timing defaults to config_defaults and wired runtime modules to config-driven values
+
+**Changes:**
+- Added src/edmcruleengine/config_defaults.json and updated config.py to load defaults from this file with a matching fallback map
+- Replaced hardcoded VKB-Link and preferences-panel timing constants with config-backed values in event_handler.py, vkb_link_manager.py, and prefs_panel.py
+- Updated packaging include list and expanded config tests; re-ran unit + live VKB-Link tests successfully
+
+### CHG-051 — 2026-02-19 · unreleased
+
+**Tags:** Code Refactoring
+
+**Summary:** Fixed pricing and cost calculation approach: no duplication, minimal tokens
+
+**Changes:**
+- Reverted run_codex_plan.py to keep CODEX_PRICING local (no imports)
+- Modified claude_run_plan.py to read cost_estimate from status.json instead of recalculating
+- Falls back to recalculating only if rate overrides are provided or status.json cost is missing
+- Result: no duplicate pricing tables, no imports between scripts, no token waste on duplicate calculations
+
+### CHG-050 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Fixed script issues: --refresh persistence and duplicate pricing table
+
+**Changes:**
+- Fixed codex_results.py so --refresh flag now persists regenerated content to codex_results.md file
+- Removed duplicate CODEX_PRICING table from run_codex_plan.py; now imports from claude_run_plan.py for single source of truth
+- Updated CLAUDE.md to document --refresh and --write flag behavior
+
+### CHG-049 — 2026-02-19 · unreleased
+
+**Tags:** Test Update
+
+**Summary:** Extend live VKB-Link test to execute real UI endpoint-change flow
+
+**Changes:**
+- Live test now calls EventHandler._apply_endpoint_change with a new port after an explicit stop/start cycle
+- Uses EventHandler with the live VKBClient and manager to validate stop, INI patch, restart, reconnect, and send on the new endpoint
+- Stubs EventHandler catalog/rules loading in that live-only phase to keep focus on VKB-Link control behavior
+
+### CHG-048 — 2026-02-19 · unreleased
+
+**Tags:** New Feature, Documentation Update
+
+**Summary:** Added formatted /codex-results reporting with Codex token and estimated-cost visibility
+
+**Changes:**
+- Enhanced scripts/claude_run_plan.py to estimate Codex execution cost from input/cached/output tokens, include model/rate metadata, and emit codex_results.md alongside claude_report.json
+- Enhanced scripts/run_codex_plan.py status.json with structured token_usage and best-effort cost_estimate fields sourced from turn.completed usage events
+- Added scripts/codex_results.py plus CLAUDE.md and scripts/README.md updates so /codex-results can print a polished summary including final message, token usage, and estimated spend
+
+### CHG-047 — 2026-02-19 · unreleased
+
+**Tags:** Test Update, Code Refactoring
+
+**Summary:** Add thorough VKB-Link control tests for UI endpoint-change flow and live stop/start cycle
+
+**Changes:**
+- Updated EventHandler endpoint-change logic to resolve INI path via _resolve_or_default_ini_path for robust host/port patching
+- Added new test_event_handler_vkb_link unit tests covering stop/start, INI patch, config/client endpoint updates, reconnect behavior, and missing-manager handling
+- Expanded live VKB-Link test to include an explicit mid-cycle stop/start/reconnect/send sequence before update and cleanup
+
+### CHG-046 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Use graceful VKB-Link shutdown with forced fallback and wait for INI creation after shutdown
+
+**Changes:**
+- Bootstrap flow now polls for new/touched VKB INI files for several seconds after stopping VKB-Link to catch delayed file writes
+- Process stop now attempts graceful termination first (taskkill /T or pkill) and only escalates to force kill if still running
+- Updated stop-process test assertions and reran manager + live VKB-Link tests
+
+### CHG-045 — 2026-02-19 · unreleased
+
+**Tags:** Test Update, Code Refactoring
+
+**Summary:** Move INI patch assertions to pure text tests so tests do not write INI files directly
+
+**Changes:**
+- Extracted INI update logic into _patch_ini_text and kept _write_ini as thin file I/O wrapper
+- Replaced direct _write_ini file-based tests with pure _patch_ini_text assertions
+- Reran VKB-Link manager test suite with all tests passing
+
+### CHG-044 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Update VKB-Link INI in place without overwriting unrelated settings
+
+**Changes:**
+- Reworked _write_ini to patch only [TCP] Adress and Port keys while preserving other sections/comments and inline key comments
+- Added fallback behavior to create a minimal [TCP] section when no TCP section exists
+- Added unit coverage asserting unrelated INI content survives endpoint updates and reran VKB-Link manager tests
+
+### CHG-043 — 2026-02-19 · unreleased
+
+**Tags:** Performance Improvement, Documentation Update
+
+**Summary:** Optimized Codex delegation token estimates and event parsing
+
+**Changes:**
+- Reduced default token estimates from 35k/25k to 5k/2k for typical plan files (80-85% cost reduction)
+- Optimized parse_codex_events() to use single-pass event parsing instead of storing all events in memory
+- Updated CLAUDE.md documentation to reflect new token defaults and clarify when to override estimates
+
+### CHG-042 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Bootstrap VKB-Link once after fresh install before applying managed INI settings
+
+**Changes:**
+- ensure_running now performs a bootstrap start/stop cycle after first install when no INI exists, then writes host/port and performs the managed start
+- INI resolution now prefers a persisted INI path when it belongs to the active executable directory to avoid stale cross-install paths
+- Added unit coverage for the bootstrap sequence and reran VKB-Link manager unit + live tests
+
+### CHG-041 — 2026-02-19 · unreleased
+
+**Tags:** Documentation Update
+
+**Summary:** Comprehensive code review completed identifying critical security and correctness issues
+
+**Changes:**
+- Executed static code review via Codex agent covering VKB-Link integration, preferences UI, rules engine, and test suite
+- Identified 2 critical security issues: missing executable signature verification, runtime pip auto-install
+- Identified 5 high-priority correctness issues: duplicate rule IDs not prevented, incomplete process detection, subshift range inconsistency, rule editor crash path, numeric type casting bugs
+- Identified 6 medium-priority issues: stale INI path references, UX inconsistencies, callback accumulation, race condition in safety auto-start, flaky live tests, under-tested recovery paths
+- Review artifacts stored in agent_artifacts/codex/reports/plan_runs/20260219T111945Z_code-review/
+
+### CHG-040 — 2026-02-19 · unreleased
+
+**Tags:** Test Update
+
+**Summary:** Live VKB-Link test now uses a repo-local runtime directory under test/
+
+**Changes:**
+- Updated test_vkb_link_manager_live to create runtime paths under test/_live_runtime instead of system temp
+- Kept per-run isolation with run-<timestamp>-<pid> directories inside test/_live_runtime
+- Verified cleanup removes run artifacts and deletes test/_live_runtime when empty
+
+### CHG-039 — 2026-02-19 · unreleased
+
+**Tags:** Test Update
+
+**Summary:** Made VKB-Link live integration test run by default on Windows
+
+**Changes:**
+- Removed RUN_VKB_LINK_LIVE env-gate from test/test_vkb_link_manager_live.py so the live test is no longer opt-in
+- Removed runtime skip that previously bypassed the test when VKB-Link was already running
+- Executed test/test_vkb_link_manager_live.py directly; it now runs automatically and currently xfails on TCP port refusal after successful download/install/start
+
+### CHG-038 — 2026-02-19 · unreleased
+
+**Tags:** Documentation Update
+
+**Summary:** Added /codex label convention to CLAUDE.md for delegating tasks to Codex via claude_run_plan.py
+
+**Changes:**
+- Added 'Codex Delegation' section defining the /codex prompt label and the exact steps Claude must follow when it appears
+- Steps cover: writing the plan file, calling claude_run_plan.py with token/model args, reporting the outcome, and updating the changelog
+
+### CHG-037 — 2026-02-19 · unreleased
+
+**Tags:** New Feature
+
+**Summary:** Added claude_run_plan.py wrapper that appends claude_report.json to Codex run directories
+
+**Changes:**
+- Created scripts/claude_run_plan.py as Claude's entry point for plan execution: calls run_codex_plan.py, then writes claude_report.json alongside the run artifacts
+- claude_report.json captures Claude model, input/output tokens, cost estimate (with per-model pricing table), Codex event breakdown (commands/reasoning/messages), token usage with cache hit %, duration, and final_message
+- Handles both live and --dry-run modes by matching 'Run directory:' and 'Dry run created:' output prefixes to locate the run directory
+
+### CHG-036 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Removed OneDrive/homepage fallback and made VKB-Link release discovery MEGA-only with explicit live-test artifact cleanup
+
+**Changes:**
+- Updated src/edmcruleengine/vkb_link_manager.py to remove OneDrive/homepage scraping fallback in _fetch_latest_release; MEGA is now the sole release source
+- Removed obsolete OneDrive/fallback tests and replaced them with MEGA-unavailable/MEGA-listing-failure expectations in test/test_vkb_link_manager.py
+- Updated test/test_vkb_link_manager_live.py cleanup to explicitly delete downloaded/expanded install artifacts after each run
+
+### CHG-035 — 2026-02-19 · unreleased
+
+**Tags:** New Feature
+
+**Summary:** Verified run_codex_plan.py live end-to-end with VSCode-bundled codex binary
+
+**Changes:**
+- Script auto-discovered codex.exe via discover_vscode_codex() from openai.chatgpt VSCode extension
+- Live run completed in ~24s with state=succeeded, return_code=0, 12 events
+- Codex correctly listed load.py and PLUGIN_REGISTRY.py without modifying any files
+
+### CHG-034 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Force first-run INI targeting to the downloaded executable directory before VKB-Link start
+
+**Changes:**
+- Changed _resolve_or_default_ini_path() to prioritize INI resolution near the specific executable being started and create a default <exe_dir>/VKBLink.ini path when missing
+- Pre-start/pre-restart INI sync now avoids stale persisted INI paths from prior installs and always targets the active install directory
+- Added test_ensure_running_download_ignores_stale_saved_ini_and_targets_exe_dir and reran targeted/full VKB manager tests
+
+### CHG-033 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Write VKB-Link INI before starting process after install/download flows
+
+**Changes:**
+- Updated src/edmcruleengine/vkb_link_manager.py to resolve/write INI before process start in ensure_running and update_to_latest install paths
+- Added _resolve_or_default_ini_path() to default to <exe_dir>/VKBLink.ini when no INI exists yet and persist vkb_ini_path
+- Expanded test/test_vkb_link_manager.py with ordering assertions and default-INI coverage; reran deterministic and live suites
+
+### CHG-032 — 2026-02-19 · unreleased
+
+**Tags:** Test Update
+
+**Summary:** Added comprehensive VKB-Link manager tests including an opt-in live production integration path
+
+**Changes:**
+- Added test/test_vkb_link_manager.py covering helper parsing, exe/INI discovery, ensure_running paths, update/stop flows, install behavior, and MEGA/fallback release handling
+- Added test/test_vkb_link_manager_live.py for real production-like validation (download/start/connect/update/stop) gated behind RUN_VKB_LINK_LIVE=1
+- Executed both suites; deterministic suite surfaced five behavior mismatches in current implementation while the live suite was attempted and skipped safely due an already-running VKB-Link process
+
+### CHG-031 — 2026-02-19 · unreleased
+
+**Tags:** Bug Fix, New Feature, Documentation Update
+
+**Summary:** Auto-discover VS Code bundled Codex CLI when codex is missing from PATH
+
+**Changes:**
+- Updated scripts/run_codex_plan.py to resolve codex from PATH first, then fall back to .vscode/.vscode-insiders extension bundles (openai.chatgpt-*/bin/windows-x86_64/codex.exe)
+- Added Git Bash/MSYS path normalization so /c/Users/... values for HOME or --codex-bin resolve to valid Windows paths
+- Documented the fallback behavior in scripts/README.md for cross-agent invocation clarity
+
+### CHG-030 — 2026-02-19 · unreleased
+
+**Tags:** Documentation Update
+
+**Summary:** Created test plan and dry-ran run_codex_plan.py to verify plan handoff
+
+**Changes:**
+- Wrote agent_artifacts/claude/temp/test_plan.md as a minimal Codex prompt
+- Executed run_codex_plan.py --dry-run and confirmed metadata.json, status.json, command.txt, plan_input.txt are generated correctly
+- Verified the codex exec command is built with correct sandbox, approval, workspace, and stdin (-) arguments
+
+### CHG-029 — 2026-02-19 · unreleased
+
+**Tags:** New Feature, Documentation Update
+
+**Summary:** Added a Codex plan runner script that writes monitorable run artifacts under agent outputs
+
+**Changes:**
+- Added scripts/run_codex_plan.py to execute codex exec from a plan file and stream logs/events/status into agent_artifacts/codex/reports/plan_runs/<run_id>
+- Implemented heartbeat-updated status.json plus stdout/stderr/event/final-message files for external progress monitoring
+- Documented the new runner in scripts/README.md so other agents can call it consistently
 
 ### CHG-028 — 2026-02-19 · unreleased
 

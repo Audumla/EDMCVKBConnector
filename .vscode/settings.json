@@ -3,10 +3,7 @@
     "python.terminal.activateEnvironment": true,
     "python.testing.pytestPath": "${workspaceFolder}/.venv/Scripts/pytest.exe",
     "python.testing.pytestArgs": [
-        "test",
-        "-v",
-        "-s",
-        "--log-cli-level=DEBUG"
+        "."
     ],
     "python.testing.pytestDiscoverInstance": true,
     "python.testing.unittestEnabled": false,

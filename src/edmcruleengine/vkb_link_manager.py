@@ -5,7 +5,6 @@ VKB-Link lifecycle management (process control, INI sync, download/update).
 from __future__ import annotations
 
 import base64
-import configparser
 import json
 import re
 import shutil
@@ -13,27 +12,21 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
 from . import plugin_logger
 
 logger = plugin_logger(__name__)
 
-VKB_LINK_HOME_URL = "https://www.njoy32.vkb-sim.pro/home"
 VKB_LINK_EXE_NAMES = ("VKB-Link.exe", "VKBLink.exe", "VKB-Link64.exe", "VKBLink64.exe")
 VKB_LINK_INI_NAMES = ("VKBLink.ini", "VKB-Link.ini", "VKBLink64.ini", "VKB-Link64.ini")
-VKB_LINK_ZIP_RE = re.compile(
-    r"https?://[^\"'\\s>]+?VKB[- ]?Link[^\"'\\s>]+?\\.zip",
-    re.IGNORECASE,
-)
-VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\\s*v?(\\d+(?:\\.\\d+)+)", re.IGNORECASE)
-ONEDRIVE_RE = re.compile(r"https?://(?:1drv\\.ms|onedrive\\.live\\.com)[^\"'\\s>]+", re.IGNORECASE)
+VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 
 MEGA_API_URL = "https://g.api.mega.co.nz/cs"
 MEGA_FOLDER_NODE = "980CgDDL"
@@ -77,41 +70,6 @@ class VKBLinkActionResult:
     message: str
     status: Optional[VKBLinkStatus] = None
     action_taken: str = "none"  # "none" | "started" | "restarted" | "stopped"
-
-
-def _fetch_text(url: str, *, timeout: int = 20) -> str:
-    req = Request(url, headers={"User-Agent": "EDMCVKBConnector/1.0"})
-    with urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="replace")
-
-
-def _extract_zip_links(text: str) -> list[str]:
-    return list({m.group(0) for m in VKB_LINK_ZIP_RE.finditer(text or "")})
-
-
-def _extract_onedrive_links(text: str) -> list[str]:
-    return list({m.group(0) for m in ONEDRIVE_RE.finditer(text or "")})
-
-
-def _extract_onedrive_links_for_software(text: str) -> list[str]:
-    if not text:
-        return []
-    lowered = text.lower()
-    software_idx = lowered.find("software")
-    if software_idx == -1:
-        return []
-    firmware_idx = lowered.find("firmware", software_idx + 1)
-    if firmware_idx == -1:
-        firmware_idx = len(text)
-    segment = text[software_idx:firmware_idx]
-    links = _extract_onedrive_links(segment)
-    if links:
-        return links
-    # Fallback: expand the window a bit to catch links near the label.
-    start = max(0, software_idx - 600)
-    end = min(len(text), firmware_idx + 600)
-    segment = text[start:end]
-    return _extract_onedrive_links(segment)
 
 
 def _extract_version(text: str) -> Optional[str]:
@@ -328,6 +286,39 @@ class VKBLinkManager:
         self.config = config
         self.plugin_dir = Path(plugin_dir)
         self.managed_dir = self.plugin_dir / "vkb-link"
+        self._lifecycle_lock = threading.Lock()
+
+    def _cfg_int(self, key: str, default: int, *, minimum: int = 0) -> int:
+        value = default
+        if self.config:
+            value = self.config.get(key)
+            if value is None:
+                value = default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = default
+        if parsed < minimum:
+            return minimum
+        return parsed
+
+    def _cfg_float(self, key: str, default: float, *, minimum: float = 0.0) -> float:
+        value = default
+        if self.config:
+            value = self.config.get(key)
+            if value is None:
+                value = default
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            parsed = default
+        if parsed < minimum:
+            return minimum
+        return parsed
+
+    def _cfg_ms_as_seconds(self, key: str, default_ms: int, *, minimum_ms: int = 1) -> float:
+        value_ms = self._cfg_int(key, default_ms, minimum=minimum_ms)
+        return value_ms / 1000.0
 
     def get_status(self, *, check_running: bool = False) -> VKBLinkStatus:
         exe_path = (self.config.get("vkb_link_exe_path", "") or "").strip() if self.config else ""
@@ -346,6 +337,10 @@ class VKBLinkManager:
         )
 
     def ensure_running(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
+        with self._lifecycle_lock:
+            return self._ensure_running_locked(host=host, port=port, reason=reason)
+
+    def _ensure_running_locked(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
         reason_label = reason or "unspecified"
         logger.info(
             f"VKB-Link ensure_running: reason={reason_label} host={host} port={port}"
@@ -353,6 +348,9 @@ class VKBLinkManager:
         status_before = self.get_status(check_running=True)
         logger.info(f"VKB-Link status before ensure: {_format_status(status_before)}")
         process = self._find_running_process()
+        processes = self._find_running_processes()
+        if not processes and process:
+            processes = [process]
         if process:
             logger.info(
                 "VKB-Link process detected: "
@@ -371,13 +369,46 @@ class VKBLinkManager:
             else:
                 logger.warning("No VKB-Link INI path resolved; skipping INI sync")
             restarted = False
-            if (
+            restart_required = (
                 exe_path
-                and self.config
-                and bool(self.config.get("vkb_link_restart_on_failure", True))
+                and (
+                    len(processes) > 1
+                    or (
+                        self.config
+                        and bool(self.config.get("vkb_link_restart_on_failure", True))
+                    )
+                )
+            )
+            if len(processes) > 1:
+                logger.warning(
+                    f"Detected multiple VKB-Link instances ({len(processes)}); forcing single-instance restart"
+                )
+            if (
+                len(processes) > 1
+                and not exe_path
             ):
-                logger.info("Restart-on-failure enabled; restarting VKB-Link")
-                restarted = self._restart_process(process, exe_path)
+                logger.warning("Cannot enforce single VKB-Link instance: executable path is unknown")
+                return VKBLinkActionResult(
+                    False,
+                    "Multiple VKB-Link instances detected but executable path is unknown",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            if restart_required:
+                if len(processes) > 1:
+                    logger.info("Stopping all detected VKB-Link instances before restart")
+                    stopped_all = self._stop_all_processes(processes)
+                    if stopped_all:
+                        restart_delay = self._cfg_float("vkb_link_restart_delay_seconds", 1.0, minimum=0.0)
+                        if restart_delay:
+                            time.sleep(restart_delay)
+                        restarted = self._start_process(exe_path)
+                    else:
+                        logger.warning("Failed to stop all VKB-Link instances; restart aborted")
+                        restarted = False
+                else:
+                    logger.info("Restart-on-failure enabled; restarting VKB-Link")
+                    restarted = self._restart_process(process, exe_path)
             else:
                 logger.info("Restart-on-failure disabled or exe missing; not restarting")
             message = "VKB-Link running; INI updated"
@@ -389,13 +420,27 @@ class VKBLinkManager:
         exe_path = self._resolve_known_exe_path()
         if exe_path:
             logger.info(f"VKB-Link: starting from known path: {exe_path}")
+            ini_path = self._resolve_or_default_ini_path(exe_path)
+            if ini_path:
+                logger.info(
+                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
+                )
+                self._write_ini(ini_path, host, port)
+            else:
+                logger.warning("No VKB-Link INI path resolved; starting without INI sync")
+            existing = self._find_running_process()
+            if existing:
+                logger.info(
+                    "VKB-Link became running before start; skipping duplicate launch "
+                    f"(pid={existing.pid or 'unknown'})"
+                )
+                return VKBLinkActionResult(
+                    True,
+                    "VKB-Link already running; INI updated",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
             if self._start_process(exe_path):
-                ini_path = self._resolve_ini_path(exe_path)
-                if ini_path:
-                    logger.info(
-                        f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
-                    )
-                    self._write_ini(ini_path, host, port)
                 return VKBLinkActionResult(
                     True,
                     f"VKB-Link started from {Path(exe_path).name}",
@@ -419,13 +464,30 @@ class VKBLinkManager:
         if not exe_path:
             return VKBLinkActionResult(False, "Failed to install VKB-Link", status=self.get_status(), action_taken="none")
 
+        self._bootstrap_ini_after_install(exe_path)
+        ini_path = self._resolve_or_default_ini_path(exe_path)
+        if ini_path:
+            logger.info(
+                f"Syncing VKB-Link INI at {ini_path} with host={host} port={port} before start"
+            )
+            self._write_ini(ini_path, host, port)
+        else:
+            logger.warning("No VKB-Link INI path resolved after install; starting without INI sync")
+
+        existing = self._find_running_process()
+        if existing:
+            logger.info(
+                "VKB-Link became running before start after install; skipping duplicate launch "
+                f"(pid={existing.pid or 'unknown'})"
+            )
+            return VKBLinkActionResult(
+                True,
+                f"Downloaded VKB-Link v{release.version}; process already running",
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
+
         if self._start_process(exe_path):
-            ini_path = self._resolve_ini_path(exe_path)
-            if ini_path:
-                logger.info(
-                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
-                )
-                self._write_ini(ini_path, host, port)
             return VKBLinkActionResult(
                 True,
                 f"Downloaded VKB-Link v{release.version} and started",
@@ -441,6 +503,10 @@ class VKBLinkManager:
         )
 
     def update_to_latest(self, *, host: str, port: int) -> VKBLinkActionResult:
+        with self._lifecycle_lock:
+            return self._update_to_latest_locked(host=host, port=port)
+
+    def _update_to_latest_locked(self, *, host: str, port: int) -> VKBLinkActionResult:
         logger.info(f"VKB-Link: checking for updates (host={host} port={port})")
         release = self._fetch_latest_release()
         if not release:
@@ -460,12 +526,15 @@ class VKBLinkManager:
             )
 
         process = self._find_running_process()
+        processes = self._find_running_processes()
+        if not processes and process:
+            processes = [process]
         if process:
             logger.info(
                 "VKB-Link: stopping for update "
                 f"(pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'})"
             )
-            self._stop_process(process)
+            self._stop_all_processes(processes)
         else:
             logger.info("VKB-Link: no running process; proceeding with update")
 
@@ -473,13 +542,16 @@ class VKBLinkManager:
         if not exe_path:
             return VKBLinkActionResult(False, "Failed to install VKB-Link update", action_taken="none")
 
+        ini_path = self._resolve_or_default_ini_path(exe_path)
+        if ini_path:
+            logger.info(
+                f"Syncing VKB-Link INI at {ini_path} with host={host} port={port} before restart"
+            )
+            self._write_ini(ini_path, host, port)
+        else:
+            logger.warning("No VKB-Link INI path resolved after update install; restarting without INI sync")
+
         if self._start_process(exe_path):
-            ini_path = self._resolve_ini_path(exe_path)
-            if ini_path:
-                logger.info(
-                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
-                )
-                self._write_ini(ini_path, host, port)
             return VKBLinkActionResult(
                 True,
                 f"Updated VKB-Link to v{release.version} and restarted",
@@ -495,9 +567,16 @@ class VKBLinkManager:
         )
 
     def stop_running(self, *, reason: str = "") -> VKBLinkActionResult:
+        with self._lifecycle_lock:
+            return self._stop_running_locked(reason=reason)
+
+    def _stop_running_locked(self, *, reason: str = "") -> VKBLinkActionResult:
         reason_label = reason or "unspecified"
         logger.info(f"VKB-Link: stop requested (reason={reason_label})")
         process = self._find_running_process()
+        processes = self._find_running_processes()
+        if not processes and process:
+            processes = [process]
         if not process:
             logger.info("VKB-Link: not running; stop skipped")
             return VKBLinkActionResult(
@@ -506,15 +585,13 @@ class VKBLinkManager:
                 status=self.get_status(check_running=True),
                 action_taken="none",
             )
-        logger.info(
-            "VKB-Link: stopping process "
-            f"(pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'})"
-        )
-        success = self._stop_process(process)
+        logger.info(f"VKB-Link: stopping {len(processes)} detected process(es)")
+        success = self._stop_all_processes(processes)
         if success:
+            stopped_count = len(processes)
             return VKBLinkActionResult(
                 True,
-                "VKB-Link stopped",
+                "VKB-Link stopped" if stopped_count == 1 else f"Stopped {stopped_count} VKB-Link processes",
                 status=self.get_status(check_running=True),
                 action_taken="stopped",
             )
@@ -664,126 +741,480 @@ class VKBLinkManager:
             return candidate
         return None
 
-    def _find_ini_near_exe(self, exe_path: Path) -> Optional[Path]:
+    def _resolve_or_default_ini_path(self, exe_path: Optional[str]) -> Optional[Path]:
+        """Resolve or create the INI path for the specific executable being started.
+
+        For start/update flows, we must apply endpoint settings to the INI that
+        belongs to that exact executable directory (first-run download case).
+        """
+        if exe_path:
+            saved = (self.config.get("vkb_ini_path", "") or "").strip() if self.config else ""
+            if saved:
+                saved_path = Path(saved)
+                if saved_path.exists() and saved_path.parent == Path(exe_path).parent:
+                    return saved_path
+            exe_ini = self._find_ini_near_exe(Path(exe_path))
+            if exe_ini:
+                if self.config:
+                    self.config.set("vkb_ini_path", str(exe_ini))
+                return exe_ini
+            fallback = Path(exe_path).parent / VKB_LINK_INI_NAMES[0]
+            if self.config:
+                self.config.set("vkb_ini_path", str(fallback))
+            return fallback
+
+        # No executable context available; fall back to persisted path semantics.
+        return self._resolve_ini_path(None)
+
+    def _bootstrap_ini_after_install(self, exe_path: str) -> None:
+        exe = Path(exe_path)
+        existing_ini = self._find_ini_near_exe(exe)
+        if existing_ini:
+            if self.config:
+                self.config.set("vkb_ini_path", str(existing_ini))
+            logger.info(f"VKB-Link INI already present after install: {existing_ini}")
+            return
+
+        operation_timeout_seconds = self._cfg_float(
+            "vkb_link_operation_timeout_seconds",
+            10.0,
+            minimum=1.0,
+        )
+        poll_interval_seconds = self._cfg_ms_as_seconds(
+            "vkb_link_poll_interval_ms",
+            250,
+            minimum_ms=10,
+        )
+        post_stop_settle_seconds = min(1.0, max(0.25, poll_interval_seconds))
+
+        before_inis: dict[str, float] = {}
+        for ini in self._list_ini_near_exe(exe):
+            try:
+                before_inis[str(ini.resolve())] = ini.stat().st_mtime
+            except OSError:
+                continue
+
+        logger.info(
+            "No VKB-Link INI found after install; running VKB-Link once to generate defaults"
+        )
+        if not self._start_process(exe_path):
+            logger.warning(
+                "VKB-Link bootstrap start failed; continuing with fallback INI path"
+            )
+            return
+
+        deadline = time.time() + operation_timeout_seconds
+        generated_ini: Optional[Path] = None
+        while time.time() < deadline:
+            generated_ini = self._find_ini_near_exe(exe)
+            if generated_ini:
+                break
+            time.sleep(poll_interval_seconds)
+
+        process = self._find_running_process()
+        if process:
+            logger.info(
+                "Stopping VKB-Link bootstrap process before applying managed INI settings"
+            )
+            self._stop_process(process)
+            if post_stop_settle_seconds:
+                time.sleep(post_stop_settle_seconds)
+        else:
+            logger.info("Bootstrap process already exited before stop request")
+
+        logger.info("Waiting for VKB-Link INI to appear/update after shutdown")
+        post_deadline = time.time() + operation_timeout_seconds
+        while time.time() < post_deadline:
+            changed_ini = self._select_new_or_touched_ini(exe, before_inis)
+            if changed_ini:
+                generated_ini = changed_ini
+                break
+            if not generated_ini:
+                generated_ini = self._find_ini_near_exe(exe)
+            time.sleep(poll_interval_seconds)
+        if not generated_ini:
+            generated_ini = self._select_new_or_touched_ini(exe, before_inis) or self._find_ini_near_exe(exe)
+
+        if generated_ini and self.config:
+            self.config.set("vkb_ini_path", str(generated_ini))
+
+    def _select_new_or_touched_ini(self, exe_path: Path, before_inis: dict[str, float]) -> Optional[Path]:
+        post_inis = self._list_ini_near_exe(exe_path)
+        if not post_inis:
+            return None
+
+        def _mtime(path: Path) -> float:
+            try:
+                return path.stat().st_mtime
+            except OSError:
+                return 0.0
+
+        new_inis = [ini for ini in post_inis if str(ini.resolve()) not in before_inis]
+        if new_inis:
+            return max(new_inis, key=_mtime)
+
+        touched_inis = [
+            ini
+            for ini in post_inis
+            if _mtime(ini) > before_inis.get(str(ini.resolve()), 0.0) + 0.001
+        ]
+        if touched_inis:
+            return max(touched_inis, key=_mtime)
+
+        return None
+
+    def _list_ini_near_exe(self, exe_path: Path) -> list[Path]:
         exe_dir = exe_path.parent
+        result: list[Path] = []
+        seen: set[str] = set()
         for name in VKB_LINK_INI_NAMES:
             candidate = exe_dir / name
             if candidate.exists():
-                return candidate
+                resolved = str(candidate.resolve())
+                if resolved not in seen:
+                    result.append(candidate)
+                    seen.add(resolved)
         try:
             for candidate in exe_dir.glob("*.ini"):
-                if "vkb" in candidate.name.lower():
-                    return candidate
+                if "vkb" not in candidate.name.lower():
+                    continue
+                resolved = str(candidate.resolve())
+                if resolved in seen:
+                    continue
+                result.append(candidate)
+                seen.add(resolved)
         except OSError:
             pass
-        return None
+        return result
+
+    def _find_ini_near_exe(self, exe_path: Path) -> Optional[Path]:
+        candidates = self._list_ini_near_exe(exe_path)
+        return candidates[0] if candidates else None
+
+    def _patch_ini_text(self, text: str, host: str, port: int) -> str:
+        def _split_key(line: str) -> Optional[tuple[str, str, str, str]]:
+            match = re.match(r"^(\s*)([^=;#][^=]*?)(\s*=\s*)(.*?)(\s*[;#].*)?$", line)
+            if not match:
+                return None
+            indent = match.group(1) or ""
+            key = (match.group(2) or "").strip().lower()
+            sep = match.group(3) or "="
+            suffix = match.group(5) or ""
+            return indent, key, sep, suffix
+
+        newline = "\r\n" if "\r\n" in text else "\n"
+        lines = text.splitlines()
+        section_re = re.compile(r"^\s*\[([^\]]+)\]\s*$")
+
+        tcp_start: Optional[int] = None
+        tcp_end = len(lines)
+        for index, line in enumerate(lines):
+            sec = section_re.match(line)
+            if not sec:
+                continue
+            if tcp_start is None and sec.group(1).strip().lower() == "tcp":
+                tcp_start = index
+                continue
+            if tcp_start is not None:
+                tcp_end = index
+                break
+
+        if tcp_start is None:
+            if lines and lines[-1].strip():
+                lines.append("")
+            lines.extend(
+                [
+                    "[TCP]",
+                    f"Adress={host}",
+                    f"Port={port}",
+                ]
+            )
+        else:
+            address_found = False
+            port_found = False
+            for index in range(tcp_start + 1, tcp_end):
+                parsed = _split_key(lines[index])
+                if not parsed:
+                    continue
+                indent, key, sep, suffix = parsed
+                if key in {"adress", "address"}:
+                    lines[index] = f"{indent}Adress{sep}{host}{suffix}"
+                    address_found = True
+                elif key == "port":
+                    lines[index] = f"{indent}Port{sep}{port}{suffix}"
+                    port_found = True
+
+            insert_at = tcp_end
+            additions: list[str] = []
+            if not address_found:
+                additions.append(f"Adress={host}")
+            if not port_found:
+                additions.append(f"Port={port}")
+            if additions:
+                for offset, line in enumerate(additions):
+                    lines.insert(insert_at + offset, line)
+
+        updated = newline.join(lines)
+        if lines:
+            updated = f"{updated}{newline}"
+        return updated
 
     def _write_ini(self, ini_path: Path, host: str, port: int) -> None:
-        cp = configparser.ConfigParser()
-        cp.read(ini_path, encoding="utf-8")
-        if "TCP" not in cp:
-            cp.add_section("TCP")
-        cp.set("TCP", "Adress", host)
-        cp.set("TCP", "Port", str(port))
-        with open(ini_path, "w", encoding="utf-8") as f:
-            cp.write(f)
+        if ini_path.exists():
+            try:
+                text = ini_path.read_text(encoding="utf-8-sig")
+            except UnicodeDecodeError:
+                text = ini_path.read_text(encoding="utf-8", errors="replace")
+        else:
+            text = ""
+            ini_path.parent.mkdir(parents=True, exist_ok=True)
+
+        updated = self._patch_ini_text(text, host, port)
+        ini_path.write_text(updated, encoding="utf-8")
         logger.info(f"Updated VKB-Link INI: {ini_path}")
 
-    def _find_running_process(self) -> Optional[VKBLinkProcessInfo]:
+    def _find_running_processes(self) -> list[VKBLinkProcessInfo]:
         if sys.platform == "win32":
-            return self._find_running_process_windows()
-        return self._find_running_process_posix()
+            return self._find_running_processes_windows()
+        return self._find_running_processes_posix()
 
-    def _find_running_process_windows(self) -> Optional[VKBLinkProcessInfo]:
-        # Attempt PowerShell first for PID+Path
-        try:
-            cmd = [
-                "powershell",
-                "-NoProfile",
-                "-Command",
-                "Get-Process -Name 'VKB-Link' -ErrorAction SilentlyContinue | "
-                "Select-Object Id,Path | ConvertTo-Json -Compress",
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            output = result.stdout.strip()
-            if output:
-                data = json.loads(output)
-                if isinstance(data, dict):
-                    data = [data]
-                if isinstance(data, list):
-                    for entry in data:
-                        pid = entry.get("Id")
-                        path = entry.get("Path")
-                        return VKBLinkProcessInfo(pid=int(pid) if pid else None, exe_path=path)
-        except Exception:
-            pass
+    def _find_running_process(self) -> Optional[VKBLinkProcessInfo]:
+        processes = self._find_running_processes()
+        return processes[0] if processes else None
 
-        # Fallback to WMIC for PID+Path
-        try:
-            cmd = [
-                "wmic",
-                "process",
-                "where",
-                "name='VKB-Link.exe'",
-                "get",
-                "ExecutablePath,ProcessId",
-                "/FORMAT:LIST",
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if result.stdout:
-                path = None
-                pid = None
-                for line in result.stdout.splitlines():
-                    line = line.strip()
-                    if line.lower().startswith("executablepath="):
-                        path = line.split("=", 1)[1].strip()
-                    elif line.lower().startswith("processid="):
-                        pid = line.split("=", 1)[1].strip()
-                if path or pid:
-                    return VKBLinkProcessInfo(pid=int(pid) if pid else None, exe_path=path)
-        except Exception:
-            pass
+    def _find_running_processes_windows(self) -> list[VKBLinkProcessInfo]:
+        results: list[VKBLinkProcessInfo] = []
+        seen: set[tuple[Optional[int], Optional[str]]] = set()
 
-        # Fallback to tasklist to detect running process
-        try:
-            cmd = ["tasklist", "/FI", "IMAGENAME eq VKB-Link.exe", "/FO", "CSV"]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if "VKB-Link.exe" in (result.stdout or ""):
-                return VKBLinkProcessInfo(pid=None, exe_path=None)
-        except Exception:
-            pass
+        def _append_result(pid: Optional[int], path: Optional[str]) -> None:
+            normalized_path = (path or "").strip() or None
+            key = (pid, normalized_path.lower() if normalized_path else None)
+            if key in seen:
+                return
+            seen.add(key)
+            results.append(VKBLinkProcessInfo(pid=pid, exe_path=normalized_path))
 
-        return None
+        if sys.platform == "win32":
+            operation_timeout = self._cfg_float(
+                "vkb_link_operation_timeout_seconds",
+                10.0,
+                minimum=1.0,
+            )
+            # Attempt PowerShell first for PID+Path
+            try:
+                cmd = [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "Get-Process -Name 'VKB-Link' -ErrorAction SilentlyContinue | "
+                    "Select-Object Id,Path | ConvertTo-Json -Compress",
+                ]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
+                output = result.stdout.strip()
+                if output:
+                    data = json.loads(output)
+                    if isinstance(data, dict):
+                        data = [data]
+                    if isinstance(data, list):
+                        for entry in data:
+                            pid = entry.get("Id")
+                            path = entry.get("Path")
+                            parsed_pid = int(pid) if pid else None
+                            _append_result(parsed_pid, path)
+            except Exception:
+                pass
 
-    def _find_running_process_posix(self) -> Optional[VKBLinkProcessInfo]:
+            # Fallback to WMIC only when PowerShell didn't yield actionable PIDs.
+            if not any(entry.pid is not None for entry in results):
+                try:
+                    cmd = [
+                        "wmic",
+                        "process",
+                        "where",
+                        "name='VKB-Link.exe'",
+                        "get",
+                        "ExecutablePath,ProcessId",
+                        "/FORMAT:LIST",
+                    ]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
+                    if result.stdout:
+                        blocks = re.split(r"(?:\r?\n){2,}", result.stdout)
+                        for block in blocks:
+                            if not block.strip():
+                                continue
+                            path: Optional[str] = None
+                            pid: Optional[str] = None
+                            for raw_line in block.splitlines():
+                                line = raw_line.strip().strip("\r")
+                                if not line:
+                                    continue
+                                if line.lower().startswith("executablepath="):
+                                    path = line.split("=", 1)[1].strip() or None
+                                elif line.lower().startswith("processid="):
+                                    pid = line.split("=", 1)[1].strip() or None
+                            if pid:
+                                _append_result(int(pid), path)
+                            elif path and not results:
+                                # Keep a path-only entry only as a last resort.
+                                _append_result(None, path)
+                except Exception:
+                    pass
+
+            # Fallback to tasklist to detect running process
+            if not results:
+                try:
+                    cmd = ["tasklist", "/FI", "IMAGENAME eq VKB-Link.exe", "/FO", "CSV"]
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
+                    if "VKB-Link.exe" in (result.stdout or ""):
+                        _append_result(None, None)
+                except Exception:
+                    pass
+
+        # Normalize partial duplicates: when we have PID-based entries, prefer only those.
+        pid_results = [entry for entry in results if entry.pid is not None]
+        if pid_results:
+            unique_by_pid: dict[int, VKBLinkProcessInfo] = {}
+            for entry in pid_results:
+                if entry.pid not in unique_by_pid:
+                    unique_by_pid[entry.pid] = entry
+                elif (not unique_by_pid[entry.pid].exe_path) and entry.exe_path:
+                    unique_by_pid[entry.pid] = entry
+            return list(unique_by_pid.values())
+
+        return results
+
+    def _find_running_processes_posix(self) -> list[VKBLinkProcessInfo]:
+        results: list[VKBLinkProcessInfo] = []
+        operation_timeout = self._cfg_float(
+            "vkb_link_operation_timeout_seconds",
+            10.0,
+            minimum=1.0,
+        )
         try:
             cmd = ["pgrep", "-f", "VKB-Link"]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
             if result.returncode == 0 and result.stdout.strip():
-                pid = result.stdout.strip().splitlines()[0]
-                return VKBLinkProcessInfo(pid=int(pid), exe_path=None)
+                for pid_text in result.stdout.strip().splitlines():
+                    pid_text = pid_text.strip()
+                    if not pid_text:
+                        continue
+                    results.append(VKBLinkProcessInfo(pid=int(pid_text), exe_path=None))
         except Exception:
             pass
-        return None
+        return results
+
+    def _stop_all_processes(self, processes: list[VKBLinkProcessInfo]) -> bool:
+        if not processes:
+            return True
+
+        unique_processes: list[VKBLinkProcessInfo] = []
+        seen: set[tuple[str, object]] = set()
+        for process in processes:
+            if process.pid is not None:
+                key: tuple[str, object] = ("pid", process.pid)
+            elif process.exe_path:
+                key = ("exe", process.exe_path.lower())
+            else:
+                key = ("image", "VKB-Link.exe")
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_processes.append(process)
+
+        all_stopped = True
+        for process in unique_processes:
+            if not self._stop_process(process):
+                all_stopped = False
+
+        return all_stopped
+
+    def _is_target_process_running(self, target: VKBLinkProcessInfo) -> bool:
+        current_processes = self._find_running_processes()
+        if not current_processes:
+            return False
+        if target.pid is not None:
+            return any(current.pid == target.pid for current in current_processes)
+        if target.exe_path:
+            for current in current_processes:
+                if not current.exe_path:
+                    continue
+                try:
+                    if Path(current.exe_path).resolve() == Path(target.exe_path).resolve():
+                        return True
+                except OSError:
+                    if current.exe_path == target.exe_path:
+                        return True
+            return False
+        return True
+
+    def _wait_for_process_exit(self, target: VKBLinkProcessInfo, *, timeout: float) -> bool:
+        poll_interval_seconds = self._cfg_ms_as_seconds(
+            "vkb_link_poll_interval_ms",
+            250,
+            minimum_ms=10,
+        )
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self._is_target_process_running(target):
+                return True
+            time.sleep(poll_interval_seconds)
+        return not self._is_target_process_running(target)
 
     def _stop_process(self, process: VKBLinkProcessInfo) -> bool:
+        operation_timeout = self._cfg_float(
+            "vkb_link_operation_timeout_seconds",
+            10.0,
+            minimum=1.0,
+        )
+        # Keep subprocess command waits robust even if operation timeout is tuned low.
+        command_timeout = max(10.0, operation_timeout)
+        # Give the process a realistic grace window before force-kill on restart paths.
+        exit_wait_timeout = max(8.0, operation_timeout)
         if sys.platform == "win32":
-            cmd = None
             if process.pid:
-                cmd = ["taskkill", "/PID", str(process.pid), "/T", "/F"]
+                graceful_cmd = ["taskkill", "/PID", str(process.pid), "/T"]
+                force_cmd = ["taskkill", "/PID", str(process.pid), "/T", "/F"]
             else:
-                cmd = ["taskkill", "/IM", "VKB-Link.exe", "/T", "/F"]
+                graceful_cmd = ["taskkill", "/IM", "VKB-Link.exe", "/T"]
+                force_cmd = ["taskkill", "/IM", "VKB-Link.exe", "/T", "/F"]
             try:
-                logger.info(f"Stopping VKB-Link process with command: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                logger.info(f"Stopping VKB-Link process with command: {' '.join(graceful_cmd)}")
+                result = subprocess.run(
+                    graceful_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=command_timeout,
+                )
                 if result.returncode == 0:
-                    logger.info("VKB-Link stop command completed successfully")
+                    if self._wait_for_process_exit(process, timeout=exit_wait_timeout):
+                        logger.info("VKB-Link stop command completed successfully")
+                        return True
+                    logger.warning("VKB-Link still running after graceful stop; forcing termination")
+                else:
+                    stderr = (result.stderr or "").strip()
+                    stdout = (result.stdout or "").strip()
+                    detail = stderr or stdout or "no output"
+                    logger.warning(
+                        f"VKB-Link graceful stop returned {result.returncode}: {detail}"
+                    )
+                    if not self._is_target_process_running(process):
+                        return True
+
+                logger.info(f"Stopping VKB-Link process with command: {' '.join(force_cmd)}")
+                force_result = subprocess.run(
+                    force_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=command_timeout,
+                )
+                if force_result.returncode == 0:
+                    logger.info("VKB-Link force-stop command completed successfully")
                     return True
-                stderr = (result.stderr or "").strip()
-                stdout = (result.stdout or "").strip()
+                stderr = (force_result.stderr or "").strip()
+                stdout = (force_result.stdout or "").strip()
                 detail = stderr or stdout or "no output"
                 logger.warning(
-                    f"VKB-Link stop command returned {result.returncode}: {detail}"
+                    f"VKB-Link force-stop command returned {force_result.returncode}: {detail}"
                 )
                 return False
             except Exception as e:
@@ -791,17 +1222,45 @@ class VKBLinkManager:
                 return False
         else:
             try:
-                cmd = ["pkill", "-f", "VKB-Link"]
-                logger.info(f"Stopping VKB-Link process with command: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                graceful_cmd = ["pkill", "-f", "VKB-Link"]
+                force_cmd = ["pkill", "-9", "-f", "VKB-Link"]
+                logger.info(f"Stopping VKB-Link process with command: {' '.join(graceful_cmd)}")
+                result = subprocess.run(
+                    graceful_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=command_timeout,
+                )
                 if result.returncode == 0:
-                    logger.info("VKB-Link stop command completed successfully")
+                    if self._wait_for_process_exit(process, timeout=exit_wait_timeout):
+                        logger.info("VKB-Link stop command completed successfully")
+                        return True
+                    logger.warning("VKB-Link still running after graceful stop; forcing termination")
+                else:
+                    stderr = (result.stderr or "").strip()
+                    stdout = (result.stdout or "").strip()
+                    detail = stderr or stdout or "no output"
+                    logger.warning(
+                        f"VKB-Link graceful stop returned {result.returncode}: {detail}"
+                    )
+                    if not self._is_target_process_running(process):
+                        return True
+
+                logger.info(f"Stopping VKB-Link process with command: {' '.join(force_cmd)}")
+                force_result = subprocess.run(
+                    force_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=command_timeout,
+                )
+                if force_result.returncode == 0:
+                    logger.info("VKB-Link force-stop command completed successfully")
                     return True
-                stderr = (result.stderr or "").strip()
-                stdout = (result.stdout or "").strip()
+                stderr = (force_result.stderr or "").strip()
+                stdout = (force_result.stdout or "").strip()
                 detail = stderr or stdout or "no output"
                 logger.warning(
-                    f"VKB-Link stop command returned {result.returncode}: {detail}"
+                    f"VKB-Link force-stop command returned {force_result.returncode}: {detail}"
                 )
                 return False
             except Exception as e:
@@ -820,7 +1279,9 @@ class VKBLinkManager:
         if not exe_path:
             logger.info("VKB-Link restart completed with stop only (no exe path available)")
             return stopped
-        time.sleep(1.0)
+        restart_delay = self._cfg_float("vkb_link_restart_delay_seconds", 1.0, minimum=0.0)
+        if restart_delay:
+            time.sleep(restart_delay)
         started = self._start_process(exe_path)
         if started:
             logger.info("VKB-Link restart completed successfully")
@@ -832,7 +1293,37 @@ class VKBLinkManager:
         try:
             exe = Path(exe_path)
             logger.info(f"Starting VKB-Link process from: {exe}")
-            process = subprocess.Popen([str(exe)], cwd=str(exe.parent))
+            launch_mode = "legacy"
+            if self.config:
+                configured_mode = self.config.get("vkb_link_launch_mode")
+                if isinstance(configured_mode, str) and configured_mode.strip():
+                    launch_mode = configured_mode.strip().lower()
+
+            if launch_mode in {"detached", "independent"}:
+                popen_kwargs: dict[str, object] = {
+                    "cwd": str(exe.parent),
+                    "stdin": subprocess.DEVNULL,
+                    "stdout": subprocess.DEVNULL,
+                    "stderr": subprocess.DEVNULL,
+                }
+
+                if sys.platform == "win32":
+                    creationflags = 0
+                    creationflags |= int(getattr(subprocess, "DETACHED_PROCESS", 0))
+                    creationflags |= int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+                    creationflags |= int(getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0))
+                    if creationflags:
+                        popen_kwargs["creationflags"] = creationflags
+                    popen_kwargs["close_fds"] = True
+                else:
+                    popen_kwargs["start_new_session"] = True
+
+                process = subprocess.Popen([str(exe)], **popen_kwargs)
+                logger.info("VKB-Link launch mode: detached")
+            else:
+                # Legacy mode preserves original launch behavior and process relationship.
+                process = subprocess.Popen([str(exe)], cwd=str(exe.parent))
+                logger.info("VKB-Link launch mode: legacy")
             logger.info(f"Started VKB-Link process pid={process.pid}")
             return True
         except Exception as e:
@@ -840,7 +1331,7 @@ class VKBLinkManager:
             return False
 
     def _fetch_latest_release(self) -> Optional[VKBLinkRelease]:
-        # Primary: MEGA public folder (no auth required, reliable)
+        # MEGA public folder is the only supported source.
         if _ensure_cryptography():
             try:
                 logger.info(
@@ -860,51 +1351,8 @@ class VKBLinkManager:
             except Exception as e:
                 logger.warning(f"MEGA folder listing failed: {e}")
         else:
-            logger.warning("'cryptography' unavailable; skipping MEGA source")
-
-        # Fallback: scrape VKB homepage for direct zip or OneDrive links
-        logger.info(f"Falling back to scraping {VKB_LINK_HOME_URL}")
-        try:
-            homepage = _fetch_text(VKB_LINK_HOME_URL)
-        except Exception as e:
-            logger.warning(f"Failed to fetch VKB-Link home page: {e}")
-            return None
-
-        zip_links = _extract_zip_links(homepage)
-        if not zip_links:
-            onedrive_links = _extract_onedrive_links_for_software(homepage)
-            if not onedrive_links:
-                logger.warning(
-                    "No Software OneDrive links found on VKB-Link homepage; "
-                    "falling back to any OneDrive links"
-                )
-                onedrive_links = _extract_onedrive_links(homepage)
-            logger.info(f"Discovered {len(onedrive_links)} OneDrive link(s) to scan")
-            for link in onedrive_links:
-                try:
-                    onedrive_page = _fetch_text(link)
-                except Exception:
-                    continue
-                zip_links.extend(_extract_zip_links(onedrive_page))
-        logger.info(f"Discovered {len(zip_links)} VKB-Link archive link(s)")
-
-        fallback_releases: list[VKBLinkRelease] = []
-        for url in zip_links:
-            decoded = unquote(url)
-            parsed = urlparse(decoded)
-            filename = Path(parsed.path).name or Path(decoded).name
-            version = _extract_version(filename) or _extract_version(decoded)
-            if not version:
-                continue
-            fallback_releases.append(VKBLinkRelease(version=version, url=url, filename=filename))
-
-        if not fallback_releases:
-            return None
-
-        fallback_releases.sort(key=lambda r: _parse_version(r.version), reverse=True)
-        latest = fallback_releases[0]
-        logger.info(f"Selected VKB-Link release v{latest.version} from {latest.url}")
-        return latest
+            logger.warning("'cryptography' unavailable; cannot query MEGA source")
+        return None
 
     def _install_release(self, release: VKBLinkRelease) -> Optional[str]:
         install_dir = self._resolve_install_dir()

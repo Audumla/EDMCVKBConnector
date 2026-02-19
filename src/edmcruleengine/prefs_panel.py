@@ -102,8 +102,24 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     settings_tab.columnconfigure(0, weight=0)  # Don't expand VKB-Link
     settings_tab.columnconfigure(1, weight=1)  # Expand shift flags box
 
+    def _config_int(key: str, default: int, *, minimum: int = 0) -> int:
+        value = _config.get(key) if _config else default
+        if value is None:
+            value = default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = default
+        if parsed < minimum:
+            return minimum
+        return parsed
+
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
     vkb_port = _config.get("vkb_port", 50995) if _config else 50995
+    ini_apply_delay_ms = _config_int("vkb_ui_apply_delay_ms", 4000, minimum=0)
+    ini_status_tick_ms = _config_int("vkb_ui_feedback_interval_ms", 333, minimum=50)
+    status_poll_interval_ms = _config_int("vkb_ui_poll_interval_ms", 2000, minimum=100)
+    action_followup_delay_ms = max(ini_status_tick_ms * 4, ini_status_tick_ms)
     host_var = tk.StringVar(value=str(vkb_host))
     port_var = tk.StringVar(value=str(vkb_port))
     if _event_handler:
@@ -231,7 +247,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             return "loopback"
         return normalized
 
-    # Auto-INI update timer: update INI 4 seconds after host/port change
+    # Auto-INI update timer: apply endpoint change after configured delay
     ini_update_after_id = [None]  # Mutable ref for after() cancellation
     ini_has_pending_changes = [False]  # Track if changes are pending
     ini_status_override = [None]  # UI-only status while INI settings are changing
@@ -262,10 +278,10 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         vkb_status_var.set(ini_status_override[0])
         ini_status_color_index[0] = 1 - ini_status_color_index[0]
         vkb_status_label.configure(foreground=ini_pending_colors[ini_status_color_index[0]])
-        ini_status_dots_after_id[0] = frame.after(333, _tick_ini_pending_status)
+        ini_status_dots_after_id[0] = frame.after(ini_status_tick_ms, _tick_ini_pending_status)
 
     def _schedule_ini_update():
-        """Schedule INI update 4 seconds from now, or restart the timer if already scheduled."""
+        """Schedule INI update after configured delay, or restart the timer if already scheduled."""
         nonlocal ini_update_after_id, ini_has_pending_changes
         # Cancel any existing timer
         if ini_update_after_id[0] is not None:
@@ -283,10 +299,10 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         vkb_status_label.configure(foreground=ini_pending_colors[ini_status_color_index[0]])
         _cancel_ini_status_dots()
         if frame.winfo_exists():
-            ini_status_dots_after_id[0] = frame.after(333, _tick_ini_pending_status)
-        # Schedule INI update after 4 seconds
+            ini_status_dots_after_id[0] = frame.after(ini_status_tick_ms, _tick_ini_pending_status)
+        # Schedule INI update after configured delay
         if frame.winfo_exists():
-            ini_update_after_id[0] = frame.after(4000, _apply_ini_update)
+            ini_update_after_id[0] = frame.after(ini_apply_delay_ms, _apply_ini_update)
 
     def _apply_ini_update():
         """Apply the pending INI update by restarting VKB-Link with new endpoint."""
@@ -416,7 +432,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         action_fn,
         busy_text: str,
         followup_busy_text: Optional[str] = None,
-        followup_delay_ms: int = 1500,
+        followup_delay_ms: int = action_followup_delay_ms,
     ) -> None:
         manager = _get_vkb_manager()
         if not manager:
@@ -662,7 +678,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                     return
 
                 # VKB-Link is configured but not running — start it
-                safety_restart_inflight[0] = True
                 try:
                     logger.info("VKB-Link polling: process not running; starting it")
                     result = manager.ensure_running(host=host, port=port, reason="polling_safety")
@@ -670,6 +685,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                         logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
                         if result.action_taken in ("started", "restarted"):
                             _event_handler._apply_post_start_delay(result.action_taken, countdown=False)
+                            _event_handler._wait_for_vkb_listener_ready(host, port)
                             _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
                             _event_handler.vkb_client.connect()
                     else:
@@ -679,12 +695,13 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                 finally:
                     safety_restart_inflight[0] = False
 
+            safety_restart_inflight[0] = True
             threading.Thread(target=_safety_check, daemon=True).start()
 
-        frame.after(2000, _poll_vkb_status)
+        frame.after(status_poll_interval_ms, _poll_vkb_status)
 
-    # Start polling
-    frame.after(500, _poll_vkb_status)
+    # Start polling immediately, then continue on the configured interval.
+    frame.after(0, _poll_vkb_status)
 
     static_shift_frame = ttk.LabelFrame(settings_tab, text="Static Shift Flags", padding=8)
     static_shift_frame.grid(row=0, column=1, sticky="nsew", padx=(6, 4), pady=2)

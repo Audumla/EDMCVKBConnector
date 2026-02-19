@@ -6,8 +6,9 @@ Configuration is persisted by EDMC in the system-appropriate location
 (registry on Windows, plist on macOS, etc.).
 """
 
-import logging
-from typing import Any, List, Optional
+import json
+from pathlib import Path
+from typing import Any
 
 from . import plugin_logger
 
@@ -22,19 +23,18 @@ logger = plugin_logger(__name__)
 # Configuration key prefix to namespace plugin settings
 CONFIG_PREFIX = "VKBConnector_"
 
-# Defaults for all configuration keys
-DEFAULTS = {
+DEFAULTS_FILE_NAME = "config_defaults.json"
+
+# Fallback defaults used if the external defaults file cannot be read.
+_FALLBACK_DEFAULTS = {
     "vkb_host": "127.0.0.1",
     "vkb_port": 50995,
+    "initial_retry_interval": 2,
+    "initial_retry_duration": 60,
+    "fallback_retry_interval": 10,
+    "socket_timeout": 5,
     "enabled": True,
     "debug": False,
-    "event_types": [
-        # Journal events
-        "Status", "Location", "FSDJump", "DockingGranted", "Undocked",
-        "LaunchSRV", "DockSRV", "Docked", "LaunchFighter", "DockFighter",
-        # CAPI events (forwarded by EDMC via cmdr_data / capi_fleetcarrier)
-        "CmdrData", "CapiFleetCarrier",
-    ],
     "rules_path": "",
     "vkb_header_byte": 0xA5,
     "vkb_command_byte": 13,
@@ -47,11 +47,61 @@ DEFAULTS = {
     "vkb_link_managed": False,
     "vkb_link_auto_manage": True,
     "vkb_link_restart_on_failure": True,
+    "vkb_link_launch_mode": "legacy",
     "vkb_link_recovery_cooldown": 60,
+    # VKB-Link lifecycle timings.
+    "vkb_link_warmup_delay_seconds": 5,
+    "vkb_link_operation_timeout_seconds": 10,
+    "vkb_link_poll_interval_ms": 250,
+    "vkb_link_restart_delay_seconds": 1,
+    # Preferences/UI timings.
+    "vkb_ui_apply_delay_ms": 4000,
+    "vkb_ui_poll_interval_ms": 2000,
+    "vkb_ui_feedback_interval_ms": 333,
     "track_unregistered_events": False,
     "recorder_mock_commander": "CMDR",
     "recorder_mock_fid": "F0000000",
 }
+
+
+def _load_defaults_from_file() -> dict[str, Any]:
+    defaults = dict(_FALLBACK_DEFAULTS)
+    defaults_path = Path(__file__).resolve().with_name(DEFAULTS_FILE_NAME)
+    try:
+        raw = defaults_path.read_text(encoding="utf-8")
+    except OSError as e:
+        logger.warning(
+            "Could not read defaults file '%s': %s; using built-in defaults",
+            defaults_path,
+            e,
+        )
+        return defaults
+
+    try:
+        loaded = json.loads(raw)
+    except Exception as e:
+        logger.warning(
+            "Failed parsing defaults file '%s': %s; using built-in defaults",
+            defaults_path,
+            e,
+        )
+        return defaults
+
+    if not isinstance(loaded, dict):
+        logger.warning(
+            "Defaults file '%s' is not a JSON object; using built-in defaults",
+            defaults_path,
+        )
+        return defaults
+
+    for key, value in loaded.items():
+        if isinstance(key, str):
+            defaults[key] = value
+    return defaults
+
+
+# Defaults for all configuration keys. Loaded from config_defaults.json.
+DEFAULTS = _load_defaults_from_file()
 
 
 class Config:
