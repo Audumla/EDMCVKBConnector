@@ -3,7 +3,6 @@
     "id": "CHG-001",
     "plugin_version": "unreleased",
     "date": "2026-02-19",
-    "agent": "claude",
     "summary_tags": [
       "Documentation Update"
     ],
@@ -17,7 +16,6 @@
     "id": "CHG-002",
     "plugin_version": "unreleased",
     "date": "2026-02-19",
-    "agent": "codex",
     "summary_tags": [
       "New Feature",
       "UI Improvement"
@@ -27,6 +25,379 @@
       "Added VKB-Link manager for process detection, INI sync, and download/update flows",
       "Hooked recovery into connection failures with configurable auto-manage and cooldown",
       "Extended preferences UI with VKB-Link management, update, locate, and relocate controls"
+    ]
+  },
+  {
+    "id": "CHG-003",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Added project Codex config for on-request approvals and workspace writes",
+    "details": [
+      "Added .codex/config.toml with approval_policy = on-request",
+      "Set sandbox_mode = workspace-write for project-scoped access"
+    ]
+  },
+  {
+    "id": "CHG-004",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Add VKB-Link startup/shutdown handling and detailed lifecycle logging",
+    "details": [
+      "Start VKB-Link on plugin startup when not already running and stop it on plugin shutdown if started by the plugin",
+      "Add step-by-step logging for VKB-Link status, updates, installs, and process control"
+    ]
+  },
+  {
+    "id": "CHG-005",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Improve VKB-Link update discovery and status/error display",
+    "details": [
+      "Extract OneDrive links specifically from the Software section before scanning for VKB-Link archives",
+      "Show VKB-Link status as '<exe> v<version>' and surface action errors in the status line"
+    ]
+  },
+  {
+    "id": "CHG-006",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Align initial VKB-Link status text with simplified display",
+    "details": [
+      "Initialize VKB-Link status line to 'VKB-Link.exe v?'"
+    ]
+  },
+  {
+    "id": "CHG-007",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Implement automated VKB-Link download from MEGA public folder with AES-CTR decryption",
+    "details": [
+      "Added MEGA API integration to vkb_link_manager.py: folder listing via https://g.api.mega.co.nz/cs, AES-ECB node-key decryption, AES-CBC attribute decryption, AES-CTR file decryption",
+      "_fetch_latest_release() now queries MEGA as primary source (folder 980CgDDL) and falls back to VKB homepage scraping if unavailable",
+      "New _mega_download() method on VKBLinkManager: requests per-file download URL from MEGA API, streams and decrypts with AES-128-CTR, saves valid zip to disk",
+      "Extended VKBLinkRelease dataclass with mega_node_handle and mega_raw_key optional fields",
+      "Fixed package_plugin.py INCLUDE list: added event_recorder, paths, prefs_panel, ui_components, unregistered_events_tracker, and vkb_link_manager modules"
+    ]
+  },
+  {
+    "id": "CHG-008",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Auto-install cryptography library silently when not present",
+    "details": [
+      "Added _ensure_cryptography() helper that pip-installs the cryptography package via sys.executable if it is not importable",
+      "_fetch_latest_release() and _mega_download() now call _ensure_cryptography() instead of raising ImportError; no user action required"
+    ]
+  },
+  {
+    "id": "CHG-009",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Streamline VKB-Link preferences panel layout and auto-INI synchronization",
+    "details": [
+      "Removed 'Manage' button and 'Relocate' function; auto-manage checkbox now on same line as Host/Port fields",
+      "Added 'VKB-Link status:' label; changed status text to 'Link Established vX.X.X' when connected, 'Disconnected' when not",
+      "Removed 'VKB-Link.exe vX.X.X' display; replaced 'Check Updates' button with single 'Update' button",
+      "Implemented auto-INI update: saves INI file 4 seconds after Host/Port change (if auto-manage enabled); timer resets on field focus; shows 'Settings Changed' / 'Updating INI Settings' status"
+    ]
+  },
+  {
+    "id": "CHG-010",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Fix NameError in VKB-Link prefs and move Update button to status line",
+    "details": [
+      "Fixed undefined variable reference: changed vkb_app_status_var to vkb_status_var in _run_manager_action()",
+      "Moved Update button to status_row and positioned right-aligned with status indicator",
+      "Removed duplicate _get_vkb_manager() and _check_updates() function definitions"
+    ]
+  },
+  {
+    "id": "CHG-011",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Separated VKB-Link status line into its own frame",
+    "details": [
+      "Wrapped the VKB-Link status row in a dedicated frame",
+      "Moved the status controls to the new frame to stabilize vertical spacing"
+    ]
+  },
+  {
+    "id": "CHG-012",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Left-align VKB-Link status text next to its label",
+    "details": [
+      "Set the status label anchor to west so the text starts immediately after the label"
+    ]
+  },
+  {
+    "id": "CHG-013",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Fix VKB-Link INI button packing when status row moved",
+    "details": [
+      "Avoided packing the INI button relative to a widget in a different frame",
+      "Kept INI button ordering relative to Locate button when visible"
+    ]
+  },
+  {
+    "id": "CHG-014",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Match VKB-Link status label font and center the row",
+    "details": [
+      "Set the status label font to match the message size",
+      "Switched the status line to grid layout for consistent vertical centering"
+    ]
+  },
+  {
+    "id": "CHG-015",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Remove Configure INI button and prioritize standalone INI status messages",
+    "details": [
+      "Removed the Configure INI control and its visibility logic from the VKB-Link preferences panel",
+      "Made INI status states ('Settings Changed' and 'Updating INI Settings') override connection polling text",
+      "Changed out-of-date INI display to show a standalone 'INI out of date' status instead of appending to established status"
+    ]
+  },
+  {
+    "id": "CHG-016",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Add restart-phase status and dotted INI pending indicator",
+    "details": [
+      "Added a delayed 'Restarting VKB-Link...' status phase during update actions",
+      "Animated pending INI status by appending dots while waiting for the 4-second auto-write timer",
+      "Added timer cancellation guards so dot animation stops cleanly on apply or focus reset"
+    ]
+  },
+  {
+    "id": "CHG-017",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Speed up pending INI dots and alternate warning color",
+    "details": [
+      "Increased pending-status dot cadence to 333ms (three dots per second)",
+      "Alternated pending-status color between #f39c12 and darker orange #d68910",
+      "Updated status override matching so dotted 'Settings Changed...' remains in warning style"
+    ]
+  },
+  {
+    "id": "CHG-018",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Documentation Update",
+      "Code Refactoring"
+    ],
+    "summary": "Removed agent source names from changelog storage and rendered outputs",
+    "details": [
+      "Updated scripts/log_change.py to stop writing agent fields and to render markdown rows/sections without an Agent column",
+      "Updated scripts/generate_release_notes.py to remove the Agent column from generated release notes tables",
+      "Sanitized existing CHANGELOG.json, CHANGELOG.archive.json, and CHANGELOG.md entries to remove agent source names from recorded metadata and headings"
+    ]
+  },
+  {
+    "id": "CHG-019",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Delay startup connect after launching VKB-Link and show transient connection state",
+    "details": [
+      "Added startup sequencing so connect waits for VKB-Link start task and pauses 5 seconds when VKB-Link was launched by the plugin",
+      "Exposed temporary connection status overrides on EventHandler for UI visibility during startup/connect",
+      "Updated preferences status polling to display connection override text before normal connected/disconnected state"
+    ]
+  },
+  {
+    "id": "CHG-020",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Apply 5s reconnect delay after VKB-Link start/restart recovery and expand lifecycle logging",
+    "details": [
+      "Added reconnect deferral support in VKBClient so retries can be paused after process launch",
+      "Updated recovery flow to wait 5 seconds with status/countdown before reconnect when VKB-Link was started or restarted",
+      "Expanded VKB-Link process lifecycle logs for start/stop/restart actions and INI-update connection state"
+    ]
+  },
+  {
+    "id": "CHG-021",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Reduce false INI mismatch status by syncing path and normalizing host comparison",
+    "details": [
+      "Persisted vkb_ini_path in EDMC config after auto-INI writes from the preferences timer",
+      "Synced the panel's cached INI path from config before status comparisons",
+      "Normalized localhost/loopback host values during INI-vs-prefs checks to avoid false 'INI out of date' alerts"
+    ]
+  },
+  {
+    "id": "CHG-022",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Ensure shift/subshift state is resent on every new VKB socket connection",
+    "details": [
+      "Re-applied the on-connected callback before connect and recovery reconnect calls",
+      "Added explicit connection log lines showing forced state resend payload",
+      "Updated shift-state sender to return success/failure so resend issues are logged clearly"
+    ]
+  },
+  {
+    "id": "CHG-023",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Documentation Update"
+    ],
+    "summary": "Made VKB-Link startup/shutdown lifecycle status consistently visible in INFO logs",
+    "details": [
+      "Set plugin logger minimum level to INFO in load.py so lifecycle messages are not dropped by higher default levels",
+      "Added explicit startup post-action VKB-Link status logs including running state, exe path, version, and managed flag",
+      "Added explicit shutdown pre-stop and post-stop VKB-Link status logs with started-by-plugin context"
+    ]
+  },
+  {
+    "id": "CHG-024",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Centralize VKB-Link control with consistent 5s post-start delay and unified logging",
+    "details": [
+      "Added action_taken field to VKBLinkActionResult to track lifecycle actions (started/restarted/stopped/none)",
+      "Created _apply_post_start_delay() helper on EventHandler as single point for post-start warmup delay logic",
+      "Replaced string-inspection delay checks with typed action_taken field across startup and recovery paths",
+      "Improved VKB-Link lifecycle logging with clear action state messages (starting/stopping/restarting)"
+    ]
+  },
+  {
+    "id": "CHG-025",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Restart VKB-Link when host/port settings change to apply new endpoint configuration",
+    "details": [
+      "Added _apply_endpoint_change() to EventHandler that stops VKB-Link, updates INI, restarts process, and reconnects",
+      "Modified prefs_panel to call endpoint change handler instead of just updating INI file",
+      "Added countdown parameter to _apply_post_start_delay() for silent 5s wait without per-second UI updates or logs",
+      "New flow: settings change -> 4s timer -> VKB-Link restart with new endpoint -> 5s silent warmup -> reconnect"
+    ]
+  },
+  {
+    "id": "CHG-026",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Add diagnostic logging and safety auto-start for VKB-Link during polling",
+    "details": [
+      "Added diagnostic logging to _apply_ini_update() to reveal why restart may not occur (auto_manage disabled or event_handler unavailable)",
+      "Added safety mechanism in _poll_vkb_status() to auto-start VKB-Link if configured but not running",
+      "Polling loop now checks every 2s if VKB-Link should be running, and starts it if needed (crash recovery)",
+      "Auto-started VKB-Link applies 5s warmup delay and reconnects to ensure stable connection"
+    ]
+  },
+  {
+    "id": "CHG-027",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix VKB-Link restart blocking main thread and status messages never rendering",
+    "details": [
+      "Moved _apply_endpoint_change() call into a background thread so status updates render before blocking work starts",
+      "Added ini_action_inflight guard to prevent concurrent endpoint-change operations",
+      "Rewrote _poll_vkb_status() to keep main thread clear of subprocess calls; safety auto-start runs in a dedicated background thread with its own inflight guard",
+      "Fixed _apply_endpoint_change() to clear connection_status_override on both success and failure reconnect paths"
+    ]
+  },
+  {
+    "id": "CHG-028",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Fix countdown logs, wrong endpoint on reconnect, and disconnected vs reconnecting status mismatch",
+    "details": [
+      "Suppress _attempt_vkb_link_recovery during intentional endpoint changes via _endpoint_change_active flag",
+      "Remove countdown logs from all _apply_post_start_delay call sites (countdown=False everywhere)",
+      "Add is_reconnecting() to VKBClient returning True when reconnect worker is active but not yet connected",
+      "Show 'Reconnecting...' (blue) in preferences status panel instead of 'Disconnected' when reconnect worker is running"
     ]
   }
 ]

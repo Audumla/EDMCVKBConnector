@@ -96,6 +96,7 @@ class VKBClient:
         self._reconnect_lock = threading.Lock()
         self._last_connection_attempt = 0.0
         self._initial_retry_start_time = 0.0
+        self._reconnect_not_before = 0.0
 
     def connect(self) -> bool:
         """
@@ -217,6 +218,14 @@ class VKBClient:
         """Check if currently connected to VKB-Link."""
         return self.connected
 
+    def is_reconnecting(self) -> bool:
+        """Return True when the reconnect worker is active but not yet connected."""
+        return (
+            not self.connected
+            and self._reconnect_event.is_set()
+            and bool(self._reconnect_thread and self._reconnect_thread.is_alive())
+        )
+
     def start_reconnection(self) -> None:
         """
         Start automatic reconnection attempts.
@@ -227,6 +236,24 @@ class VKBClient:
         """
         self._stop_event.clear()
         self._start_reconnect_thread()
+
+    def defer_reconnect_attempts(self, delay_seconds: float, *, reason: str = "") -> None:
+        """Delay reconnect attempts until the specified delay has elapsed."""
+        try:
+            delay_value = float(delay_seconds)
+        except Exception:
+            delay_value = 0.0
+        if delay_value <= 0:
+            return
+        defer_until = time.time() + delay_value
+        with self._reconnect_lock:
+            if defer_until > self._reconnect_not_before:
+                self._reconnect_not_before = defer_until
+        reason_label = reason or "unspecified"
+        logger.info(
+            "Deferring VKB reconnect attempts for "
+            f"{delay_value:.1f}s (reason={reason_label})"
+        )
 
     def _start_reconnect_thread(self) -> None:
         """Start or restart the reconnection thread."""
@@ -260,6 +287,9 @@ class VKBClient:
                 # Check if reconnection is needed
                 if self._reconnect_event.is_set():
                     current_time = time.time()
+                    if current_time < self._reconnect_not_before:
+                        self._stop_event.wait(0.5)
+                        continue
                     time_since_initial = current_time - self._initial_retry_start_time
 
                     # Determine retry interval based on duration

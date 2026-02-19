@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import sys
 import threading
+import time
 from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
@@ -162,102 +163,224 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     vkb_link_frame.grid(row=0, column=0, sticky="w", padx=(4, 6), pady=2)
     vkb_link_frame.columnconfigure(1, weight=0)
 
-    ttk.Label(vkb_link_frame, text="Host:").grid(row=0, column=0, sticky="w", padx=(4, 4), pady=2)
-    ttk.Entry(vkb_link_frame, textvariable=host_var, width=12).grid(row=0, column=1, sticky="w", padx=(0, 12), pady=2)
+    # Config frame: Host, Port, and Auto-manage on same line, compact and left-aligned
+    config_frame = ttk.Frame(vkb_link_frame)
+    config_frame.grid(row=0, column=0, columnspan=4, sticky="w", padx=(0, 4), pady=2)
 
-    ttk.Label(vkb_link_frame, text="Port:").grid(row=0, column=2, sticky="w", padx=(0, 4), pady=2)
-    ttk.Entry(vkb_link_frame, textvariable=port_var, width=6).grid(row=0, column=3, sticky="w", padx=4, pady=2)
+    ttk.Label(config_frame, text="Host:").pack(side=tk.LEFT, padx=(4, 2))
+    host_entry = ttk.Entry(config_frame, textvariable=host_var, width=12)
+    host_entry.pack(side=tk.LEFT, padx=(0, 12))
+
+    ttk.Label(config_frame, text="Port:").pack(side=tk.LEFT, padx=(0, 2))
+    port_entry = ttk.Entry(config_frame, textvariable=port_var, width=6)
+    port_entry.pack(side=tk.LEFT, padx=(0, 12))
+
+    auto_manage_var = tk.BooleanVar(
+        value=bool(_config.get("vkb_link_auto_manage", True)) if _config else True
+    )
+
+    def _on_auto_manage_changed(*_args):
+        if _config:
+            _config.set("vkb_link_auto_manage", auto_manage_var.get())
+
+    auto_manage_var.trace_add("write", _on_auto_manage_changed)
+    ttk.Checkbutton(
+        config_frame,
+        text="Auto-manage",
+        variable=auto_manage_var,
+    ).pack(side=tk.LEFT, padx=(0, 4))
 
     # --- Connection status row ---
     vkb_status_var = tk.StringVar(value="Checking...")
-    vkb_status_label = tk.Label(vkb_link_frame, textvariable=vkb_status_var, foreground="gray",
-                                font=("TkDefaultFont", 8))
-    vkb_status_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=(4, 4), pady=(2, 0))
-
     vkb_ini_path_saved = _config.get("vkb_ini_path", "") if _config else ""
 
-    def _configure_vkb_ini():
-        """Open file dialog to locate VKB-Link INI and write TCP section."""
-        nonlocal vkb_ini_path_saved
-        from tkinter import filedialog
+    status_line_frame = ttk.Frame(vkb_link_frame, padding=(0, 2, 0, 0))
+    status_line_frame.grid(row=1, column=0, columnspan=4, sticky="ew", padx=(4, 4))
 
-        initial_dir = ""
-        if vkb_ini_path_saved:
-            ini_p = Path(vkb_ini_path_saved)
-            if ini_p.parent.exists():
-                initial_dir = str(ini_p.parent)
+    status_line_frame.columnconfigure(1, weight=1)
 
-        ini_path = filedialog.askopenfilename(
-            title="Select VKB-Link INI file",
-            filetypes=[("INI files", "*.ini"), ("All files", "*.*")],
-            initialdir=initial_dir or None,
-        )
-        if not ini_path:
-            return
+    ttk.Label(
+        status_line_frame,
+        text="Status:",
+        font=("TkDefaultFont", 8),
+    ).grid(row=0, column=0, sticky="w", padx=(0, 4), pady=1)
 
-        try:
-            _write_ini(ini_path, host_var.get(), port_var.get())
-            vkb_ini_path_saved = ini_path
-            if _config:
-                _config.set("vkb_ini_path", ini_path)
-            vkb_status_var.set(f"INI updated: {Path(ini_path).name}")
-            vkb_status_label.configure(foreground="#27ae60")
-            logger.info(f"Updated VKB-Link INI: {ini_path}")
-        except Exception as e:
-            vkb_status_var.set(f"INI error: {e}")
-            vkb_status_label.configure(foreground="#e74c3c")
-            logger.error(f"Failed to update VKB-Link INI: {e}")
-
-    def _write_ini(ini_path: str, host: str, port: str) -> None:
-        """Write Host/Port into the [TCP] section of an existing INI file."""
-        import configparser
-        cp = configparser.ConfigParser()
-        cp.read(ini_path, encoding="utf-8")
-        if "TCP" not in cp:
-            cp.add_section("TCP")
-        cp.set("TCP", "Adress", host)
-        cp.set("TCP", "Port", port)
-        with open(ini_path, "w", encoding="utf-8") as f:
-            cp.write(f)
-
-    def _auto_update_vkb_ini(*_args) -> None:
-        """Silently re-write the saved INI file when host or port changes."""
-        if not vkb_ini_path_saved:
-            return
-        try:
-            _write_ini(vkb_ini_path_saved, host_var.get(), port_var.get())
-            vkb_status_var.set(f"INI auto-updated: {Path(vkb_ini_path_saved).name}")
-            vkb_status_label.configure(foreground="#27ae60")
-            logger.info(f"Auto-updated VKB-Link INI: {vkb_ini_path_saved}")
-        except Exception as e:
-            logger.warning(f"Failed to auto-update VKB-Link INI: {e}")
-
-    host_var.trace_add("write", _auto_update_vkb_ini)
-    port_var.trace_add("write", _auto_update_vkb_ini)
-
-    ini_btn = create_colored_button(
-        vkb_link_frame,
-        text="Configure INI...",
-        command=_configure_vkb_ini,
-        style="info",
-        padx=6,
-        pady=4,
-        font=("TkDefaultFont", 8, "bold"),
-    )
-    # Initially hidden; shown when disconnected
-    ini_btn_visible = [False]
-
-    vkb_app_status_var = tk.StringVar(value="VKB-Link app: unknown")
-    vkb_app_status_label = tk.Label(
-        vkb_link_frame,
-        textvariable=vkb_app_status_var,
+    vkb_status_label = tk.Label(
+        status_line_frame,
+        textvariable=vkb_status_var,
         foreground="gray",
         font=("TkDefaultFont", 8),
+        anchor="w",
     )
-    vkb_app_status_label.grid(row=2, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(2, 0))
+    vkb_status_label.grid(row=0, column=1, sticky="w", pady=1)
+
+    status_error_message: Optional[str] = None
+    status_error_expires_at = 0.0
+
+    def _set_status_error(message: str, *, hold_seconds: int = 12) -> None:
+        nonlocal status_error_message, status_error_expires_at
+        status_error_message = message
+        status_error_expires_at = time.time() + hold_seconds
+        vkb_status_label.configure(foreground="#e74c3c")
+        vkb_status_var.set(message)
+
+    def _normalize_host_for_compare(value: str) -> str:
+        """Normalize host text to avoid false INI mismatch indicators."""
+        normalized = (value or "").strip().lower()
+        if normalized in {"localhost", "127.0.0.1", "::1", "0:0:0:0:0:0:0:1"}:
+            return "loopback"
+        return normalized
+
+    # Auto-INI update timer: update INI 4 seconds after host/port change
+    ini_update_after_id = [None]  # Mutable ref for after() cancellation
+    ini_has_pending_changes = [False]  # Track if changes are pending
+    ini_status_override = [None]  # UI-only status while INI settings are changing
+    ini_status_dots_after_id = [None]  # Animate pending INI status with trailing dots
+    ini_status_dot_count = [0]
+    ini_status_color_index = [0]
+    ini_pending_colors = ("#f39c12", "#d68910")
+    ini_action_inflight = [False]  # Guard against concurrent endpoint-change operations
+    safety_restart_inflight = [False]  # Guard against concurrent safety-start operations
+
+    def _cancel_ini_status_dots() -> None:
+        if ini_status_dots_after_id[0] is not None:
+            try:
+                frame.after_cancel(ini_status_dots_after_id[0])
+            except Exception:
+                pass
+            ini_status_dots_after_id[0] = None
+
+    def _tick_ini_pending_status() -> None:
+        if not frame.winfo_exists():
+            return
+        if not ini_has_pending_changes[0]:
+            ini_status_dots_after_id[0] = None
+            return
+        ini_status_dot_count[0] += 1
+        dots = "." * ini_status_dot_count[0]
+        ini_status_override[0] = f"Settings Changed{dots}"
+        vkb_status_var.set(ini_status_override[0])
+        ini_status_color_index[0] = 1 - ini_status_color_index[0]
+        vkb_status_label.configure(foreground=ini_pending_colors[ini_status_color_index[0]])
+        ini_status_dots_after_id[0] = frame.after(333, _tick_ini_pending_status)
+
+    def _schedule_ini_update():
+        """Schedule INI update 4 seconds from now, or restart the timer if already scheduled."""
+        nonlocal ini_update_after_id, ini_has_pending_changes
+        # Cancel any existing timer
+        if ini_update_after_id[0] is not None:
+            try:
+                frame.after_cancel(ini_update_after_id[0])
+            except Exception:
+                pass
+            ini_update_after_id[0] = None
+        # Mark that changes are pending and show status
+        ini_has_pending_changes[0] = True
+        ini_status_dot_count[0] = 0
+        ini_status_color_index[0] = 0
+        ini_status_override[0] = "Settings Changed"
+        vkb_status_var.set("Settings Changed")
+        vkb_status_label.configure(foreground=ini_pending_colors[ini_status_color_index[0]])
+        _cancel_ini_status_dots()
+        if frame.winfo_exists():
+            ini_status_dots_after_id[0] = frame.after(333, _tick_ini_pending_status)
+        # Schedule INI update after 4 seconds
+        if frame.winfo_exists():
+            ini_update_after_id[0] = frame.after(4000, _apply_ini_update)
+
+    def _apply_ini_update():
+        """Apply the pending INI update by restarting VKB-Link with new endpoint."""
+        nonlocal ini_update_after_id, ini_has_pending_changes
+        ini_update_after_id[0] = None
+        if not ini_has_pending_changes[0]:
+            return
+        _cancel_ini_status_dots()
+        ini_has_pending_changes[0] = False
+
+        # Check conditions for restart
+        auto_manage_enabled = auto_manage_var.get()
+        event_handler_ready = _event_handler is not None
+
+        logger.info(f"Preferences: endpoint change timer fired (auto_manage={auto_manage_enabled} event_handler={event_handler_ready})")
+
+        if not auto_manage_enabled or not event_handler_ready:
+            logger.info(f"Preferences: skipping VKB-Link restart (auto_manage={auto_manage_enabled}, event_handler={'available' if event_handler_ready else 'unavailable'})")
+            ini_status_override[0] = None
+            _refresh_connection_status()
+            return
+
+        # Bail if a restart is already in progress
+        if ini_action_inflight[0]:
+            logger.info("Preferences: endpoint change already in progress; skipping")
+            ini_status_override[0] = None
+            _refresh_connection_status()
+            return
+
+        host = host_var.get().strip() or "127.0.0.1"
+        port_str = port_var.get().strip()
+        try:
+            port = int(port_str)
+        except (ValueError, TypeError):
+            port = 50995
+
+        # Show status immediately on main thread — UI can render before the thread starts
+        ini_action_inflight[0] = True
+        ini_status_override[0] = "Restarting VKB-Link..."
+        vkb_status_var.set("Restarting VKB-Link...")
+        vkb_status_label.configure(foreground="#3498db")
+        logger.info(f"Preferences: restarting VKB-Link with new endpoint (host={host} port={port})")
+
+        def _do_restart():
+            try:
+                _event_handler._apply_endpoint_change(host, port)
+            except Exception as e:
+                logger.error(f"VKB-Link endpoint change failed: {e}")
+                def _show_error():
+                    ini_status_override[0] = None
+                    ini_action_inflight[0] = False
+                    _set_status_error(f"VKB-Link restart failed: {e}")
+                if frame.winfo_exists():
+                    frame.after(0, _show_error)
+                return
+
+            def _finish():
+                ini_status_override[0] = None
+                ini_action_inflight[0] = False
+                _refresh_connection_status()
+
+            if frame.winfo_exists():
+                frame.after(0, _finish)
+
+        threading.Thread(target=_do_restart, daemon=True).start()
+
+    def _on_host_port_focus_in(event):
+        """Reset INI update timer when focus enters host or port field."""
+        if ini_update_after_id[0] is not None:
+            try:
+                frame.after_cancel(ini_update_after_id[0])
+            except Exception:
+                pass
+            ini_update_after_id[0] = None
+            _cancel_ini_status_dots()
+            ini_has_pending_changes[0] = False
+            ini_status_override[0] = None
+            # Restore status to normal when timer is reset
+            _refresh_connection_status()
+
+    # Bind focus-in events to host and port entry widgets only
+    host_entry.bind("<FocusIn>", _on_host_port_focus_in)
+    port_entry.bind("<FocusIn>", _on_host_port_focus_in)
+
+    def _on_host_port_change(*_args):
+        """Handle host or port value changes."""
+        _schedule_ini_update()
+
+    # Replace the old _on_endpoint_changed with the new timer-based logic
+    host_var.trace_add("write", _on_host_port_change)
+    port_var.trace_add("write", _on_host_port_change)
 
     vkb_app_buttons = ttk.Frame(vkb_link_frame)
-    vkb_app_buttons.grid(row=3, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(4, 2))
+    vkb_app_buttons.grid(row=2, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(4, 2))
 
     def _get_vkb_manager():
         if _event_handler and hasattr(_event_handler, "vkb_link_manager"):
@@ -265,23 +388,23 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         return None
 
     def _refresh_vkb_app_status(check_running: bool = False) -> None:
+        nonlocal vkb_ini_path_saved
         manager = _get_vkb_manager()
         if not manager:
-            vkb_app_status_var.set("VKB-Link app: manager unavailable")
+            _set_status_error("VKB-Link manager unavailable")
             return
+        if _config:
+            config_ini = _config.get("vkb_ini_path", "") or ""
+            if config_ini and config_ini != vkb_ini_path_saved:
+                vkb_ini_path_saved = config_ini
         status = manager.get_status(check_running=check_running)
-        parts = []
-        if status.exe_path:
-            parts.append(Path(status.exe_path).name)
+        exe_path = Path(status.exe_path) if status.exe_path else None
+        if exe_path and not exe_path.exists():
+            exe_path = None
+        if exe_path:
+            _set_locate_button_visible(False)
         else:
-            parts.append("Not configured")
-        if status.version:
-            parts.append(f"v{status.version}")
-        if status.running is True:
-            parts.append("running")
-        elif status.running is False:
-            parts.append("stopped")
-        vkb_app_status_var.set("VKB-Link app: " + " / ".join(parts))
+            _set_locate_button_visible(True)
 
     def _parse_port_value() -> int:
         try:
@@ -289,12 +412,30 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         except Exception:
             return 50995
 
-    def _run_manager_action(action_fn, busy_text: str) -> None:
+    def _run_manager_action(
+        action_fn,
+        busy_text: str,
+        followup_busy_text: Optional[str] = None,
+        followup_delay_ms: int = 1500,
+    ) -> None:
         manager = _get_vkb_manager()
         if not manager:
-            vkb_app_status_var.set("VKB-Link app: manager unavailable")
+            _set_status_error("VKB-Link manager unavailable")
             return
-        vkb_app_status_var.set(busy_text)
+        vkb_status_var.set(busy_text)
+        vkb_status_label.configure(foreground="#3498db")
+        action_done = [False]
+        followup_after_id = [None]
+
+        def _show_followup_busy() -> None:
+            if action_done[0]:
+                return
+            if followup_busy_text:
+                vkb_status_var.set(followup_busy_text)
+                vkb_status_label.configure(foreground="#3498db")
+
+        if followup_busy_text and frame.winfo_exists():
+            followup_after_id[0] = frame.after(followup_delay_ms, _show_followup_busy)
 
         def _worker():
             try:
@@ -304,23 +445,27 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                 logger.error(f"VKB-Link action failed: {e}")
 
             def _apply_result():
+                action_done[0] = True
+                if followup_after_id[0] is not None:
+                    try:
+                        frame.after_cancel(followup_after_id[0])
+                    except Exception:
+                        pass
                 if result is None:
-                    vkb_app_status_var.set("VKB-Link action failed")
+                    _set_status_error("VKB-Link action failed")
                 else:
-                    vkb_app_status_var.set(result.message)
+                    if not result.success:
+                        _set_status_error(result.message)
+                    else:
+                        nonlocal status_error_message
+                        status_error_message = None
+                        vkb_status_var.set("")
                 _refresh_vkb_app_status(check_running=True)
+                _refresh_connection_status()
 
             frame.after(0, _apply_result)
 
         threading.Thread(target=_worker, daemon=True).start()
-
-    def _manage_vkb_link() -> None:
-        host = host_var.get().strip() or "127.0.0.1"
-        port_value = _parse_port_value()
-        _run_manager_action(
-            lambda mgr: mgr.ensure_running(host=host, port=port_value, reason="manual"),
-            "Managing VKB-Link...",
-        )
 
     def _check_updates() -> None:
         host = host_var.get().strip() or "127.0.0.1"
@@ -328,6 +473,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         _run_manager_action(
             lambda mgr: mgr.update_to_latest(host=host, port=port_value),
             "Checking for updates...",
+            followup_busy_text="Restarting VKB-Link...",
         )
 
     def _locate_vkb_link() -> None:
@@ -342,45 +488,29 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
         manager = _get_vkb_manager()
         if not manager:
-            vkb_app_status_var.set("VKB-Link app: manager unavailable")
+            _set_status_error("VKB-Link manager unavailable")
             return
         result = manager.set_known_exe_path(exe_path)
-        vkb_app_status_var.set(result.message)
+        if result.success:
+            vkb_status_var.set("Executable located successfully")
+            vkb_status_label.configure(foreground="#27ae60")
+        else:
+            _set_status_error(result.message)
         _refresh_vkb_app_status(check_running=True)
 
-    def _relocate_vkb_link() -> None:
-        from tkinter import filedialog
-
-        destination = filedialog.askdirectory(title="Relocate VKB-Link to folder")
-        if not destination:
-            return
-
-        _run_manager_action(
-            lambda mgr: mgr.relocate_install(Path(destination)),
-            "Relocating VKB-Link...",
-        )
-
-    create_colored_button(
-        vkb_app_buttons,
-        text="Manage",
-        command=_manage_vkb_link,
-        style="info",
-        padx=8,
-        pady=4,
-        font=("TkDefaultFont", 8, "bold"),
-    ).pack(side=tk.LEFT, padx=(0, 6))
-
-    create_colored_button(
-        vkb_app_buttons,
-        text="Check Updates",
+    update_btn = create_colored_button(
+        status_line_frame,
+        text="Check Version",
         command=_check_updates,
         style="info",
         padx=8,
-        pady=4,
-        font=("TkDefaultFont", 8),
-    ).pack(side=tk.LEFT, padx=(0, 6))
+        pady=2,
+        font=("TkDefaultFont", 8, "bold"),
+        tooltip_text="Check for and install a newer VKB-Link release if available",
+    )
+    update_btn.grid(row=0, column=2, sticky="e", padx=(6, 0), pady=1)
 
-    create_colored_button(
+    locate_btn = create_colored_button(
         vkb_app_buttons,
         text="Locate...",
         command=_locate_vkb_link,
@@ -388,57 +518,169 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         padx=8,
         pady=4,
         font=("TkDefaultFont", 8),
-    ).pack(side=tk.LEFT, padx=(0, 6))
-
-    create_colored_button(
-        vkb_app_buttons,
-        text="Relocate...",
-        command=_relocate_vkb_link,
-        style="default",
-        padx=8,
-        pady=4,
-        font=("TkDefaultFont", 8),
-    ).pack(side=tk.LEFT, padx=(0, 6))
-
-    auto_manage_var = tk.BooleanVar(
-        value=bool(_config.get("vkb_link_auto_manage", True)) if _config else True
+        tooltip_text="Select an existing VKB-Link.exe location",
     )
 
-    def _on_auto_manage_changed(*_args):
+    def _set_locate_button_visible(visible: bool) -> None:
+        if visible and not locate_btn.winfo_ismapped():
+            locate_btn.pack(side=tk.LEFT, padx=(0, 6))
+        elif not visible and locate_btn.winfo_ismapped():
+            locate_btn.pack_forget()
+
+    def _read_ini_endpoint(ini_path: str) -> Optional[tuple[str, int]]:
+        import configparser
+        cp = configparser.ConfigParser()
+        cp.read(ini_path, encoding="utf-8")
+        if "TCP" not in cp:
+            return None
+        host = cp.get("TCP", "Adress", fallback="").strip()
+        port_value = cp.get("TCP", "Port", fallback="").strip()
+        try:
+            port = int(port_value)
+        except Exception:
+            return None
+        return host, port
+
+    def _ini_matches_prefs() -> Optional[bool]:
+        if not vkb_ini_path_saved:
+            return None
+        ini_path = Path(vkb_ini_path_saved)
+        if not ini_path.exists():
+            return None
+        endpoint = _read_ini_endpoint(str(ini_path))
+        if endpoint is None:
+            return None
+        host = host_var.get().strip()
+        port = _parse_port_value()
+        ini_host = _normalize_host_for_compare(endpoint[0])
+        prefs_host = _normalize_host_for_compare(host)
+        return ini_host == prefs_host and endpoint[1] == port
+
+    def _refresh_connection_status(connected_override: Optional[bool] = None) -> None:
+        nonlocal status_error_message, vkb_ini_path_saved
+        if status_error_message:
+            if time.time() < status_error_expires_at:
+                vkb_status_var.set(status_error_message)
+                vkb_status_label.configure(foreground="#e74c3c")
+                return
+            status_error_message = None
         if _config:
-            _config.set("vkb_link_auto_manage", auto_manage_var.get())
-
-    auto_manage_var.trace_add("write", _on_auto_manage_changed)
-    ttk.Checkbutton(
-        vkb_link_frame,
-        text="Auto-manage VKB-Link (download/update if needed)",
-        variable=auto_manage_var,
-    ).grid(row=4, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(2, 0))
-
-    def _poll_vkb_status():
-        """Poll VKB-Link connection status and update UI."""
-        if not frame.winfo_exists():
+            configured_ini = (_config.get("vkb_ini_path", "") or "").strip()
+            if configured_ini and configured_ini != vkb_ini_path_saved:
+                vkb_ini_path_saved = configured_ini
+        if ini_status_override[0]:
+            if ini_status_override[0].startswith("Settings Changed"):
+                vkb_status_label.configure(foreground=ini_pending_colors[ini_status_color_index[0]])
+            else:
+                vkb_status_label.configure(foreground="#3498db")
+            vkb_status_var.set(ini_status_override[0])
             return
-        connected = False
         if _event_handler:
             try:
-                connected = _event_handler.vkb_client.connected
+                status_override_getter = getattr(_event_handler, "get_connection_status_override", None)
+                connection_status_override = (
+                    status_override_getter() if callable(status_override_getter) else None
+                )
+                if connection_status_override:
+                    vkb_status_var.set(connection_status_override)
+                    vkb_status_label.configure(foreground="#3498db")
+                    return
             except Exception:
                 pass
+        connected_state = connected_override
+        is_reconnecting = False
+        if connected_state is None:
+            connected_state = False
+            if _event_handler:
+                try:
+                    connected_state = _event_handler.vkb_client.connected
+                    if not connected_state:
+                        is_reconnecting = _event_handler.vkb_client.is_reconnecting()
+                except Exception:
+                    connected_state = False
 
-        if connected:
-            vkb_status_var.set("Connected")
-            vkb_status_label.configure(foreground="#27ae60")
-            if ini_btn_visible[0]:
-                ini_btn.grid_forget()
-                ini_btn_visible[0] = False
+        # Get version from manager
+        version = "?"
+        manager = _get_vkb_manager()
+        if manager:
+            status = manager.get_status(check_running=False)
+            if status.version:
+                version = status.version
+
+        if connected_state:
+            status_text = f"VKB-Link (v{version}) - Established"
+            foreground = "#27ae60"
+        elif is_reconnecting:
+            status_text = "Reconnecting..."
+            foreground = "#3498db"
         else:
-            vkb_status_var.set("Disconnected - retrying...")
-            vkb_status_label.configure(foreground="#e74c3c")
-            if not ini_btn_visible[0]:
-                ini_btn.grid(row=1, column=2, columnspan=2, sticky="e", padx=(4, 4), pady=(2, 0))
-                ini_btn_visible[0] = True
+            status_text = "Disconnected"
+            foreground = "#e74c3c"
+
+        ini_match = _ini_matches_prefs()
+        if ini_match is False:
+            vkb_status_var.set("INI out of date")
+            vkb_status_label.configure(foreground="#f39c12")
+        else:
+            vkb_status_var.set(status_text)
+            vkb_status_label.configure(foreground=foreground)
+
+    def _poll_vkb_status():
+        """Poll VKB-Link connection status and update UI.
+
+        Runs on the Tkinter main thread — no subprocess or blocking I/O here.
+        The safety auto-start check runs in a background thread.
+        """
+        if not frame.winfo_exists():
+            return
+        _refresh_connection_status()
+        # check_running=False keeps the main thread free of subprocess calls
         _refresh_vkb_app_status(check_running=False)
+
+        # Safety mechanism: if auto-manage is enabled and no action is already in
+        # progress, spin up a background thread to check whether VKB-Link is
+        # running and start it if not.
+        if (
+            auto_manage_var.get()
+            and _event_handler
+            and not ini_action_inflight[0]
+            and not safety_restart_inflight[0]
+        ):
+            host = host_var.get().strip() or "127.0.0.1"
+            port_str = port_var.get().strip()
+            try:
+                port = int(port_str)
+            except (ValueError, TypeError):
+                port = 50995
+
+            def _safety_check():
+                manager = _get_vkb_manager()
+                if not manager:
+                    return
+                status = manager.get_status(check_running=True)
+                if not (status.exe_path and status.running is False):
+                    return
+
+                # VKB-Link is configured but not running — start it
+                safety_restart_inflight[0] = True
+                try:
+                    logger.info("VKB-Link polling: process not running; starting it")
+                    result = manager.ensure_running(host=host, port=port, reason="polling_safety")
+                    if result.success:
+                        logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
+                        if result.action_taken in ("started", "restarted"):
+                            _event_handler._apply_post_start_delay(result.action_taken, countdown=False)
+                            _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
+                            _event_handler.vkb_client.connect()
+                    else:
+                        logger.warning(f"VKB-Link polling: auto-start failed ({result.message})")
+                except Exception as e:
+                    logger.error(f"VKB-Link polling: auto-start exception: {e}")
+                finally:
+                    safety_restart_inflight[0] = False
+
+            threading.Thread(target=_safety_check, daemon=True).start()
+
         frame.after(2000, _poll_vkb_status)
 
     # Start polling
@@ -838,12 +1080,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     new_rule_action = ttk.Frame(rules_header)
     new_rule_action.grid(row=0, column=0, sticky="w", padx=(0, 8))
-    create_icon_action_button(
-        new_rule_action,
-        action="add",
-        command=_open_new_rule_editor,
-        tooltip_text="Create a new rule",
-    ).pack(side=tk.LEFT, padx=(0, 4))
     new_rule_btn = create_colored_button(
         new_rule_action,
         text="New Rule",

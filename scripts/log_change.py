@@ -82,24 +82,24 @@ def next_id(entries: list[dict]) -> str:
     return f"CHG-{max_n + 1:03d}"
 
 
-def build_md_row(chg_id: str, entry_date: str, agent: str, tags: list[str], summary: str) -> str:
+def build_md_row(chg_id: str, entry_date: str, tags: list[str], summary: str) -> str:
     tag_str = ", ".join(tags)
-    return f"| {chg_id} | {entry_date} | {agent} | {tag_str} | {summary} |"
+    return f"| {chg_id} | {entry_date} | {tag_str} | {summary} |"
 
 
-def build_md_section(chg_id: str, entry_date: str, agent: str, tags: list[str],
+def build_md_section(chg_id: str, entry_date: str, tags: list[str],
                      summary: str, details: list[str]) -> str:
     tag_str = ", ".join(tags)
     bullets = "\n".join(f"- {d}" for d in details)
     return (
-        f"### {chg_id} \u2014 {entry_date} \u00b7 {agent} \u00b7 unreleased\n\n"
+        f"### {chg_id} \u2014 {entry_date} \u00b7 unreleased\n\n"
         f"**Tags:** {tag_str}\n\n"
         f"**Summary:** {summary}\n\n"
         f"**Changes:**\n{bullets}\n"
     )
 
 
-def insert_into_md(chg_id: str, entry_date: str, agent: str, tags: list[str],
+def insert_into_md(chg_id: str, entry_date: str, tags: list[str],
                    summary: str, details: list[str]) -> None:
     if not CHANGELOG_MD.exists():
         print(f"WARNING: {CHANGELOG_MD} not found — skipping markdown update.", file=sys.stderr)
@@ -107,12 +107,18 @@ def insert_into_md(chg_id: str, entry_date: str, agent: str, tags: list[str],
 
     content = CHANGELOG_MD.read_text(encoding="utf-8")
 
+    # Migrate legacy table headers that included an "Agent" column.
+    content = content.replace(
+        "| ID | Date | Agent | Tags | Summary |\n|----|------|-------|------|---------|",
+        "| ID | Date | Tags | Summary |\n|----|------|------|---------|",
+    )
+
     # Insert new row at the top of the summary table (after the header row and separator)
     table_header_pattern = re.compile(
-        r"(\| ID \| Date \| Agent \| Tags \| Summary \|\n\|[-| ]+\|\n)",
+        r"(\| ID \| Date \| Tags \| Summary \|\n\|[-| ]+\|\n)",
         re.MULTILINE,
     )
-    new_row = build_md_row(chg_id, entry_date, agent, tags, summary)
+    new_row = build_md_row(chg_id, entry_date, tags, summary)
     if table_header_pattern.search(content):
         content = table_header_pattern.sub(
             r"\g<1>" + new_row + "\n",
@@ -123,7 +129,7 @@ def insert_into_md(chg_id: str, entry_date: str, agent: str, tags: list[str],
         print("WARNING: Could not locate summary table in CHANGELOG.md — row not inserted.", file=sys.stderr)
 
     # Insert new detail section above the first existing ### CHG- section
-    new_section = build_md_section(chg_id, entry_date, agent, tags, summary, details)
+    new_section = build_md_section(chg_id, entry_date, tags, summary, details)
     detail_anchor = re.compile(r"(^### CHG-)", re.MULTILINE)
     if detail_anchor.search(content):
         content = detail_anchor.sub(new_section + "\n### CHG-", content, count=1)
@@ -146,7 +152,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--agent", required=True, choices=sorted(KNOWN_AGENTS),
-        help="Which agent is recording this change",
+        help="Which agent is recording this change (accepted for compatibility; not written to changelog output)",
     )
     parser.add_argument(
         "--tags", required=True, nargs="+", metavar="TAG",
@@ -187,7 +193,6 @@ def main() -> None:
         "id": chg_id,
         "plugin_version": "unreleased",
         "date": args.date,
-        "agent": args.agent,
         "summary_tags": args.tags,
         "summary": args.summary,
         "details": args.details,
@@ -198,14 +203,14 @@ def main() -> None:
         print("CHANGELOG.json entry:")
         print(json.dumps(new_entry, indent=2))
         print("\nCHANGELOG.md row:")
-        print(build_md_row(chg_id, args.date, args.agent, args.tags, args.summary))
+        print(build_md_row(chg_id, args.date, args.tags, args.summary))
         print("\nCHANGELOG.md section:")
-        print(build_md_section(chg_id, args.date, args.agent, args.tags, args.summary, args.details))
+        print(build_md_section(chg_id, args.date, args.tags, args.summary, args.details))
         return
 
     entries.append(new_entry)
     save_json(entries)
-    insert_into_md(chg_id, args.date, args.agent, args.tags, args.summary, args.details)
+    insert_into_md(chg_id, args.date, args.tags, args.summary, args.details)
 
     print(f"Recorded {chg_id}: {args.summary}")
 

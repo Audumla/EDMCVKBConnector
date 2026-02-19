@@ -30,13 +30,19 @@ INCLUDE = [
     "src/edmcruleengine/version.py",
     "src/edmcruleengine/config.py",
     "src/edmcruleengine/event_handler.py",
+    "src/edmcruleengine/event_recorder.py",
     "src/edmcruleengine/message_formatter.py",
+    "src/edmcruleengine/paths.py",
+    "src/edmcruleengine/prefs_panel.py",
     "src/edmcruleengine/rule_editor.py",
     "src/edmcruleengine/rule_loader.py",
     "src/edmcruleengine/rules_engine.py",
     "src/edmcruleengine/signal_derivation.py",
     "src/edmcruleengine/signals_catalog.py",
+    "src/edmcruleengine/ui_components.py",
+    "src/edmcruleengine/unregistered_events_tracker.py",
     "src/edmcruleengine/vkb_client.py",
+    "src/edmcruleengine/vkb_link_manager.py",
 ]
 
 

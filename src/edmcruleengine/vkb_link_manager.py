@@ -4,10 +4,12 @@ VKB-Link lifecycle management (process control, INI sync, download/update).
 
 from __future__ import annotations
 
+import base64
 import configparser
 import json
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -33,6 +35,17 @@ VKB_LINK_ZIP_RE = re.compile(
 VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\\s*v?(\\d+(?:\\.\\d+)+)", re.IGNORECASE)
 ONEDRIVE_RE = re.compile(r"https?://(?:1drv\\.ms|onedrive\\.live\\.com)[^\"'\\s>]+", re.IGNORECASE)
 
+MEGA_API_URL = "https://g.api.mega.co.nz/cs"
+MEGA_FOLDER_NODE = "980CgDDL"
+MEGA_FOLDER_KEY_B64 = "AuSb0tItSbEQCmIIcA8U7w"
+MEGA_VKB_LINK_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
+MEGA_API_HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+    "Content-Type": "application/json",
+    "Origin": "https://mega.nz",
+    "Referer": "https://mega.nz/",
+}
+
 
 @dataclass(frozen=True)
 class VKBLinkProcessInfo:
@@ -54,6 +67,8 @@ class VKBLinkRelease:
     version: str
     url: str
     filename: str
+    mega_node_handle: Optional[str] = None
+    mega_raw_key: Optional[bytes] = None
 
 
 @dataclass(frozen=True)
@@ -61,6 +76,7 @@ class VKBLinkActionResult:
     success: bool
     message: str
     status: Optional[VKBLinkStatus] = None
+    action_taken: str = "none"  # "none" | "started" | "restarted" | "stopped"
 
 
 def _fetch_text(url: str, *, timeout: int = 20) -> str:
@@ -75,6 +91,27 @@ def _extract_zip_links(text: str) -> list[str]:
 
 def _extract_onedrive_links(text: str) -> list[str]:
     return list({m.group(0) for m in ONEDRIVE_RE.finditer(text or "")})
+
+
+def _extract_onedrive_links_for_software(text: str) -> list[str]:
+    if not text:
+        return []
+    lowered = text.lower()
+    software_idx = lowered.find("software")
+    if software_idx == -1:
+        return []
+    firmware_idx = lowered.find("firmware", software_idx + 1)
+    if firmware_idx == -1:
+        firmware_idx = len(text)
+    segment = text[software_idx:firmware_idx]
+    links = _extract_onedrive_links(segment)
+    if links:
+        return links
+    # Fallback: expand the window a bit to catch links near the label.
+    start = max(0, software_idx - 600)
+    end = min(len(text), firmware_idx + 600)
+    segment = text[start:end]
+    return _extract_onedrive_links(segment)
 
 
 def _extract_version(text: str) -> Optional[str]:
@@ -102,6 +139,188 @@ def _is_path_within(path: Path, root: Path) -> bool:
         return False
 
 
+def _format_status(status: "VKBLinkStatus") -> str:
+    return (
+        "running="
+        f"{status.running} "
+        "exe_path="
+        f"{status.exe_path or 'none'} "
+        "install_dir="
+        f"{status.install_dir or 'none'} "
+        "version="
+        f"{status.version or 'unknown'} "
+        "managed="
+        f"{status.managed}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# MEGA public-folder helpers
+# ---------------------------------------------------------------------------
+
+def _ensure_cryptography() -> bool:
+    """Return True if the cryptography library is available.
+
+    If not installed, silently attempts ``pip install cryptography`` using the
+    running Python interpreter so no user action is required.
+    """
+    try:
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: F401
+        return True
+    except ImportError:
+        pass
+    logger.info("'cryptography' library not found; attempting silent pip install...")
+    try:
+        import importlib
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", "cryptography"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            importlib.invalidate_caches()
+            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: F401
+            logger.info("'cryptography' installed successfully")
+            return True
+        logger.warning(
+            f"pip install cryptography failed (rc={result.returncode}): "
+            f"{result.stderr[:300]}"
+        )
+    except Exception as e:
+        logger.warning(f"Could not install 'cryptography': {e}")
+    return False
+
+
+def _mega_b64(s: str) -> bytes:
+    """Decode MEGA's base64url (no padding, - and _ instead of + and /)."""
+    s = s.replace("-", "+").replace("_", "/")
+    s += "=" * ((-len(s)) % 4)
+    return base64.b64decode(s)
+
+
+def _mega_decode_folder_key(b64_key: str) -> bytes:
+    """Return the 16-byte AES-128 folder key from the URL fragment."""
+    raw = _mega_b64(b64_key)
+    if len(raw) == 32:
+        return bytes(raw[i] ^ raw[i + 16] for i in range(16))
+    return raw[:16]
+
+
+def _mega_aes_ecb_dec(key16: bytes, block16: bytes) -> bytes:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    c = Cipher(algorithms.AES(key16), modes.ECB())
+    d = c.decryptor()
+    return d.update(block16) + d.finalize()
+
+
+def _mega_aes_cbc_dec(key16: bytes, data: bytes) -> bytes:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    iv = b"\x00" * 16
+    pad = (-len(data)) % 16
+    data = data + b"\x00" * pad
+    c = Cipher(algorithms.AES(key16), modes.CBC(iv))
+    d = c.decryptor()
+    return d.update(data) + d.finalize()
+
+
+def _mega_decrypt_node_key(enc_key_b64: str, folder_key: bytes) -> Optional[bytes]:
+    """ECB-decrypt each 16-byte block of the node key; return raw bytes."""
+    try:
+        enc = _mega_b64(enc_key_b64)
+    except Exception:
+        return None
+    dec = b""
+    for i in range(0, len(enc), 16):
+        blk = enc[i:i + 16]
+        if len(blk) < 16:
+            break
+        dec += _mega_aes_ecb_dec(folder_key, blk)
+    return dec if dec else None
+
+
+def _mega_attr_key(raw_key: bytes, *, is_file: bool) -> bytes:
+    """Return the 16-byte key used for attribute (and CTR) decryption."""
+    if is_file and len(raw_key) >= 32:
+        return bytes(raw_key[i] ^ raw_key[i + 16] for i in range(16))
+    return raw_key[:16]
+
+
+def _mega_ctr_nonce(raw_key: bytes) -> bytes:
+    """Return the 16-byte AES-CTR nonce: bytes 16-23 of raw key + 8 zero bytes."""
+    return raw_key[16:24] + b"\x00" * 8
+
+
+def _mega_decrypt_attr(enc_attr_b64: str, attr_key16: bytes) -> str:
+    """Decrypt MEGA attribute JSON and return the filename ('n' field)."""
+    try:
+        enc = _mega_b64(enc_attr_b64)
+        dec = _mega_aes_cbc_dec(attr_key16, enc)
+        text = dec.decode("utf-8", errors="replace").lstrip("\x00")
+        m = re.search(r'MEGA\{(.+?)\}', text)
+        if m:
+            try:
+                return json.loads("{" + m.group(1) + "}").get("n", "")
+            except Exception:
+                pass
+        m2 = re.search(r'\{"n"\s*:\s*"([^"]+)"', text)
+        if m2:
+            return m2.group(1)
+    except Exception:
+        pass
+    return ""
+
+
+def _mega_api_post(payload: list, *, n: str = "") -> object:
+    """POST to MEGA API and return parsed JSON response."""
+    url = MEGA_API_URL + "?id=1" + (f"&n={n}" if n else "")
+    body = json.dumps(payload).encode()
+    req = Request(url, data=body, headers=MEGA_API_HEADERS)
+    with urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode())
+
+
+def _mega_list_folder(folder_node: str, folder_key: bytes) -> list[VKBLinkRelease]:
+    """List a MEGA public folder; return VKBLinkRelease entries for VKB-Link zips."""
+    resp = _mega_api_post([{"a": "f", "c": 1, "r": 1}], n=folder_node)
+    if isinstance(resp, list):
+        resp = resp[0]
+    if not isinstance(resp, dict):
+        return []
+    nodes = resp.get("f", [])
+    releases: list[VKBLinkRelease] = []
+    for node in nodes:
+        if node.get("t") != 0:  # files only
+            continue
+        enc_k = node.get("k", "")
+        if ":" in enc_k:
+            enc_k = enc_k.split(":", 1)[1]
+        enc_a = node.get("a", "")
+        handle = node.get("h", "")
+        if not (enc_k and enc_a and handle):
+            continue
+        raw_key = _mega_decrypt_node_key(enc_k, folder_key)
+        if not raw_key:
+            continue
+        attr_key = _mega_attr_key(raw_key, is_file=True)
+        name = _mega_decrypt_attr(enc_a, attr_key)
+        if not name:
+            continue
+        m = MEGA_VKB_LINK_RE.search(name)
+        if not m:
+            continue
+        version = m.group(1)
+        filename = name if name.lower().endswith(".zip") else name + ".zip"
+        releases.append(VKBLinkRelease(
+            version=version,
+            url=f"mega://{folder_node}/{handle}",
+            filename=filename,
+            mega_node_handle=handle,
+            mega_raw_key=raw_key,
+        ))
+    return releases
+
+
 class VKBLinkManager:
     """Manage VKB-Link process, configuration INI, and update/download flow."""
 
@@ -127,102 +346,183 @@ class VKBLinkManager:
         )
 
     def ensure_running(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
-        logger.info(f"VKB-Link recovery triggered ({reason})")
+        reason_label = reason or "unspecified"
+        logger.info(
+            f"VKB-Link ensure_running: reason={reason_label} host={host} port={port}"
+        )
+        status_before = self.get_status(check_running=True)
+        logger.info(f"VKB-Link status before ensure: {_format_status(status_before)}")
         process = self._find_running_process()
         if process:
+            logger.info(
+                "VKB-Link process detected: "
+                f"pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'}"
+            )
             exe_path = process.exe_path or self._resolve_known_exe_path()
             if exe_path:
+                logger.info(f"VKB-Link resolved exe path: {exe_path}")
                 self._remember_exe_path(Path(exe_path))
             ini_path = self._resolve_ini_path(exe_path)
             if ini_path:
+                logger.info(
+                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
+                )
                 self._write_ini(ini_path, host, port)
+            else:
+                logger.warning("No VKB-Link INI path resolved; skipping INI sync")
             restarted = False
             if (
                 exe_path
                 and self.config
                 and bool(self.config.get("vkb_link_restart_on_failure", True))
             ):
+                logger.info("Restart-on-failure enabled; restarting VKB-Link")
                 restarted = self._restart_process(process, exe_path)
+            else:
+                logger.info("Restart-on-failure disabled or exe missing; not restarting")
             message = "VKB-Link running; INI updated"
+            action = "restarted" if restarted else "none"
             if restarted:
                 message = "VKB-Link restarted; INI updated"
-            return VKBLinkActionResult(True, message, status=self.get_status(check_running=True))
+            return VKBLinkActionResult(True, message, status=self.get_status(check_running=True), action_taken=action)
 
         exe_path = self._resolve_known_exe_path()
         if exe_path:
+            logger.info(f"VKB-Link: starting from known path: {exe_path}")
             if self._start_process(exe_path):
                 ini_path = self._resolve_ini_path(exe_path)
                 if ini_path:
+                    logger.info(
+                        f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
+                    )
                     self._write_ini(ini_path, host, port)
                 return VKBLinkActionResult(
                     True,
                     f"VKB-Link started from {Path(exe_path).name}",
                     status=self.get_status(check_running=True),
+                    action_taken="started",
                 )
+            logger.warning(f"Failed to start VKB-Link from known path: {exe_path}")
 
+        logger.info("No known VKB-Link executable; attempting download of latest release")
         release = self._fetch_latest_release()
         if not release:
             return VKBLinkActionResult(
                 False,
                 "Unable to locate VKB-Link or download the latest version",
                 status=self.get_status(check_running=True),
+                action_taken="none",
             )
 
+        logger.info(f"Latest VKB-Link release detected: v{release.version}")
         exe_path = self._install_release(release)
         if not exe_path:
-            return VKBLinkActionResult(False, "Failed to install VKB-Link", status=self.get_status())
+            return VKBLinkActionResult(False, "Failed to install VKB-Link", status=self.get_status(), action_taken="none")
 
         if self._start_process(exe_path):
             ini_path = self._resolve_ini_path(exe_path)
             if ini_path:
+                logger.info(
+                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
+                )
                 self._write_ini(ini_path, host, port)
             return VKBLinkActionResult(
                 True,
                 f"Downloaded VKB-Link v{release.version} and started",
                 status=self.get_status(check_running=True),
+                action_taken="started",
             )
 
         return VKBLinkActionResult(
             False,
             f"Downloaded VKB-Link v{release.version} but failed to start",
             status=self.get_status(check_running=True),
+            action_taken="none",
         )
 
     def update_to_latest(self, *, host: str, port: int) -> VKBLinkActionResult:
+        logger.info(f"VKB-Link: checking for updates (host={host} port={port})")
         release = self._fetch_latest_release()
         if not release:
-            return VKBLinkActionResult(False, "Unable to check for VKB-Link updates")
+            return VKBLinkActionResult(False, "Unable to check for VKB-Link updates", action_taken="none")
 
         current = (self.config.get("vkb_link_version", "") or "").strip() if self.config else ""
+        logger.info(
+            "VKB-Link update: "
+            f"current_version={current or 'unknown'} latest_version={release.version}"
+        )
         if current and not _is_version_newer(release.version, current):
             return VKBLinkActionResult(
                 True,
                 f"VKB-Link is up to date (v{current})",
                 status=self.get_status(check_running=True),
+                action_taken="none",
             )
 
         process = self._find_running_process()
         if process:
+            logger.info(
+                "VKB-Link: stopping for update "
+                f"(pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'})"
+            )
             self._stop_process(process)
+        else:
+            logger.info("VKB-Link: no running process; proceeding with update")
 
         exe_path = self._install_release(release)
         if not exe_path:
-            return VKBLinkActionResult(False, "Failed to install VKB-Link update")
+            return VKBLinkActionResult(False, "Failed to install VKB-Link update", action_taken="none")
 
         if self._start_process(exe_path):
             ini_path = self._resolve_ini_path(exe_path)
             if ini_path:
+                logger.info(
+                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
+                )
                 self._write_ini(ini_path, host, port)
             return VKBLinkActionResult(
                 True,
                 f"Updated VKB-Link to v{release.version} and restarted",
                 status=self.get_status(check_running=True),
+                action_taken="restarted",
             )
 
         return VKBLinkActionResult(
             False,
             f"Updated VKB-Link to v{release.version} but failed to start",
             status=self.get_status(check_running=True),
+            action_taken="none",
+        )
+
+    def stop_running(self, *, reason: str = "") -> VKBLinkActionResult:
+        reason_label = reason or "unspecified"
+        logger.info(f"VKB-Link: stop requested (reason={reason_label})")
+        process = self._find_running_process()
+        if not process:
+            logger.info("VKB-Link: not running; stop skipped")
+            return VKBLinkActionResult(
+                True,
+                "VKB-Link is not running",
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
+        logger.info(
+            "VKB-Link: stopping process "
+            f"(pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'})"
+        )
+        success = self._stop_process(process)
+        if success:
+            return VKBLinkActionResult(
+                True,
+                "VKB-Link stopped",
+                status=self.get_status(check_running=True),
+                action_taken="stopped",
+            )
+        return VKBLinkActionResult(
+            False,
+            "Failed to stop VKB-Link",
+            status=self.get_status(check_running=True),
+            action_taken="none",
         )
 
     def relocate_install(self, destination: Path) -> VKBLinkActionResult:
@@ -293,6 +593,11 @@ class VKBLinkManager:
         version = _extract_version(exe_path.parent.name) or _extract_version(exe_path.name)
         if version:
             self.config.set("vkb_link_version", version)
+            logger.info(f"Detected VKB-Link version from path: v{version}")
+        else:
+            logger.info(
+                "VKB-Link version not detected from path; leaving stored version unchanged"
+            )
 
     def _resolve_known_exe_path(self) -> Optional[str]:
         if not self.config:
@@ -469,37 +774,96 @@ class VKBLinkManager:
             else:
                 cmd = ["taskkill", "/IM", "VKB-Link.exe", "/T", "/F"]
             try:
-                subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                return True
+                logger.info(f"Stopping VKB-Link process with command: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    logger.info("VKB-Link stop command completed successfully")
+                    return True
+                stderr = (result.stderr or "").strip()
+                stdout = (result.stdout or "").strip()
+                detail = stderr or stdout or "no output"
+                logger.warning(
+                    f"VKB-Link stop command returned {result.returncode}: {detail}"
+                )
+                return False
             except Exception as e:
                 logger.warning(f"Failed to stop VKB-Link: {e}")
                 return False
         else:
             try:
                 cmd = ["pkill", "-f", "VKB-Link"]
-                subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                return True
+                logger.info(f"Stopping VKB-Link process with command: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    logger.info("VKB-Link stop command completed successfully")
+                    return True
+                stderr = (result.stderr or "").strip()
+                stdout = (result.stdout or "").strip()
+                detail = stderr or stdout or "no output"
+                logger.warning(
+                    f"VKB-Link stop command returned {result.returncode}: {detail}"
+                )
+                return False
             except Exception as e:
                 logger.warning(f"Failed to stop VKB-Link: {e}")
                 return False
 
     def _restart_process(self, process: VKBLinkProcessInfo, exe_path: Optional[str]) -> bool:
+        logger.info(
+            "Restarting VKB-Link process: "
+            f"pid={process.pid or 'unknown'} exe_path={exe_path or process.exe_path or 'unknown'}"
+        )
         stopped = self._stop_process(process)
+        if not stopped:
+            logger.warning("VKB-Link restart aborted: stop step failed")
+            return False
         if not exe_path:
+            logger.info("VKB-Link restart completed with stop only (no exe path available)")
             return stopped
         time.sleep(1.0)
-        return self._start_process(exe_path)
+        started = self._start_process(exe_path)
+        if started:
+            logger.info("VKB-Link restart completed successfully")
+        else:
+            logger.warning("VKB-Link restart failed during start step")
+        return started
 
     def _start_process(self, exe_path: str) -> bool:
         try:
             exe = Path(exe_path)
-            subprocess.Popen([str(exe)], cwd=str(exe.parent))
+            logger.info(f"Starting VKB-Link process from: {exe}")
+            process = subprocess.Popen([str(exe)], cwd=str(exe.parent))
+            logger.info(f"Started VKB-Link process pid={process.pid}")
             return True
         except Exception as e:
             logger.error(f"Failed to start VKB-Link: {e}")
             return False
 
     def _fetch_latest_release(self) -> Optional[VKBLinkRelease]:
+        # Primary: MEGA public folder (no auth required, reliable)
+        if _ensure_cryptography():
+            try:
+                logger.info(
+                    f"Fetching VKB-Link releases from MEGA folder {MEGA_FOLDER_NODE}"
+                )
+                folder_key = _mega_decode_folder_key(MEGA_FOLDER_KEY_B64)
+                releases = _mega_list_folder(MEGA_FOLDER_NODE, folder_key)
+                if releases:
+                    releases.sort(key=lambda r: _parse_version(r.version), reverse=True)
+                    latest = releases[0]
+                    logger.info(
+                        f"Selected VKB-Link v{latest.version} from MEGA "
+                        f"(handle={latest.mega_node_handle})"
+                    )
+                    return latest
+                logger.warning("No VKB-Link zip files found in MEGA folder")
+            except Exception as e:
+                logger.warning(f"MEGA folder listing failed: {e}")
+        else:
+            logger.warning("'cryptography' unavailable; skipping MEGA source")
+
+        # Fallback: scrape VKB homepage for direct zip or OneDrive links
+        logger.info(f"Falling back to scraping {VKB_LINK_HOME_URL}")
         try:
             homepage = _fetch_text(VKB_LINK_HOME_URL)
         except Exception as e:
@@ -508,14 +872,23 @@ class VKBLinkManager:
 
         zip_links = _extract_zip_links(homepage)
         if not zip_links:
-            for link in _extract_onedrive_links(homepage):
+            onedrive_links = _extract_onedrive_links_for_software(homepage)
+            if not onedrive_links:
+                logger.warning(
+                    "No Software OneDrive links found on VKB-Link homepage; "
+                    "falling back to any OneDrive links"
+                )
+                onedrive_links = _extract_onedrive_links(homepage)
+            logger.info(f"Discovered {len(onedrive_links)} OneDrive link(s) to scan")
+            for link in onedrive_links:
                 try:
                     onedrive_page = _fetch_text(link)
                 except Exception:
                     continue
                 zip_links.extend(_extract_zip_links(onedrive_page))
+        logger.info(f"Discovered {len(zip_links)} VKB-Link archive link(s)")
 
-        releases: list[VKBLinkRelease] = []
+        fallback_releases: list[VKBLinkRelease] = []
         for url in zip_links:
             decoded = unquote(url)
             parsed = urlparse(decoded)
@@ -523,31 +896,45 @@ class VKBLinkManager:
             version = _extract_version(filename) or _extract_version(decoded)
             if not version:
                 continue
-            releases.append(VKBLinkRelease(version=version, url=url, filename=filename))
+            fallback_releases.append(VKBLinkRelease(version=version, url=url, filename=filename))
 
-        if not releases:
+        if not fallback_releases:
             return None
 
-        releases.sort(key=lambda r: _parse_version(r.version), reverse=True)
-        return releases[0]
+        fallback_releases.sort(key=lambda r: _parse_version(r.version), reverse=True)
+        latest = fallback_releases[0]
+        logger.info(f"Selected VKB-Link release v{latest.version} from {latest.url}")
+        return latest
 
     def _install_release(self, release: VKBLinkRelease) -> Optional[str]:
         install_dir = self._resolve_install_dir()
+        logger.info(f"Installing VKB-Link v{release.version} into {install_dir}")
         install_dir.mkdir(parents=True, exist_ok=True)
         download_dir = install_dir / "_downloads"
         download_dir.mkdir(parents=True, exist_ok=True)
         archive_path = download_dir / release.filename
 
         if not archive_path.exists():
-            try:
-                req = Request(release.url, headers={"User-Agent": "EDMCVKBConnector/1.0"})
-                with urlopen(req, timeout=60) as resp, open(archive_path, "wb") as f:
-                    shutil.copyfileobj(resp, f)
-            except Exception as e:
-                logger.error(f"Failed to download VKB-Link: {e}")
-                return None
+            if release.mega_node_handle:
+                logger.info(
+                    f"Downloading VKB-Link from MEGA node {release.mega_node_handle}"
+                )
+                if not self._mega_download(release, archive_path):
+                    return None
+            else:
+                try:
+                    logger.info(f"Downloading VKB-Link archive from {release.url}")
+                    req = Request(release.url, headers={"User-Agent": "EDMCVKBConnector/1.0"})
+                    with urlopen(req, timeout=60) as resp, open(archive_path, "wb") as f:
+                        shutil.copyfileobj(resp, f)
+                except Exception as e:
+                    logger.error(f"Failed to download VKB-Link: {e}")
+                    return None
+        else:
+            logger.info(f"Using cached VKB-Link archive: {archive_path}")
 
         temp_dir = Path(tempfile.mkdtemp(prefix="vkb-link-", dir=str(install_dir)))
+        logger.info(f"Extracting VKB-Link archive to {temp_dir}")
         try:
             with zipfile.ZipFile(archive_path, "r") as zf:
                 zf.extractall(temp_dir)
@@ -562,6 +949,7 @@ class VKBLinkManager:
         if install_dir.exists():
             preserved_ini = self._find_ini_in_dir(install_dir)
             if preserved_ini:
+                logger.info(f"Preserving existing VKB-Link INI: {preserved_ini}")
                 preserved_ini_name = preserved_ini.name
                 try:
                     tmp = tempfile.NamedTemporaryFile(
@@ -576,6 +964,7 @@ class VKBLinkManager:
                     preserved_ini_copy = None
 
         # Clear install dir (keep downloads)
+        logger.info(f"Clearing install directory {install_dir} (preserving downloads)")
         for child in install_dir.iterdir():
             if child.name == "_downloads" or child == temp_dir:
                 continue
@@ -588,6 +977,7 @@ class VKBLinkManager:
                     pass
 
         extracted_root = self._select_extracted_root(temp_dir)
+        logger.info(f"Moving extracted files from {extracted_root} to {install_dir}")
         for child in extracted_root.iterdir():
             shutil.move(str(child), str(install_dir / child.name))
 
@@ -596,6 +986,7 @@ class VKBLinkManager:
             target_ini_name = preserved_ini_name or preserved_ini_copy.name
             target_ini = install_dir / target_ini_name
             try:
+                logger.info(f"Restoring preserved INI to {target_ini}")
                 shutil.copyfile(str(preserved_ini_copy), str(target_ini))
             except Exception:
                 pass
@@ -605,6 +996,7 @@ class VKBLinkManager:
                 pass
 
         shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.info(f"Cleaned temporary extraction directory {temp_dir}")
 
         exe_path = self._find_exe_in_dir(install_dir, max_depth=3)
         if not exe_path:
@@ -614,6 +1006,52 @@ class VKBLinkManager:
         if self.config:
             self.config.set("vkb_link_version", release.version)
         return str(exe_path)
+
+    def _mega_download(self, release: VKBLinkRelease, archive_path: Path) -> bool:
+        """Download and AES-CTR-decrypt a file from the MEGA public folder."""
+        if not release.mega_node_handle or not release.mega_raw_key:
+            logger.error("_mega_download: missing node handle or raw key")
+            return False
+        if not _ensure_cryptography():
+            logger.error("'cryptography' library unavailable; cannot decrypt MEGA download")
+            return False
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        try:
+            logger.info(
+                f"Requesting MEGA download URL for handle={release.mega_node_handle}"
+            )
+            resp = _mega_api_post(
+                [{"a": "g", "g": 1, "n": release.mega_node_handle}],
+                n=MEGA_FOLDER_NODE,
+            )
+            if isinstance(resp, list):
+                resp = resp[0]
+            if not isinstance(resp, dict) or "g" not in resp:
+                logger.error(f"MEGA API did not return a download URL: {resp!r}")
+                return False
+            dl_url = resp["g"]
+            logger.info(f"MEGA download URL obtained ({len(dl_url)} chars)")
+
+            req = Request(dl_url, headers={"User-Agent": "EDMCVKBConnector/1.0"})
+            with urlopen(req, timeout=120) as r:
+                encrypted = r.read()
+            logger.info(f"Downloaded {len(encrypted):,} encrypted bytes from MEGA")
+
+            file_key = _mega_attr_key(release.mega_raw_key, is_file=True)
+            nonce = _mega_ctr_nonce(release.mega_raw_key)
+            cipher = Cipher(algorithms.AES(file_key), modes.CTR(nonce))
+            dec = cipher.decryptor()
+            decrypted = dec.update(encrypted) + dec.finalize()
+
+            archive_path.write_bytes(decrypted)
+            logger.info(
+                f"Decrypted and saved VKB-Link archive to {archive_path} "
+                f"({len(decrypted):,} bytes)"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"MEGA download failed: {e}")
+            return False
 
     def _find_ini_in_dir(self, directory: Path) -> Optional[Path]:
         for name in VKB_LINK_INI_NAMES:

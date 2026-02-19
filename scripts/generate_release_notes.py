@@ -1,7 +1,7 @@
 """
 Generate release notes from CHANGELOG.json.
 
-Reads the shared agent changelog and outputs a human-readable RELEASE_NOTES.md
+Reads the shared changelog and outputs a human-readable RELEASE_NOTES.md
 grouped by summary tag.
 
 ------------------------------------------------------------------------------
@@ -172,12 +172,11 @@ def build_markdown(version: str, entries: list[dict]) -> str:
 
     lines.append("---")
     lines.append("")
-    lines.append("| ID | Date | Agent | Summary |")
-    lines.append("|----|------|-------|---------|")
+    lines.append("| ID | Date | Summary |")
+    lines.append("|----|------|---------|")
     for e in sorted(entries, key=lambda x: x.get("id", "")):
         lines.append(
-            f"| {e.get('id','')} | {e.get('date','')} "
-            f"| {e.get('agent','')} | {e.get('summary','')} |"
+            f"| {e.get('id','')} | {e.get('date','')} | {e.get('summary','')} |"
         )
     lines.append("")
 
