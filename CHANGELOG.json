@@ -917,5 +917,51 @@
       "_attempt_vkb_link_recovery now skips send_failed-triggered process recovery until a successful connection has been established",
       "Added unit test for suppressed early send_failed recovery and reran event-handler + manager suites"
     ]
+  },
+  {
+    "id": "CHG-064",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Harden VKB-Link post-start settle handling for connect and recovery flows",
+    "details": [
+      "Added a public VKBLinkManager wait_for_post_start_settle() hook and used it before listener probing.",
+      "Updated EventHandler connect/recovery workflows to honor post-start warmup timing and reduce early reconnect races.",
+      "Expanded VKB-Link event-handler tests to assert settle waiting behavior, including recovery worker execution."
+    ]
+  },
+  {
+    "id": "CHG-065",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Do not stop pre-existing VKB-Link processes on plugin shutdown",
+    "details": [
+      "Changed plugin shutdown policy to stop VKB-Link only when this plugin instance started/restarted it.",
+      "Refined startup ownership tracking so successful ensure_running calls only mark ownership for action_taken started/restarted.",
+      "Added load.py shutdown regression tests covering pre-existing-process preservation and owned-process shutdown."
+    ]
+  },
+  {
+    "id": "CHG-066",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup",
+      "Test Update"
+    ],
+    "summary": "Disable pre-connect listener probing by default to avoid VKB-Link UI stalls",
+    "details": [
+      "Added vkb_link_probe_listener_before_connect (default false) to config defaults and fallback defaults.",
+      "EventHandler now probes listener readiness only when that config flag is enabled; normal connect/recovery uses warmup-delay then direct connect.",
+      "Updated event-handler tests to validate no probe by default and probe behavior when explicitly enabled."
+    ]
   }
 ]

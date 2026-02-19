@@ -240,7 +240,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     Returns:
         Plugin name as displayed in EDMC UI.
     """
-    global _config, _event_handler, _event_recorder, _plugin_dir
+    global _config, _event_handler, _event_recorder, _plugin_dir, _vkb_link_started_by_plugin
 
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
@@ -249,6 +249,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         import threading
 
         logger.info(f"VKB Connector v{VERSION} starting")
+        _vkb_link_started_by_plugin = False
 
         # Initialize configuration (uses EDMC's stored preferences)
         _config = Config()
@@ -286,7 +287,6 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
             logger.warning(f"Error refreshing unregistered events on startup: {e}")
 
         startup_ready = threading.Event()
-        vkb_start_action = ["none"]
 
         def _start_vkb_link_if_needed() -> None:
             """Ensure VKB-Link app is running on startup (if not already running)."""
@@ -312,9 +312,8 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
                 logger.info("Startup: VKB-Link not running; starting now")
                 result = manager.ensure_running(host=vkb_host, port=vkb_port, reason="startup")
                 logger.info(f"Startup: VKB-Link ensure_running result: {result.message}")
-                if result.success:
+                if result.success and result.action_taken in ("started", "restarted"):
                     _vkb_link_started_by_plugin = True
-                    vkb_start_action[0] = result.action_taken
                 if result.status is not None:
                     logger.info(
                         "Startup: VKB-Link post-start status: "
@@ -340,10 +339,6 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
             try:
                 if not startup_ready.wait(timeout=30):
                     logger.warning("Startup: VKB-Link start sequence timed out; continuing with connect")
-                if _event_handler:
-                    # Apply post-start delay if VKB-Link was started or restarted (no countdown)
-                    _event_handler._apply_post_start_delay(vkb_start_action[0], countdown=False)
-                    _event_handler._wait_for_vkb_listener_ready(vkb_host, vkb_port)
                 if _event_handler:
                     _event_handler.set_connection_status_override("Connecting to VKB-Link...")
                 if _event_handler.connect():
@@ -401,7 +396,7 @@ def plugin_stop() -> None:
                     logger.info("Shutdown: VKB-Link pre-stop status unavailable")
             if _vkb_link_started_by_plugin:
                 if manager:
-                    logger.info("Shutdown: stopping VKB-Link started by plugin")
+                    logger.info("Shutdown: stopping VKB-Link (started-by-plugin policy)")
                     result = manager.stop_running(reason="plugin_shutdown")
                     logger.info(f"Shutdown: VKB-Link stop result: {result.message}")
                     if result.status is not None:
@@ -417,7 +412,7 @@ def plugin_stop() -> None:
                 else:
                     logger.warning("Shutdown: VKB-Link manager unavailable for stop")
             else:
-                logger.info("Shutdown: VKB-Link not started by plugin; leaving running")
+                logger.info("Shutdown: VKB-Link was not started by plugin; leaving running")
             logger.info("VKB Connector stopped successfully")
     except Exception as e:
         logger.error(f"Error stopping VKB Connector: {e}", exc_info=True)

@@ -684,7 +684,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                     if result.success:
                         logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
                         if result.action_taken in ("started", "restarted"):
-                            _event_handler._apply_post_start_delay(result.action_taken, countdown=False)
                             _event_handler._wait_for_vkb_listener_ready(host, port)
                             _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
                             _event_handler.vkb_client.connect()

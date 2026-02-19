@@ -164,56 +164,19 @@ class EventHandler:
         )
         return False
 
-    def _apply_post_start_delay(
-        self,
-        action_taken: str,
-        delay_seconds: Optional[int] = None,
-        countdown: bool = True,
-    ) -> None:
-        """Apply the post-start warmup delay when VKB-Link was just started or restarted.
-
-        Args:
-            action_taken: What action was taken ("started" or "restarted")
-            delay_seconds: How long to wait (uses config default when None)
-            countdown: If True, show countdown in UI and log each second; if False, wait silently
-
-        No-op if action_taken is 'none' or 'stopped'.
-        """
-        if action_taken not in ("started", "restarted"):
-            return
-        if delay_seconds is None:
-            delay_seconds = self._get_config_int("vkb_link_warmup_delay_seconds", 5, minimum=0)
-        else:
-            try:
-                delay_seconds = max(0, int(delay_seconds))
-            except (TypeError, ValueError):
-                delay_seconds = self._get_config_int("vkb_link_warmup_delay_seconds", 5, minimum=0)
-        logger.info(
-            f"VKB-Link {action_taken}; waiting {delay_seconds}s before reconnect"
-        )
-        self.vkb_client.defer_reconnect_attempts(delay_seconds, reason=f"vkb_link_{action_taken}")
-        if countdown:
-            # Show countdown in UI status and log each second
-            for seconds_left in range(delay_seconds, 0, -1):
-                self.set_connection_status_override(
-                    f"VKB-Link {action_taken}, reconnecting in {seconds_left}s..."
-                )
-                logger.info(f"VKB-Link reconnect countdown: {seconds_left}s remaining")
-                time.sleep(1)
-        else:
-            # Silent wait, no per-second UI updates or logs
-            time.sleep(delay_seconds)
+    def _should_probe_listener_before_connect(self) -> bool:
+        """Whether to probe the listener with a temporary socket before connect."""
+        if not self.config:
+            return False
+        return bool(self.config.get("vkb_link_probe_listener_before_connect", False))
 
     def _apply_endpoint_change(self, host: str, port: int) -> None:
         """Restart VKB-Link and reconnect after host/port settings change.
 
         1. Suppresses recovery attempts during the intentional restart
-        2. Stops VKB-Link (if running)
-        3. Updates INI file and config with new host/port
-        4. Starts VKB-Link
-        5. Directly sets vkb_client host/port (config may not be saved yet)
-        6. Waits the configured post-start delay silently
-        7. Reconnects to the new endpoint
+        2. Persists endpoint settings
+        3. Delegates stop/INI update/start workflow to VKBLinkManager
+        4. Waits for listener readiness and reconnects
         """
         if not self.vkb_link_manager:
             logger.error("VKB-Link manager unavailable; cannot apply endpoint change")
@@ -225,27 +188,6 @@ class EventHandler:
             logger.info(f"VKB-Link: applying endpoint change (host={host} port={port})")
             self.set_connection_status_override("Restarting VKB-Link...")
 
-            # Stop VKB-Link if running
-            logger.info("VKB-Link: stopping for endpoint change")
-            process = self.vkb_link_manager._find_running_process()
-            if process:
-                self.vkb_link_manager._stop_process(process)
-                logger.info("VKB-Link: stopped")
-            else:
-                logger.info("VKB-Link: not running")
-
-            # Update INI file and persist new endpoint to config
-            exe_path = self.vkb_link_manager._resolve_known_exe_path()
-            ini_path = self.vkb_link_manager._resolve_or_default_ini_path(exe_path)
-            if ini_path:
-                logger.info(f"VKB-Link: updating INI file with new endpoint (host={host} port={port})")
-                self.vkb_link_manager._write_ini(ini_path, host, port)
-                if self.config:
-                    self.config.set("vkb_ini_path", str(ini_path))
-                logger.info(f"VKB-Link: INI file updated ({ini_path})")
-            else:
-                logger.warning("VKB-Link: no INI path found; skipping INI update")
-
             # Persist the new endpoint to config so future connects use the right address
             if self.config:
                 self.config.set("vkb_host", host)
@@ -256,36 +198,25 @@ class EventHandler:
             self.vkb_client.host = host
             self.vkb_client.port = port
 
-            # Start VKB-Link
-            if exe_path:
-                logger.info(f"VKB-Link: starting from {Path(exe_path).name}")
-                if self.vkb_link_manager._start_process(exe_path):
-                    logger.info("VKB-Link: started")
+            result = self.vkb_link_manager.apply_managed_endpoint_change(
+                host=host,
+                port=port,
+                reason="endpoint_change",
+            )
+            logger.info(f"VKB-Link endpoint-change result: {result.message}")
+            if not result.success:
+                logger.error("VKB-Link: managed endpoint change failed")
+                return
 
-                    warmup_delay = self._get_config_int(
-                        "vkb_link_warmup_delay_seconds",
-                        5,
-                        minimum=0,
-                    )
-                    logger.info(
-                        "VKB-Link: waiting %ss for process warmup before reconnection",
-                        warmup_delay,
-                    )
-                    self._apply_post_start_delay("restarted", delay_seconds=warmup_delay, countdown=False)
-                    self._wait_for_vkb_listener_ready(host, port)
-
-                    # Reconnect to new endpoint
-                    logger.info(f"VKB-Link: connecting to {host}:{port}")
-                    self.set_connection_status_override("Connecting to VKB-Link...")
-                    self.vkb_client.set_on_connected(self._on_socket_connected)
-                    if self.vkb_client.connect():
-                        logger.info(f"VKB-Link: connected to {host}:{port}")
-                    else:
-                        logger.warning(f"VKB-Link: connect to {host}:{port} failed; reconnect worker will retry")
-                else:
-                    logger.error("VKB-Link: failed to start; endpoint change incomplete")
+            if self._should_probe_listener_before_connect():
+                self._wait_for_vkb_listener_ready(host, port)
+            logger.info(f"VKB-Link: connecting to {host}:{port}")
+            self.set_connection_status_override("Connecting to VKB-Link...")
+            self.vkb_client.set_on_connected(self._on_socket_connected)
+            if self.vkb_client.connect():
+                logger.info(f"VKB-Link: connected to {host}:{port}")
             else:
-                logger.error("VKB-Link: executable path not found; cannot restart")
+                logger.warning(f"VKB-Link: connect to {host}:{port} failed; reconnect worker will retry")
         except Exception as e:
             logger.error(f"VKB-Link: endpoint change failed: {e}")
         finally:
@@ -393,6 +324,33 @@ class EventHandler:
             return False
         self.set_connection_status_override("Connecting to VKB-Link...")
         try:
+            host = self.config.get("vkb_host", "127.0.0.1")
+            port = self.config.get("vkb_port", 50995)
+            self.vkb_client.host = host
+            self.vkb_client.port = port
+
+            # Connection workflow requires VL process running first.
+            if self.vkb_link_manager:
+                status = self.vkb_link_manager.get_status(check_running=True)
+                auto_manage = bool(self.config.get("vkb_link_auto_manage", True)) if self.config else True
+                if status.running is False:
+                    if not auto_manage and not status.exe_path:
+                        logger.warning(
+                            "VKB-Link connect aborted: process is not running and auto-manage is disabled"
+                        )
+                        return False
+                    ensure_result = self.vkb_link_manager.ensure_running(
+                        host=host,
+                        port=port,
+                        reason="connect",
+                    )
+                    logger.info(f"VKB-Link ensure-before-connect result: {ensure_result.message}")
+                    if not ensure_result.success:
+                        return False
+                self.vkb_link_manager.wait_for_post_start_settle()
+                if self._should_probe_listener_before_connect():
+                    self._wait_for_vkb_listener_ready(host, port)
+
             # Ensure reconnect callbacks always re-send shift state on new socket connections.
             self.vkb_client.set_on_connected(self._on_socket_connected)
             success = self.vkb_client.connect()
@@ -697,9 +655,9 @@ class EventHandler:
                 result = self.vkb_link_manager.ensure_running(host=host, port=port, reason=reason)
                 logger.info(f"VKB-Link recovery result: {result.message}")
                 if result.success:
-                    # Apply post-start delay if process was started or restarted (no countdown)
-                    self._apply_post_start_delay(result.action_taken, countdown=False)
-                    self._wait_for_vkb_listener_ready(host, port)
+                    self.vkb_link_manager.wait_for_post_start_settle()
+                    if self._should_probe_listener_before_connect():
+                        self._wait_for_vkb_listener_ready(host, port)
                     self.set_connection_status_override("Connecting to VKB-Link...")
                     self.vkb_client.set_on_connected(self._on_socket_connected)
                     reconnected = self.vkb_client.connect()

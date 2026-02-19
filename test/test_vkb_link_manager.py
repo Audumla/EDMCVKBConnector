@@ -2,7 +2,7 @@
 Tests for VKB-Link manager process/download/update/INI flows.
 
 Expected production flow (from CHG-002/004/005/007/008 and current code):
-1. If VKB-Link is running, sync INI and optionally restart it.
+1. If VKB-Link is running, sync INI without forcing a restart.
 2. If not running, start from known executable path.
 3. If no known executable exists, discover latest release, install it, bootstrap INI when missing, then start it.
 4. Update flow stops running process, installs latest release, restarts, and re-syncs INI.
@@ -175,25 +175,22 @@ def test_install_release_uses_cached_archive_and_preserves_existing_ini(tmp_path
     assert not (install_dir / "old.txt").exists()
 
 
-def test_ensure_running_restarts_when_process_exists_and_restart_enabled(tmp_path, monkeypatch):
+def test_ensure_running_updates_ini_when_process_exists(tmp_path, monkeypatch):
     exe = _touch(tmp_path / "VKB-Link v4.0.1" / "VKB-Link.exe")
     ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
     process = VKBLinkProcessInfo(pid=42, exe_path=str(exe))
 
     manager, _ = _make_manager(tmp_path, vkb_link_restart_on_failure=True)
-    restart_mock = Mock(return_value=True)
     write_ini_mock = Mock()
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: process)
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [process])
-    monkeypatch.setattr(manager, "_restart_process", restart_mock)
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
 
     result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
     assert result.success
-    assert result.action_taken == "restarted"
-    assert "restarted" in result.message.lower()
-    restart_mock.assert_called_once()
+    assert result.action_taken == "none"
+    assert "running" in result.message.lower()
     write_ini_mock.assert_called_once_with(ini, "127.0.0.1", 50995)
 
 
@@ -203,19 +200,16 @@ def test_ensure_running_updates_ini_without_restart_when_restart_disabled(tmp_pa
     process = VKBLinkProcessInfo(pid=99, exe_path=str(exe))
 
     manager, _ = _make_manager(tmp_path, vkb_link_restart_on_failure=False)
-    restart_mock = Mock(return_value=True)
     write_ini_mock = Mock()
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: process)
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [process])
-    monkeypatch.setattr(manager, "_restart_process", restart_mock)
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
 
     result = manager.ensure_running(host="10.0.0.5", port=5555, reason="test")
     assert result.success
     assert result.action_taken == "none"
     assert "ini updated" in result.message.lower()
-    restart_mock.assert_not_called()
     write_ini_mock.assert_called_once_with(ini, "10.0.0.5", 5555)
 
 
@@ -226,8 +220,11 @@ def test_ensure_running_starts_known_exe_path_when_not_running(tmp_path, monkeyp
     write_ini_mock = Mock()
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
     monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=123, exe_path=str(exe)))
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
     monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
 
@@ -244,19 +241,9 @@ def test_ensure_running_skips_start_if_process_appears_during_race(tmp_path, mon
     process = VKBLinkProcessInfo(pid=888, exe_path=str(exe))
     manager, _ = _make_manager(tmp_path)
 
-    find_calls = {"count": 0}
-
-    def find_side_effect():
-        find_calls["count"] += 1
-        # First check says "not running", second check (just before start) says running.
-        return None if find_calls["count"] == 1 else process
-
-    def find_all_side_effect():
-        return [] if find_calls["count"] == 1 else [process]
-
     start_mock = Mock(return_value=True)
-    monkeypatch.setattr(manager, "_find_running_process", find_side_effect)
-    monkeypatch.setattr(manager, "_find_running_processes", find_all_side_effect)
+    monkeypatch.setattr(manager, "_find_running_process", lambda: process)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
     monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
     monkeypatch.setattr(manager, "_start_process", start_mock)
@@ -277,10 +264,13 @@ def test_ensure_running_downloads_installs_and_starts_when_no_known_exe(tmp_path
     call_order = []
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
     monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
     monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
     monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=101, exe_path=str(exe)))
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
 
     def write_ini_side_effect(_ini, _host, _port):
         call_order.append("write")
@@ -295,7 +285,7 @@ def test_ensure_running_downloads_installs_and_starts_when_no_known_exe(tmp_path
     result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
     assert result.success
     assert result.action_taken == "started"
-    assert "downloaded" in result.message.lower()
+    assert "started" in result.message.lower()
     assert call_order == ["write", "start"]
 
 
@@ -316,6 +306,9 @@ def test_ensure_running_download_bootstraps_first_run_when_ini_is_missing(tmp_pa
     def find_running_side_effect():
         return process if state["running"] else None
 
+    def find_running_all_side_effect():
+        return [process] if state["running"] else []
+
     def start_process_side_effect(_exe):
         if not generated_ini.exists():
             call_order.append("bootstrap_start")
@@ -334,9 +327,11 @@ def test_ensure_running_download_bootstraps_first_run_when_ini_is_missing(tmp_pa
         call_order.append("write")
 
     monkeypatch.setattr(manager, "_find_running_process", find_running_side_effect)
+    monkeypatch.setattr(manager, "_find_running_processes", find_running_all_side_effect)
     monkeypatch.setattr(manager, "_start_process", start_process_side_effect)
     monkeypatch.setattr(manager, "_stop_process", stop_process_side_effect)
     monkeypatch.setattr(manager, "_write_ini", write_ini_side_effect)
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
 
     result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
     assert result.success
@@ -350,12 +345,15 @@ def test_ensure_running_download_uses_default_ini_path_when_none_found(tmp_path,
     manager, cfg = _make_manager(tmp_path)
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
     monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
     monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
     monkeypatch.setattr(manager, "_bootstrap_ini_after_install", lambda _exe: None)
     monkeypatch.setattr(manager, "_resolve_ini_path", lambda _exe: None)
     monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=102, exe_path=str(exe)))
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
 
     write_ini_mock = Mock()
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
@@ -374,12 +372,15 @@ def test_ensure_running_download_ignores_stale_saved_ini_and_targets_exe_dir(tmp
     manager, cfg = _make_manager(tmp_path, vkb_ini_path=str(stale_ini))
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
     monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
     monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
     monkeypatch.setattr(manager, "_bootstrap_ini_after_install", lambda _exe: None)
     monkeypatch.setattr(manager, "_find_ini_near_exe", lambda _exe: None)
     monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=103, exe_path=str(exe)))
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
 
     write_ini_mock = Mock()
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
@@ -394,6 +395,7 @@ def test_ensure_running_download_ignores_stale_saved_ini_and_targets_exe_dir(tmp
 def test_ensure_running_fails_when_latest_release_cannot_be_found(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
     monkeypatch.setattr(manager, "_fetch_latest_release", lambda: None)
 
@@ -430,6 +432,8 @@ def test_update_to_latest_stops_installs_restarts_and_syncs_ini(tmp_path, monkey
     monkeypatch.setattr(manager, "_find_running_process", lambda: process)
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [process])
     monkeypatch.setattr(manager, "_stop_process", stop_mock)
+    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
     monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
     monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
 
@@ -442,6 +446,7 @@ def test_update_to_latest_stops_installs_restarts_and_syncs_ini(tmp_path, monkey
 
     monkeypatch.setattr(manager, "_write_ini", write_ini_side_effect)
     monkeypatch.setattr(manager, "_start_process", start_process_side_effect)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=500, exe_path=str(exe)))
 
     result = manager.update_to_latest(host="127.0.0.1", port=50995)
     assert result.success
@@ -457,6 +462,7 @@ def test_update_to_latest_fails_when_install_step_fails(tmp_path, monkeypatch):
 
     monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_install_release", lambda _release: None)
 
     result = manager.update_to_latest(host="127.0.0.1", port=50995)
@@ -467,6 +473,7 @@ def test_update_to_latest_fails_when_install_step_fails(tmp_path, monkeypatch):
 def test_stop_running_returns_not_running_when_no_process(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     result = manager.stop_running(reason="test")
     assert result.success
     assert result.action_taken == "none"
@@ -478,6 +485,7 @@ def test_stop_running_reports_failure_when_stop_command_fails(tmp_path, monkeypa
     monkeypatch.setattr(manager, "_find_running_process", lambda: VKBLinkProcessInfo(pid=1, exe_path=None))
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [VKBLinkProcessInfo(pid=1, exe_path=None)])
     monkeypatch.setattr(manager, "_stop_process", lambda _proc: False)
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
     result = manager.stop_running(reason="test")
     assert not result.success
     assert result.action_taken == "none"
@@ -494,18 +502,30 @@ def test_ensure_running_stops_duplicate_processes_before_restart(tmp_path, monke
     manager, _ = _make_manager(tmp_path, vkb_link_restart_on_failure=False)
 
     call_order = []
-    monkeypatch.setattr(manager, "_find_running_process", lambda: processes[0])
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: processes)
+    state = {"calls": 0}
+
+    def find_processes_side_effect():
+        state["calls"] += 1
+        if state["calls"] == 1:
+            return processes
+        return []
+
+    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", find_processes_side_effect)
     monkeypatch.setattr(manager, "_write_ini", lambda _ini, _host, _port: call_order.append("write"))
     monkeypatch.setattr(manager, "_stop_all_processes", lambda _procs: call_order.append("stop_all") or True)
-    monkeypatch.setattr(vkbm.time, "sleep", lambda _seconds: call_order.append("delay"))
+    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
     monkeypatch.setattr(manager, "_start_process", lambda _exe: call_order.append("start") or True)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=44, exe_path=str(exe)))
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
+    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
+    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
 
     result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
     assert result.success
-    assert result.action_taken == "restarted"
-    assert "restarted" in result.message.lower()
-    assert call_order == ["write", "stop_all", "delay", "start"]
+    assert result.action_taken == "started"
+    assert "started" in result.message.lower()
+    assert call_order == ["stop_all", "write", "start"]
     assert ini.exists()
 
 
@@ -519,12 +539,39 @@ def test_stop_running_stops_all_detected_processes(tmp_path, monkeypatch):
     monkeypatch.setattr(manager, "_find_running_processes", lambda: processes)
     stop_all_mock = Mock(return_value=True)
     monkeypatch.setattr(manager, "_stop_all_processes", stop_all_mock)
+    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
 
     result = manager.stop_running(reason="test")
     assert result.success
     assert result.action_taken == "stopped"
     assert "stopped 2 vkb-link processes" in result.message.lower()
     stop_all_mock.assert_called_once_with(processes)
+
+
+def test_apply_managed_endpoint_change_stops_updates_and_restarts(tmp_path, monkeypatch):
+    exe = _touch(tmp_path / "managed" / "VKB-Link.exe")
+    ini = _touch(exe.parent / "VKB-Link.ini", "[TCP]\nAdress=old\nPort=1111\n")
+    manager, _ = _make_manager(tmp_path)
+
+    running = [VKBLinkProcessInfo(pid=2200, exe_path=str(exe))]
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: running)
+    stop_all_mock = Mock(return_value=True)
+    monkeypatch.setattr(manager, "_stop_all_processes", stop_all_mock)
+    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
+    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
+    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
+    write_ini_mock = Mock()
+    monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
+    monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=2300, exe_path=str(exe)))
+
+    result = manager.apply_managed_endpoint_change(host="127.0.0.1", port=62000)
+    assert result.success
+    assert result.action_taken == "restarted"
+    stop_all_mock.assert_called_once_with(running)
+    write_ini_mock.assert_called_once_with(ini, "127.0.0.1", 62000)
 
 
 def test_fetch_latest_release_prefers_mega_and_picks_highest_version(tmp_path, monkeypatch):

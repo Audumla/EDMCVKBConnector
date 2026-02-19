@@ -20,6 +20,9 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Tags | Summary |
 |----|------|------|---------|
+| CHG-066 | 2026-02-20 | Bug Fix, Configuration Cleanup, Test Update | Disable pre-connect listener probing by default to avoid VKB-Link UI stalls |
+| CHG-065 | 2026-02-20 | Bug Fix, Test Update | Do not stop pre-existing VKB-Link processes on plugin shutdown |
+| CHG-064 | 2026-02-20 | Bug Fix, Test Update | Harden VKB-Link post-start settle handling for connect and recovery flows |
 | CHG-063 | 2026-02-20 | Bug Fix, Test Update | Suppressed send-failed VKB recovery before first successful connection to prevent startup restart loops |
 | CHG-062 | 2026-02-20 | Bug Fix, Test Update | Fixed Windows VKB process discovery normalization to stop false duplicate-instance restarts |
 | CHG-061 | 2026-02-20 | Bug Fix, Test Update | Prevented duplicate VKB-Link launches by serializing lifecycle operations and closing safety-start race |
@@ -94,6 +97,39 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-066 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Configuration Cleanup, Test Update
+
+**Summary:** Disable pre-connect listener probing by default to avoid VKB-Link UI stalls
+
+**Changes:**
+- Added vkb_link_probe_listener_before_connect (default false) to config defaults and fallback defaults.
+- EventHandler now probes listener readiness only when that config flag is enabled; normal connect/recovery uses warmup-delay then direct connect.
+- Updated event-handler tests to validate no probe by default and probe behavior when explicitly enabled.
+
+### CHG-065 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Do not stop pre-existing VKB-Link processes on plugin shutdown
+
+**Changes:**
+- Changed plugin shutdown policy to stop VKB-Link only when this plugin instance started/restarted it.
+- Refined startup ownership tracking so successful ensure_running calls only mark ownership for action_taken started/restarted.
+- Added load.py shutdown regression tests covering pre-existing-process preservation and owned-process shutdown.
+
+### CHG-064 — 2026-02-20 · unreleased
+
+**Tags:** Bug Fix, Test Update
+
+**Summary:** Harden VKB-Link post-start settle handling for connect and recovery flows
+
+**Changes:**
+- Added a public VKBLinkManager wait_for_post_start_settle() hook and used it before listener probing.
+- Updated EventHandler connect/recovery workflows to honor post-start warmup timing and reduce early reconnect races.
+- Expanded VKB-Link event-handler tests to assert settle waiting behavior, including recovery worker execution.
 
 ### CHG-063 — 2026-02-20 · unreleased
 

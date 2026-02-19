@@ -22,6 +22,7 @@
   "vkb_link_launch_mode": "legacy",
   "vkb_link_recovery_cooldown": 60,
   "vkb_link_warmup_delay_seconds": 5,
+  "vkb_link_probe_listener_before_connect": false,
   "vkb_link_operation_timeout_seconds": 2,
   "vkb_link_poll_interval_ms": 250,
   "vkb_link_restart_delay_seconds": 5,

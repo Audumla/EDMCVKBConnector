@@ -51,6 +51,7 @@ _FALLBACK_DEFAULTS = {
     "vkb_link_recovery_cooldown": 60,
     # VKB-Link lifecycle timings.
     "vkb_link_warmup_delay_seconds": 5,
+    "vkb_link_probe_listener_before_connect": False,
     "vkb_link_operation_timeout_seconds": 10,
     "vkb_link_poll_interval_ms": 250,
     "vkb_link_restart_delay_seconds": 1,

@@ -24,7 +24,7 @@ from . import plugin_logger
 
 logger = plugin_logger(__name__)
 
-VKB_LINK_EXE_NAMES = ("VKB-Link.exe", "VKBLink.exe", "VKB-Link64.exe", "VKBLink64.exe")
+VKB_LINK_EXE_NAMES = ("VKB-Link.exe",)
 VKB_LINK_INI_NAMES = ("VKBLink.ini", "VKB-Link.ini", "VKBLink64.ini", "VKB-Link64.ini")
 VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 
@@ -287,6 +287,7 @@ class VKBLinkManager:
         self.plugin_dir = Path(plugin_dir)
         self.managed_dir = self.plugin_dir / "vkb-link"
         self._lifecycle_lock = threading.Lock()
+        self._last_start_monotonic = 0.0
 
     def _cfg_int(self, key: str, default: int, *, minimum: int = 0) -> int:
         value = default
@@ -342,16 +343,33 @@ class VKBLinkManager:
 
     def _ensure_running_locked(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
         reason_label = reason or "unspecified"
-        logger.info(
-            f"VKB-Link ensure_running: reason={reason_label} host={host} port={port}"
-        )
+        logger.info(f"VKB-Link ensure_running: reason={reason_label} host={host} port={port}")
         status_before = self.get_status(check_running=True)
         logger.info(f"VKB-Link status before ensure: {_format_status(status_before)}")
-        process = self._find_running_process()
+
         processes = self._find_running_processes()
-        if not processes and process:
-            processes = [process]
-        if process:
+        if len(processes) > 1:
+            logger.warning(
+                f"Detected {len(processes)} VKB-Link processes; enforcing single-process state"
+            )
+            if not self._stop_all_processes(processes):
+                return VKBLinkActionResult(
+                    False,
+                    "Failed to stop duplicate VKB-Link processes",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            if not self._wait_for_no_running_process():
+                return VKBLinkActionResult(
+                    False,
+                    "Timed out waiting for duplicate VKB-Link processes to stop",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            processes = []
+
+        if processes:
+            process = processes[0]
             logger.info(
                 "VKB-Link process detected: "
                 f"pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'}"
@@ -360,146 +378,89 @@ class VKBLinkManager:
             if exe_path:
                 logger.info(f"VKB-Link resolved exe path: {exe_path}")
                 self._remember_exe_path(Path(exe_path))
-            ini_path = self._resolve_ini_path(exe_path)
+            ini_path = self._resolve_or_default_ini_path(exe_path)
             if ini_path:
-                logger.info(
-                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
-                )
+                logger.info(f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}")
                 self._write_ini(ini_path, host, port)
             else:
                 logger.warning("No VKB-Link INI path resolved; skipping INI sync")
-            restarted = False
-            restart_required = (
-                exe_path
-                and (
-                    len(processes) > 1
-                    or (
-                        self.config
-                        and bool(self.config.get("vkb_link_restart_on_failure", True))
-                    )
-                )
+            return VKBLinkActionResult(
+                True,
+                "VKB-Link running; INI updated",
+                status=self.get_status(check_running=True),
+                action_taken="none",
             )
-            if len(processes) > 1:
-                logger.warning(
-                    f"Detected multiple VKB-Link instances ({len(processes)}); forcing single-instance restart"
-                )
-            if (
-                len(processes) > 1
-                and not exe_path
-            ):
-                logger.warning("Cannot enforce single VKB-Link instance: executable path is unknown")
-                return VKBLinkActionResult(
-                    False,
-                    "Multiple VKB-Link instances detected but executable path is unknown",
-                    status=self.get_status(check_running=True),
-                    action_taken="none",
-                )
-            if restart_required:
-                if len(processes) > 1:
-                    logger.info("Stopping all detected VKB-Link instances before restart")
-                    stopped_all = self._stop_all_processes(processes)
-                    if stopped_all:
-                        restart_delay = self._cfg_float("vkb_link_restart_delay_seconds", 1.0, minimum=0.0)
-                        if restart_delay:
-                            time.sleep(restart_delay)
-                        restarted = self._start_process(exe_path)
-                    else:
-                        logger.warning("Failed to stop all VKB-Link instances; restart aborted")
-                        restarted = False
-                else:
-                    logger.info("Restart-on-failure enabled; restarting VKB-Link")
-                    restarted = self._restart_process(process, exe_path)
-            else:
-                logger.info("Restart-on-failure disabled or exe missing; not restarting")
-            message = "VKB-Link running; INI updated"
-            action = "restarted" if restarted else "none"
-            if restarted:
-                message = "VKB-Link restarted; INI updated"
-            return VKBLinkActionResult(True, message, status=self.get_status(check_running=True), action_taken=action)
 
         exe_path = self._resolve_known_exe_path()
-        if exe_path:
-            logger.info(f"VKB-Link: starting from known path: {exe_path}")
-            ini_path = self._resolve_or_default_ini_path(exe_path)
-            if ini_path:
-                logger.info(
-                    f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}"
-                )
-                self._write_ini(ini_path, host, port)
-            else:
-                logger.warning("No VKB-Link INI path resolved; starting without INI sync")
-            existing = self._find_running_process()
-            if existing:
-                logger.info(
-                    "VKB-Link became running before start; skipping duplicate launch "
-                    f"(pid={existing.pid or 'unknown'})"
-                )
+        if not exe_path:
+            auto_manage = bool(self.config.get("vkb_link_auto_manage", True)) if self.config else True
+            if not auto_manage:
                 return VKBLinkActionResult(
-                    True,
-                    "VKB-Link already running; INI updated",
+                    False,
+                    "VKB-Link is not running and executable path is unknown",
                     status=self.get_status(check_running=True),
                     action_taken="none",
                 )
-            if self._start_process(exe_path):
+            logger.info("No known VKB-Link executable; attempting MEGA download/install")
+            release = self._fetch_latest_release()
+            if not release:
                 return VKBLinkActionResult(
-                    True,
-                    f"VKB-Link started from {Path(exe_path).name}",
+                    False,
+                    "Unable to locate VKB-Link or download the latest version",
                     status=self.get_status(check_running=True),
-                    action_taken="started",
+                    action_taken="none",
                 )
-            logger.warning(f"Failed to start VKB-Link from known path: {exe_path}")
+            logger.info(f"Latest VKB-Link release detected: v{release.version}")
+            exe_path = self._install_release(release)
+            if not exe_path:
+                return VKBLinkActionResult(
+                    False,
+                    "Failed to install VKB-Link",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            self._bootstrap_ini_after_install(exe_path)
 
-        logger.info("No known VKB-Link executable; attempting download of latest release")
-        release = self._fetch_latest_release()
-        if not release:
-            return VKBLinkActionResult(
-                False,
-                "Unable to locate VKB-Link or download the latest version",
-                status=self.get_status(check_running=True),
-                action_taken="none",
-            )
-
-        logger.info(f"Latest VKB-Link release detected: v{release.version}")
-        exe_path = self._install_release(release)
-        if not exe_path:
-            return VKBLinkActionResult(False, "Failed to install VKB-Link", status=self.get_status(), action_taken="none")
-
-        self._bootstrap_ini_after_install(exe_path)
+        logger.info(f"VKB-Link: starting from known path: {exe_path}")
         ini_path = self._resolve_or_default_ini_path(exe_path)
         if ini_path:
-            logger.info(
-                f"Syncing VKB-Link INI at {ini_path} with host={host} port={port} before start"
-            )
+            logger.info(f"Syncing VKB-Link INI at {ini_path} with host={host} port={port}")
             self._write_ini(ini_path, host, port)
         else:
-            logger.warning("No VKB-Link INI path resolved after install; starting without INI sync")
+            logger.warning("No VKB-Link INI path resolved; starting without INI sync")
 
-        existing = self._find_running_process()
-        if existing:
-            logger.info(
-                "VKB-Link became running before start after install; skipping duplicate launch "
-                f"(pid={existing.pid or 'unknown'})"
-            )
+        if self._find_running_process():
+            logger.info("VKB-Link became running before launch; skipping duplicate start")
             return VKBLinkActionResult(
                 True,
-                f"Downloaded VKB-Link v{release.version}; process already running",
+                "VKB-Link already running; INI updated",
                 status=self.get_status(check_running=True),
                 action_taken="none",
             )
 
-        if self._start_process(exe_path):
+        if not self._start_process(exe_path):
             return VKBLinkActionResult(
-                True,
-                f"Downloaded VKB-Link v{release.version} and started",
+                False,
+                "Failed to start VKB-Link",
                 status=self.get_status(check_running=True),
-                action_taken="started",
+                action_taken="none",
             )
 
+        started = self._wait_for_running_process()
+        if not started:
+            return VKBLinkActionResult(
+                False,
+                "VKB-Link launch command succeeded but process did not appear",
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
+
+        self._wait_after_running_ack()
         return VKBLinkActionResult(
-            False,
-            f"Downloaded VKB-Link v{release.version} but failed to start",
+            True,
+            f"VKB-Link started from {Path(exe_path).name}",
             status=self.get_status(check_running=True),
-            action_taken="none",
+            action_taken="started",
         )
 
     def update_to_latest(self, *, host: str, port: int) -> VKBLinkActionResult:
@@ -525,16 +486,14 @@ class VKBLinkManager:
                 action_taken="none",
             )
 
-        process = self._find_running_process()
         processes = self._find_running_processes()
-        if not processes and process:
-            processes = [process]
-        if process:
-            logger.info(
-                "VKB-Link: stopping for update "
-                f"(pid={process.pid or 'unknown'} exe_path={process.exe_path or 'unknown'})"
-            )
-            self._stop_all_processes(processes)
+        if processes:
+            logger.info(f"VKB-Link: stopping {len(processes)} process(es) for update")
+            self._wait_after_running_ack()
+            if not self._stop_all_processes(processes):
+                return VKBLinkActionResult(False, "Failed to stop VKB-Link for update", action_taken="none")
+            if not self._wait_for_no_running_process():
+                return VKBLinkActionResult(False, "Timed out waiting for VKB-Link to stop", action_taken="none")
         else:
             logger.info("VKB-Link: no running process; proceeding with update")
 
@@ -552,6 +511,14 @@ class VKBLinkManager:
             logger.warning("No VKB-Link INI path resolved after update install; restarting without INI sync")
 
         if self._start_process(exe_path):
+            if not self._wait_for_running_process():
+                return VKBLinkActionResult(
+                    False,
+                    f"Updated VKB-Link to v{release.version} but process did not appear",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            self._wait_after_running_ack()
             return VKBLinkActionResult(
                 True,
                 f"Updated VKB-Link to v{release.version} and restarted",
@@ -573,11 +540,8 @@ class VKBLinkManager:
     def _stop_running_locked(self, *, reason: str = "") -> VKBLinkActionResult:
         reason_label = reason or "unspecified"
         logger.info(f"VKB-Link: stop requested (reason={reason_label})")
-        process = self._find_running_process()
         processes = self._find_running_processes()
-        if not processes and process:
-            processes = [process]
-        if not process:
+        if not processes:
             logger.info("VKB-Link: not running; stop skipped")
             return VKBLinkActionResult(
                 True,
@@ -586,7 +550,10 @@ class VKBLinkManager:
                 action_taken="none",
             )
         logger.info(f"VKB-Link: stopping {len(processes)} detected process(es)")
+        self._wait_after_running_ack()
         success = self._stop_all_processes(processes)
+        if success:
+            success = self._wait_for_no_running_process()
         if success:
             stopped_count = len(processes)
             return VKBLinkActionResult(
@@ -601,6 +568,82 @@ class VKBLinkManager:
             status=self.get_status(check_running=True),
             action_taken="none",
         )
+
+    def apply_managed_endpoint_change(self, *, host: str, port: int, reason: str = "endpoint_change") -> VKBLinkActionResult:
+        with self._lifecycle_lock:
+            logger.info(f"VKB-Link: applying managed endpoint change (reason={reason} host={host} port={port})")
+            processes = self._find_running_processes()
+            had_running = bool(processes)
+            if had_running:
+                self._wait_after_running_ack()
+                if not self._stop_all_processes(processes):
+                    return VKBLinkActionResult(
+                        False,
+                        "Failed to stop VKB-Link before endpoint update",
+                        status=self.get_status(check_running=True),
+                        action_taken="none",
+                    )
+                if not self._wait_for_no_running_process():
+                    return VKBLinkActionResult(
+                        False,
+                        "Timed out waiting for VKB-Link to stop before endpoint update",
+                        status=self.get_status(check_running=True),
+                        action_taken="none",
+                    )
+
+            exe_path = self._resolve_known_exe_path()
+            if not exe_path:
+                release = self._fetch_latest_release()
+                if not release:
+                    return VKBLinkActionResult(
+                        False,
+                        "Unable to locate VKB-Link executable for endpoint update",
+                        status=self.get_status(check_running=True),
+                        action_taken="none",
+                    )
+                exe_path = self._install_release(release)
+                if not exe_path:
+                    return VKBLinkActionResult(
+                        False,
+                        "Failed to install VKB-Link for endpoint update",
+                        status=self.get_status(check_running=True),
+                        action_taken="none",
+                    )
+                self._bootstrap_ini_after_install(exe_path)
+
+            ini_path = self._resolve_or_default_ini_path(exe_path)
+            if ini_path:
+                self._write_ini(ini_path, host, port)
+            else:
+                return VKBLinkActionResult(
+                    False,
+                    "Unable to locate VKB-Link INI for endpoint update",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+
+            if not self._start_process(exe_path):
+                return VKBLinkActionResult(
+                    False,
+                    "Failed to restart VKB-Link after endpoint update",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            if not self._wait_for_running_process():
+                return VKBLinkActionResult(
+                    False,
+                    "VKB-Link restart command succeeded but process did not appear",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            self._wait_after_running_ack()
+            action = "restarted" if had_running else "started"
+            return VKBLinkActionResult(
+                True,
+                "VKB-Link restarted with updated endpoint" if had_running else "VKB-Link started with updated endpoint",
+                status=self.get_status(check_running=True),
+                action_taken=action,
+            )
 
     def relocate_install(self, destination: Path) -> VKBLinkActionResult:
         destination = Path(destination)
@@ -973,6 +1016,44 @@ class VKBLinkManager:
         ini_path.write_text(updated, encoding="utf-8")
         logger.info(f"Updated VKB-Link INI: {ini_path}")
 
+    def _wait_for_running_process(self) -> Optional[VKBLinkProcessInfo]:
+        timeout = max(2.0, self._cfg_float("vkb_link_operation_timeout_seconds", 10.0, minimum=0.1))
+        poll_interval_seconds = self._cfg_ms_as_seconds("vkb_link_poll_interval_ms", 250, minimum_ms=10)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            process = self._find_running_process()
+            if process:
+                return process
+            time.sleep(poll_interval_seconds)
+        return self._find_running_process()
+
+    def _wait_for_no_running_process(self) -> bool:
+        timeout = max(2.0, self._cfg_float("vkb_link_operation_timeout_seconds", 10.0, minimum=0.1))
+        poll_interval_seconds = self._cfg_ms_as_seconds("vkb_link_poll_interval_ms", 250, minimum_ms=10)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self._find_running_processes():
+                return True
+            time.sleep(poll_interval_seconds)
+        return not self._find_running_processes()
+
+    def wait_for_post_start_settle(self) -> None:
+        """Wait for configurable post-start settle delay, if a recent start occurred."""
+        self._wait_after_running_ack()
+
+    def _wait_after_running_ack(self) -> None:
+        """Apply configurable settle delay after process start acknowledgement."""
+        settle_seconds = self._cfg_float("vkb_link_warmup_delay_seconds", 5.0, minimum=0.0)
+        if settle_seconds <= 0:
+            return
+        if self._last_start_monotonic <= 0:
+            return
+        elapsed = time.monotonic() - self._last_start_monotonic
+        remaining = settle_seconds - elapsed
+        if remaining > 0:
+            logger.info(f"VKB-Link process settle delay: waiting {remaining:.1f}s")
+            time.sleep(remaining)
+
     def _find_running_processes(self) -> list[VKBLinkProcessInfo]:
         if sys.platform == "win32":
             return self._find_running_processes_windows()
@@ -1091,7 +1172,7 @@ class VKBLinkManager:
             minimum=1.0,
         )
         try:
-            cmd = ["pgrep", "-f", "VKB-Link"]
+            cmd = ["pgrep", "-f", "VKB-Link.exe"]
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
             if result.returncode == 0 and result.stdout.strip():
                 for pid_text in result.stdout.strip().splitlines():
@@ -1293,37 +1374,26 @@ class VKBLinkManager:
         try:
             exe = Path(exe_path)
             logger.info(f"Starting VKB-Link process from: {exe}")
-            launch_mode = "legacy"
-            if self.config:
-                configured_mode = self.config.get("vkb_link_launch_mode")
-                if isinstance(configured_mode, str) and configured_mode.strip():
-                    launch_mode = configured_mode.strip().lower()
-
-            if launch_mode in {"detached", "independent"}:
-                popen_kwargs: dict[str, object] = {
-                    "cwd": str(exe.parent),
-                    "stdin": subprocess.DEVNULL,
-                    "stdout": subprocess.DEVNULL,
-                    "stderr": subprocess.DEVNULL,
-                }
-
-                if sys.platform == "win32":
-                    creationflags = 0
-                    creationflags |= int(getattr(subprocess, "DETACHED_PROCESS", 0))
-                    creationflags |= int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
-                    creationflags |= int(getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0))
-                    if creationflags:
-                        popen_kwargs["creationflags"] = creationflags
-                    popen_kwargs["close_fds"] = True
-                else:
-                    popen_kwargs["start_new_session"] = True
-
-                process = subprocess.Popen([str(exe)], **popen_kwargs)
-                logger.info("VKB-Link launch mode: detached")
+            popen_kwargs: dict[str, object] = {
+                "cwd": str(exe.parent),
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+            }
+            if sys.platform == "win32":
+                creationflags = 0
+                creationflags |= int(getattr(subprocess, "DETACHED_PROCESS", 0))
+                creationflags |= int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+                creationflags |= int(getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0))
+                if creationflags:
+                    popen_kwargs["creationflags"] = creationflags
+                popen_kwargs["close_fds"] = True
             else:
-                # Legacy mode preserves original launch behavior and process relationship.
-                process = subprocess.Popen([str(exe)], cwd=str(exe.parent))
-                logger.info("VKB-Link launch mode: legacy")
+                popen_kwargs["start_new_session"] = True
+
+            process = subprocess.Popen([str(exe)], **popen_kwargs)
+            self._last_start_monotonic = time.monotonic()
+            logger.info("VKB-Link launch mode: detached")
             logger.info(f"Started VKB-Link process pid={process.pid}")
             return True
         except Exception as e:

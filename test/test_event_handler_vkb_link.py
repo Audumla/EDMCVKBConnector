@@ -11,7 +11,6 @@ import pytest
 
 from edmcruleengine.config import DEFAULTS
 from edmcruleengine.event_handler import EventHandler
-from edmcruleengine.vkb_link_manager import VKBLinkProcessInfo
 
 
 class DictConfig:
@@ -38,21 +37,14 @@ def _make_handler(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **overrides):
 def test_apply_endpoint_change_restarts_and_reconnects(tmp_path, monkeypatch):
     handler, cfg = _make_handler(tmp_path, monkeypatch)
 
-    exe_path = str(tmp_path / "managed" / "VKB-Link.exe")
-    ini_path = tmp_path / "managed" / "VKB-Link.ini"
-    process = VKBLinkProcessInfo(pid=1234, exe_path=exe_path)
-
     manager = Mock()
-    manager._find_running_process.return_value = process
-    manager._stop_process.return_value = True
-    manager._resolve_known_exe_path.return_value = exe_path
-    manager._resolve_or_default_ini_path.return_value = ini_path
-    manager._start_process.return_value = True
-    manager._write_ini = Mock()
+    manager.apply_managed_endpoint_change.return_value = Mock(
+        success=True,
+        message="VKB-Link restarted with updated endpoint",
+        action_taken="restarted",
+    )
     handler.vkb_link_manager = manager
 
-    delay_mock = Mock()
-    monkeypatch.setattr(handler, "_apply_post_start_delay", delay_mock)
     ready_mock = Mock(return_value=True)
     monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
     handler.vkb_client.set_on_connected = Mock()
@@ -60,20 +52,15 @@ def test_apply_endpoint_change_restarts_and_reconnects(tmp_path, monkeypatch):
 
     handler._apply_endpoint_change("127.0.0.1", 60001)
 
-    manager._stop_process.assert_called_once_with(process)
-    manager._resolve_or_default_ini_path.assert_called_once_with(exe_path)
-    manager._write_ini.assert_called_once_with(ini_path, "127.0.0.1", 60001)
-    manager._start_process.assert_called_once_with(exe_path)
-    delay_mock.assert_called_once_with(
-        "restarted",
-        delay_seconds=cfg.get("vkb_link_warmup_delay_seconds"),
-        countdown=False,
+    manager.apply_managed_endpoint_change.assert_called_once_with(
+        host="127.0.0.1",
+        port=60001,
+        reason="endpoint_change",
     )
-    ready_mock.assert_called_once_with("127.0.0.1", 60001)
+    ready_mock.assert_not_called()
     handler.vkb_client.set_on_connected.assert_called_once()
     handler.vkb_client.connect.assert_called_once()
 
-    assert cfg.get("vkb_ini_path") == str(ini_path)
     assert cfg.get("vkb_host") == "127.0.0.1"
     assert cfg.get("vkb_port") == 60001
     assert handler.vkb_client.host == "127.0.0.1"
@@ -85,27 +72,25 @@ def test_apply_endpoint_change_restarts_and_reconnects(tmp_path, monkeypatch):
 def test_apply_endpoint_change_starts_when_not_running(tmp_path, monkeypatch):
     handler, cfg = _make_handler(tmp_path, monkeypatch)
 
-    exe_path = str(tmp_path / "managed" / "VKB-Link.exe")
-    ini_path = tmp_path / "managed" / "VKBLink.ini"
-
     manager = Mock()
-    manager._find_running_process.return_value = None
-    manager._resolve_known_exe_path.return_value = exe_path
-    manager._resolve_or_default_ini_path.return_value = ini_path
-    manager._start_process.return_value = True
-    manager._write_ini = Mock()
+    manager.apply_managed_endpoint_change.return_value = Mock(
+        success=True,
+        message="VKB-Link started with updated endpoint",
+        action_taken="started",
+    )
     handler.vkb_link_manager = manager
 
-    monkeypatch.setattr(handler, "_apply_post_start_delay", Mock())
     monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
     handler.vkb_client.connect = Mock(return_value=False)
     handler.vkb_client.set_on_connected = Mock()
 
     handler._apply_endpoint_change("127.0.0.1", 60002)
 
-    manager._stop_process.assert_not_called()
-    manager._write_ini.assert_called_once_with(ini_path, "127.0.0.1", 60002)
-    manager._start_process.assert_called_once_with(exe_path)
+    manager.apply_managed_endpoint_change.assert_called_once_with(
+        host="127.0.0.1",
+        port=60002,
+        reason="endpoint_change",
+    )
     assert cfg.get("vkb_port") == 60002
     assert handler.vkb_client.port == 60002
     assert handler._endpoint_change_active is False
@@ -114,26 +99,25 @@ def test_apply_endpoint_change_starts_when_not_running(tmp_path, monkeypatch):
 def test_apply_endpoint_change_does_not_connect_when_start_fails(tmp_path, monkeypatch):
     handler, cfg = _make_handler(tmp_path, monkeypatch)
 
-    exe_path = str(tmp_path / "managed" / "VKB-Link.exe")
-    ini_path = tmp_path / "managed" / "VKBLink.ini"
-    process = VKBLinkProcessInfo(pid=99, exe_path=exe_path)
-
     manager = Mock()
-    manager._find_running_process.return_value = process
-    manager._stop_process.return_value = True
-    manager._resolve_known_exe_path.return_value = exe_path
-    manager._resolve_or_default_ini_path.return_value = ini_path
-    manager._start_process.return_value = False
-    manager._write_ini = Mock()
+    manager.apply_managed_endpoint_change.return_value = Mock(
+        success=False,
+        message="Failed to restart VKB-Link after endpoint update",
+        action_taken="none",
+    )
     handler.vkb_link_manager = manager
 
     handler.vkb_client.connect = Mock(return_value=True)
     handler.vkb_client.set_on_connected = Mock()
-    monkeypatch.setattr(handler, "_apply_post_start_delay", Mock())
     monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
 
     handler._apply_endpoint_change("10.0.0.5", 60003)
 
+    manager.apply_managed_endpoint_change.assert_called_once_with(
+        host="10.0.0.5",
+        port=60003,
+        reason="endpoint_change",
+    )
     handler.vkb_client.connect.assert_not_called()
     assert cfg.get("vkb_host") == "10.0.0.5"
     assert cfg.get("vkb_port") == 60003
@@ -164,3 +148,103 @@ def test_recovery_suppressed_for_send_failed_before_first_connection(tmp_path, m
     handler._attempt_vkb_link_recovery(reason="send_failed")
 
     manager.ensure_running.assert_not_called()
+
+
+def test_connect_ensures_vkb_process_before_socket_connect(tmp_path, monkeypatch):
+    handler, cfg = _make_handler(tmp_path, monkeypatch)
+    cfg.set("vkb_host", "127.0.0.1")
+    cfg.set("vkb_port", 60020)
+
+    manager = Mock()
+    manager.get_status.return_value = Mock(running=False, exe_path=r"G:\Games\vkb\VKB-Link.exe")
+    manager.ensure_running.return_value = Mock(success=True, message="VKB-Link started")
+    manager.wait_for_post_start_settle = Mock()
+    handler.vkb_link_manager = manager
+
+    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
+    handler.vkb_client.connect = Mock(return_value=True)
+    handler.vkb_client.start_reconnection = Mock()
+    handler.vkb_client.set_on_connected = Mock()
+
+    assert handler.connect() is True
+    manager.ensure_running.assert_called_once_with(host="127.0.0.1", port=60020, reason="connect")
+    manager.wait_for_post_start_settle.assert_called_once()
+    handler.vkb_client.connect.assert_called_once()
+    handler.vkb_client.start_reconnection.assert_called_once()
+
+
+def test_connect_aborts_when_not_running_and_auto_manage_disabled(tmp_path, monkeypatch):
+    handler, cfg = _make_handler(tmp_path, monkeypatch, vkb_link_auto_manage=False)
+    cfg.set("vkb_host", "127.0.0.1")
+    cfg.set("vkb_port", 60021)
+
+    manager = Mock()
+    manager.get_status.return_value = Mock(running=False, exe_path=None)
+    handler.vkb_link_manager = manager
+
+    handler.vkb_client.connect = Mock(return_value=True)
+    handler.vkb_client.start_reconnection = Mock()
+    handler.vkb_client.set_on_connected = Mock()
+
+    assert handler.connect() is False
+    handler.vkb_client.connect.assert_not_called()
+    handler.vkb_client.start_reconnection.assert_not_called()
+
+
+def test_recovery_waits_for_post_start_settle_before_listener_probe(tmp_path, monkeypatch):
+    handler, cfg = _make_handler(
+        tmp_path,
+        monkeypatch,
+        vkb_link_recovery_cooldown=0,
+        vkb_link_probe_listener_before_connect=True,
+    )
+    cfg.set("vkb_host", "127.0.0.1")
+    cfg.set("vkb_port", 60022)
+
+    class ImmediateThread:
+        def __init__(self, *, target, daemon=False):  # noqa: ARG002
+            self._target = target
+
+        def start(self):
+            self._target()
+
+    monkeypatch.setattr("edmcruleengine.event_handler.threading.Thread", ImmediateThread)
+
+    manager = Mock()
+    manager.ensure_running.return_value = Mock(success=True, message="VKB-Link started")
+    manager.wait_for_post_start_settle = Mock()
+    handler.vkb_link_manager = manager
+    handler._has_successful_vkb_connection = True
+
+    ready_mock = Mock(return_value=True)
+    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
+    handler.vkb_client.set_on_connected = Mock()
+    handler.vkb_client.connect = Mock(return_value=True)
+
+    handler._attempt_vkb_link_recovery(reason="send_failed")
+
+    manager.ensure_running.assert_called_once_with(host="127.0.0.1", port=60022, reason="send_failed")
+    manager.wait_for_post_start_settle.assert_called_once()
+    ready_mock.assert_called_once_with("127.0.0.1", 60022)
+    handler.vkb_client.connect.assert_called_once()
+
+
+def test_connect_does_not_probe_listener_by_default(tmp_path, monkeypatch):
+    handler, cfg = _make_handler(tmp_path, monkeypatch)
+    cfg.set("vkb_host", "127.0.0.1")
+    cfg.set("vkb_port", 60023)
+
+    manager = Mock()
+    manager.get_status.return_value = Mock(running=True, exe_path=r"G:\Games\vkb\VKB-Link.exe")
+    manager.wait_for_post_start_settle = Mock()
+    handler.vkb_link_manager = manager
+
+    ready_mock = Mock(return_value=True)
+    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
+    handler.vkb_client.connect = Mock(return_value=True)
+    handler.vkb_client.start_reconnection = Mock()
+    handler.vkb_client.set_on_connected = Mock()
+
+    assert handler.connect() is True
+    ready_mock.assert_not_called()
+    handler.vkb_client.connect.assert_called_once()
