@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "id": "CHG-001",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "agent": "claude",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Fix package_plugin.py missing 5 modules from INCLUDE list",
+    "details": [
+      "Added paths.py, event_recorder.py, prefs_panel.py, ui_components.py, unregistered_events_tracker.py",
+      "Missing files caused ModuleNotFoundError when plugin was installed from zip"
+    ]
+  }
+]

@@ -20,6 +20,7 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Agent | Tags | Summary |
 |----|------|-------|------|---------|
+| CHG-001 | 2026-02-19 | claude | Bug Fix, Build / Packaging | Fix package_plugin.py missing 5 modules from INCLUDE list |
 | CHG-007 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Added log_change.py script so agents run one command to record changes instead of editing files manually |
 | CHG-006 | 2026-02-19 | copilot | Build / Packaging | Added `CHANGELOG.archive.json` to keep `CHANGELOG.json` small for agent reads |
 | CHG-005 | 2026-02-19 | copilot | Build / Packaging, Documentation Update | Adopted `unreleased` version sentinel so changelog entries always track the next release, not the last |
@@ -31,6 +32,16 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-001 — 2026-02-19 · claude · unreleased
+
+**Tags:** Bug Fix, Build / Packaging
+
+**Summary:** Fix package_plugin.py missing 5 modules from INCLUDE list
+
+**Changes:**
+- Added paths.py, event_recorder.py, prefs_panel.py, ui_components.py, unregistered_events_tracker.py
+- Missing files caused ModuleNotFoundError when plugin was installed from zip
 
 ### CHG-007 — 2026-02-19 · copilot · unreleased
 
