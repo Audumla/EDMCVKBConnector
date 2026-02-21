@@ -13,17 +13,14 @@ def test_config_defaults():
     
     assert config.get("vkb_host") == "127.0.0.1"
     assert config.get("vkb_port") == 50995
-    assert config.get("initial_retry_interval") == 2
-    assert config.get("initial_retry_duration") == 60
-    assert config.get("fallback_retry_interval") == 10
     assert config.get("socket_timeout") == 5
+    assert config.get("vkb_link_process_monitor_interval_seconds") == config_module.DEFAULTS["vkb_link_process_monitor_interval_seconds"]
     assert config.get("vkb_link_warmup_delay_seconds") == config_module.DEFAULTS["vkb_link_warmup_delay_seconds"]
     assert config.get("vkb_link_operation_timeout_seconds") == config_module.DEFAULTS["vkb_link_operation_timeout_seconds"]
-    assert config.get("vkb_link_poll_interval_ms") == config_module.DEFAULTS["vkb_link_poll_interval_ms"]
+    assert config.get("vkb_link_poll_interval_seconds") == config_module.DEFAULTS["vkb_link_poll_interval_seconds"]
     assert config.get("vkb_link_restart_delay_seconds") == config_module.DEFAULTS["vkb_link_restart_delay_seconds"]
-    assert config.get("vkb_ui_apply_delay_ms") == config_module.DEFAULTS["vkb_ui_apply_delay_ms"]
-    assert config.get("vkb_ui_feedback_interval_ms") == config_module.DEFAULTS["vkb_ui_feedback_interval_ms"]
-    assert config.get("vkb_ui_poll_interval_ms") == config_module.DEFAULTS["vkb_ui_poll_interval_ms"]
+    assert config.get("vkb_ui_apply_delay_seconds") == config_module.DEFAULTS["vkb_ui_apply_delay_seconds"]
+    assert config.get("vkb_ui_poll_interval_seconds") == config_module.DEFAULTS["vkb_ui_poll_interval_seconds"]
     print("[OK] Config defaults test passed")
 
 
@@ -61,17 +58,12 @@ def test_vkb_client_init():
     client = VKBClient(
         host="127.0.0.1",
         port=50995,
-        initial_retry_interval=2,
-        initial_retry_duration=60,
-        fallback_retry_interval=10,
         socket_timeout=5,
     )
     
     assert client.host == "127.0.0.1"
     assert client.port == 50995
-    assert client.INITIAL_RETRY_INTERVAL == 2
-    assert client.INITIAL_RETRY_DURATION == 60
-    assert client.FALLBACK_RETRY_INTERVAL == 10
+    assert client.SOCKET_TIMEOUT == 5
     assert not client.connected
     print("[OK] VKBClient initialization test passed")
 

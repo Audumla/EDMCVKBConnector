@@ -33,7 +33,7 @@ from typing import Any
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Load default configuration
-CONFIG_FILE = PROJECT_ROOT / "config_defaults.json"
+CONFIG_FILE = PROJECT_ROOT / "docs" / "changelog" / "changelog-config.json"
 _config_defaults = {}
 if CONFIG_FILE.exists():
     try:
@@ -78,20 +78,20 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     )
     # Claude-specific args
     parser.add_argument("--claude-model", default=_config_defaults.get("claude_model", "claude-sonnet-4-6"),
-                        help="Claude model ID used for the planning phase (default: from config_defaults.json or claude-sonnet-4-6).")
+                        help="Claude model ID used for the planning phase (default: from changelog-config.json or claude-sonnet-4-6).")
     parser.add_argument("--claude-input-tokens", type=int, default=_config_defaults.get("claude_input_tokens", 5000),
-                        help="Input tokens used by Claude during planning (default: from config_defaults.json or 5000).")
+                        help="Input tokens used by Claude during planning (default: from changelog-config.json or 5000).")
     parser.add_argument("--claude-output-tokens", type=int, default=_config_defaults.get("claude_output_tokens", 2000),
-                        help="Output tokens used by Claude during planning (default: from config_defaults.json or 2000).")
+                        help="Output tokens used by Claude during planning (default: from changelog-config.json or 2000).")
     parser.add_argument("--thinking-budget", default=_config_defaults.get("thinking_budget", "none"),
                         choices=["none", "low", "medium", "high"],
-                        help="Extended thinking budget for Claude (default: from config_defaults.json or 'none'). Pass to run_codex_plan.py.")
+                        help="Extended thinking budget for Claude (default: from changelog-config.json or 'none'). Pass to run_codex_plan.py.")
     parser.add_argument("--task-summary", default="",
                         help="One-line description of the task Claude is orchestrating.")
     parser.add_argument(
         "--codex-model",
         default=_config_defaults.get("codex_model", "gpt-5"),
-        help="Codex model used for execution-cost estimation (default: from config_defaults.json or gpt-5).",
+        help="Codex model used for execution-cost estimation (default: from changelog-config.json or gpt-5).",
     )
     parser.add_argument(
         "--codex-input-rate",

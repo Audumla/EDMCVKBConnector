@@ -4,7 +4,7 @@ This directory is reserved for AI agent execution outputs.
 
 ## Changelog
 
-`CHANGELOG.json` and `CHANGELOG.md` live at the **repo root**, not here. They are the shared cross-agent record of all changes. Every agent reads them at session start and appends to them at session end.
+`CHANGELOG.json` lives in `docs/changelog/` (with its companion JSON sources), and `CHANGELOG.md` is at the **repo root**. They are the shared cross-agent record of all changes. Every agent reads them at session start and appends to them at session end.
 
 ## Per-agent workspace
 

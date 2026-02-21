@@ -11,7 +11,7 @@ Do not write Codex-generated reports or temp files anywhere else in this reposit
 
 ### At the START of every session
 
-Read `CHANGELOG.json` (repo root) to understand what every agent has already done. Use it to avoid duplicating work and to understand the current state of the codebase.
+Read `docs/changelog/CHANGELOG.json` to understand what every agent has already done. Use it to avoid duplicating work and to understand the current state of the codebase.
 
 ### After completing ANY task that modifies files
 
@@ -22,12 +22,25 @@ Run this script — it handles all file updates automatically:
 ```bash
 python scripts/log_change.py \
     --agent codex \
+    --group "<WorkstreamSlug>" \
     --tags "<Tag1>" "<Tag2>" \
     --summary "One-sentence description" \
     --details "Bullet one" "Bullet two" "Bullet three"
 ```
 
-The script auto-increments the CHG-NNN id, appends to `CHANGELOG.json`, and prepends the row and detail section to `CHANGELOG.md`. Do not edit those files manually.
+`--group` is recommended and should stay stable for related iterative work that will ship together.
+
+The script generates a globally unique `CHG-*` id (branch-safe for merges), appends to `docs/changelog/CHANGELOG.json`, and rebuilds `CHANGELOG.md` from JSON sources. Do not edit those files manually.
+
+### Release prep activity
+
+Before pushing for release creation, run:
+
+```bash
+python scripts/changelog_activity.py --strict
+```
+
+This rebuilds `CHANGELOG.md` and writes compact unreleased release-note preview to `dist/RELEASE_NOTES.preview.md`.
 
 ### Approved `--tags` values
 

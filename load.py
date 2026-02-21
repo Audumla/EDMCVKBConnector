@@ -392,7 +392,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
                 else:
                     logger.warning(
                         f"Initial connection to VKB hardware failed at {vkb_host}:{vkb_port}. "
-                        "Automatic reconnection enabled (2s retry for 1 minute, then 10s fallback)."
+                        "The plugin will reconnect when VKB-Link process recovery is triggered."
                     )
             except Exception as e:
                 logger.error(f"Error during background connection attempt: {e}", exc_info=True)

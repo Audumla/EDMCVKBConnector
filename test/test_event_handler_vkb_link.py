@@ -138,14 +138,13 @@ def test_apply_endpoint_change_handles_missing_manager(tmp_path, monkeypatch):
     assert handler._endpoint_change_active is False
 
 
-def test_recovery_suppressed_for_send_failed_before_first_connection(tmp_path, monkeypatch):
+def test_recovery_ignores_non_process_reasons(tmp_path, monkeypatch):
     handler, _ = _make_handler(tmp_path, monkeypatch)
     manager = Mock()
     manager.ensure_running = Mock()
     handler.vkb_link_manager = manager
 
-    handler._has_successful_vkb_connection = False
-    handler._attempt_vkb_link_recovery(reason="send_failed")
+    handler._attempt_vkb_link_recovery(reason="connect_failed")
 
     manager.ensure_running.assert_not_called()
 
@@ -163,14 +162,12 @@ def test_connect_ensures_vkb_process_before_socket_connect(tmp_path, monkeypatch
 
     monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
     handler.vkb_client.connect = Mock(return_value=True)
-    handler.vkb_client.start_reconnection = Mock()
     handler.vkb_client.set_on_connected = Mock()
 
     assert handler.connect() is True
     manager.ensure_running.assert_called_once_with(host="127.0.0.1", port=60020, reason="connect")
     manager.wait_for_post_start_settle.assert_called_once()
     handler.vkb_client.connect.assert_called_once()
-    handler.vkb_client.start_reconnection.assert_called_once()
 
 
 def test_connect_aborts_when_not_running_and_auto_manage_disabled(tmp_path, monkeypatch):
@@ -183,19 +180,16 @@ def test_connect_aborts_when_not_running_and_auto_manage_disabled(tmp_path, monk
     handler.vkb_link_manager = manager
 
     handler.vkb_client.connect = Mock(return_value=True)
-    handler.vkb_client.start_reconnection = Mock()
     handler.vkb_client.set_on_connected = Mock()
 
     assert handler.connect() is False
     handler.vkb_client.connect.assert_not_called()
-    handler.vkb_client.start_reconnection.assert_not_called()
 
 
 def test_recovery_waits_for_post_start_settle_before_listener_probe(tmp_path, monkeypatch):
     handler, cfg = _make_handler(
         tmp_path,
         monkeypatch,
-        vkb_link_recovery_cooldown=0,
         vkb_link_probe_listener_before_connect=True,
     )
     cfg.set("vkb_host", "127.0.0.1")
@@ -221,9 +215,13 @@ def test_recovery_waits_for_post_start_settle_before_listener_probe(tmp_path, mo
     handler.vkb_client.set_on_connected = Mock()
     handler.vkb_client.connect = Mock(return_value=True)
 
-    handler._attempt_vkb_link_recovery(reason="send_failed")
+    handler._attempt_vkb_link_recovery(reason="process_crash_detected")
 
-    manager.ensure_running.assert_called_once_with(host="127.0.0.1", port=60022, reason="send_failed")
+    manager.ensure_running.assert_called_once_with(
+        host="127.0.0.1",
+        port=60022,
+        reason="process_crash_detected",
+    )
     manager.wait_for_post_start_settle.assert_called_once()
     ready_mock.assert_called_once_with("127.0.0.1", 60022)
     handler.vkb_client.connect.assert_called_once()
@@ -242,7 +240,6 @@ def test_connect_does_not_probe_listener_by_default(tmp_path, monkeypatch):
     ready_mock = Mock(return_value=True)
     monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
     handler.vkb_client.connect = Mock(return_value=True)
-    handler.vkb_client.start_reconnection = Mock()
     handler.vkb_client.set_on_connected = Mock()
 
     assert handler.connect() is True

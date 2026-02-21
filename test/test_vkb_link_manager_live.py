@@ -65,9 +65,6 @@ def test_live_download_start_connect_update_and_stop(monkeypatch):
         host=host,
         port=port,
         socket_timeout=3,
-        initial_retry_interval=1,
-        initial_retry_duration=5,
-        fallback_retry_interval=1,
     )
     current_port = port
 

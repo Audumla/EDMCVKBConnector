@@ -317,9 +317,35 @@ class VKBLinkManager:
             return minimum
         return parsed
 
-    def _cfg_ms_as_seconds(self, key: str, default_ms: int, *, minimum_ms: int = 1) -> float:
-        value_ms = self._cfg_int(key, default_ms, minimum=minimum_ms)
-        return value_ms / 1000.0
+    def _cfg_interval_seconds(
+        self,
+        key_seconds: str,
+        default_seconds: float,
+        *,
+        minimum_seconds: float = 0.001,
+        legacy_ms_key: Optional[str] = None,
+    ) -> float:
+        """Return interval seconds, accepting a legacy millisecond key when needed."""
+        parsed = None
+        if self.config:
+            raw = self.config.get(key_seconds)
+            if raw is None and legacy_ms_key:
+                raw_ms = self.config.get(legacy_ms_key)
+                if raw_ms is not None:
+                    try:
+                        parsed = float(raw_ms) / 1000.0
+                    except (TypeError, ValueError):
+                        parsed = None
+            elif raw is not None:
+                try:
+                    parsed = float(raw)
+                except (TypeError, ValueError):
+                    parsed = None
+        if parsed is None:
+            parsed = float(default_seconds)
+        if parsed < minimum_seconds:
+            return minimum_seconds
+        return parsed
 
     def get_status(self, *, check_running: bool = False) -> VKBLinkStatus:
         exe_path = (self.config.get("vkb_link_exe_path", "") or "").strip() if self.config else ""
@@ -995,10 +1021,11 @@ class VKBLinkManager:
             10.0,
             minimum=1.0,
         )
-        poll_interval_seconds = self._cfg_ms_as_seconds(
-            "vkb_link_poll_interval_ms",
-            250,
-            minimum_ms=10,
+        poll_interval_seconds = self._cfg_interval_seconds(
+            "vkb_link_poll_interval_seconds",
+            0.25,
+            minimum_seconds=0.01,
+            legacy_ms_key="vkb_link_poll_interval_ms",
         )
         post_stop_settle_seconds = min(1.0, max(0.25, poll_interval_seconds))
 
@@ -1190,7 +1217,12 @@ class VKBLinkManager:
 
     def _wait_for_running_process(self) -> Optional[VKBLinkProcessInfo]:
         timeout = max(2.0, self._cfg_float("vkb_link_operation_timeout_seconds", 10.0, minimum=0.1))
-        poll_interval_seconds = self._cfg_ms_as_seconds("vkb_link_poll_interval_ms", 250, minimum_ms=10)
+        poll_interval_seconds = self._cfg_interval_seconds(
+            "vkb_link_poll_interval_seconds",
+            0.25,
+            minimum_seconds=0.01,
+            legacy_ms_key="vkb_link_poll_interval_ms",
+        )
         deadline = time.time() + timeout
         while time.time() < deadline:
             process = self._find_running_process()
@@ -1201,7 +1233,12 @@ class VKBLinkManager:
 
     def _wait_for_no_running_process(self) -> bool:
         timeout = max(2.0, self._cfg_float("vkb_link_operation_timeout_seconds", 10.0, minimum=0.1))
-        poll_interval_seconds = self._cfg_ms_as_seconds("vkb_link_poll_interval_ms", 250, minimum_ms=10)
+        poll_interval_seconds = self._cfg_interval_seconds(
+            "vkb_link_poll_interval_seconds",
+            0.25,
+            minimum_seconds=0.01,
+            legacy_ms_key="vkb_link_poll_interval_ms",
+        )
         deadline = time.time() + timeout
         while time.time() < deadline:
             if not self._find_running_processes():
@@ -1400,10 +1437,11 @@ class VKBLinkManager:
         return True
 
     def _wait_for_process_exit(self, target: VKBLinkProcessInfo, *, timeout: float) -> bool:
-        poll_interval_seconds = self._cfg_ms_as_seconds(
-            "vkb_link_poll_interval_ms",
-            250,
-            minimum_ms=10,
+        poll_interval_seconds = self._cfg_interval_seconds(
+            "vkb_link_poll_interval_seconds",
+            0.25,
+            minimum_seconds=0.01,
+            legacy_ms_key="vkb_link_poll_interval_ms",
         )
         deadline = time.time() + timeout
         while time.time() < deadline:
@@ -1528,10 +1566,15 @@ class VKBLinkManager:
         if not stopped:
             logger.warning("VKB-Link restart aborted: stop step failed")
             return False
+        if not self._wait_for_no_running_process():
+            logger.warning(
+                "VKB-Link restart aborted: process stop command returned but process still running"
+            )
+            return False
         if not exe_path:
             logger.info("VKB-Link restart completed with stop only (no exe path available)")
             return stopped
-        restart_delay = self._cfg_float("vkb_link_restart_delay_seconds", 1.0, minimum=0.0)
+        restart_delay = self._cfg_float("vkb_link_restart_delay_seconds", 0.25, minimum=0.0)
         if restart_delay:
             time.sleep(restart_delay)
         started = self._start_process(exe_path)

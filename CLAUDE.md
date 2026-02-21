@@ -11,7 +11,7 @@ Do not write Claude-generated reports or temp files anywhere else in this reposi
 
 ### At the START of every session
 
-Read `CHANGELOG.json` (repo root) to understand what every agent has already done. Use it to avoid duplicating work and to understand the current state of the codebase.
+Read `docs/changelog/CHANGELOG.json` to understand what every agent has already done. Use it to avoid duplicating work and to understand the current state of the codebase.
 
 ### After completing ANY task that modifies files
 
@@ -22,12 +22,25 @@ Run this script — it handles all file updates automatically:
 ```bash
 python scripts/log_change.py \
     --agent claude \
+    --group "<WorkstreamSlug>" \
     --tags "<Tag1>" "<Tag2>" \
     --summary "One-sentence description" \
     --details "Bullet one" "Bullet two" "Bullet three"
 ```
 
-The script auto-increments the CHG-NNN id, appends to `CHANGELOG.json`, and prepends the row and detail section to `CHANGELOG.md`. Do not edit those files manually.
+`--group` is recommended and should stay stable for related iterative work that will ship together.
+
+The script generates a short, globally unique `CHG-<commit-hash>` ID (merge-safe across branches), appends to `docs/changelog/CHANGELOG.json`, and rebuilds `CHANGELOG.md` from JSON sources. Do not edit those files manually.
+
+### Release prep activity
+
+Before pushing for release creation, run:
+
+```bash
+python scripts/changelog_activity.py --strict
+```
+
+This rebuilds `CHANGELOG.md` and writes compact unreleased release-note preview to `dist/RELEASE_NOTES.preview.md`.
 
 ### Approved `--tags` values
 
@@ -47,7 +60,7 @@ When the user's prompt contains the label `/codex`, delegate the task to Codex v
 
 2. **Configure defaults (optional):**
 
-   Edit `config_defaults.json` to set project-wide defaults for `/codex` delegation:
+   Edit `docs/changelog/changelog-config.json` to set project-wide defaults for `/codex` delegation:
 
    ```json
    {
@@ -78,7 +91,7 @@ When the user's prompt contains the label `/codex`, delegate the task to Codex v
        --run-name <short-task-name>
    ```
 
-   All `claude_run_plan.py` arguments are loaded from `config_defaults.json` if not specified on the command line.
+   All `claude_run_plan.py` arguments are loaded from `docs/changelog/changelog-config.json` if not specified on the command line.
 
    Optional overrides:
 
@@ -132,3 +145,15 @@ the latest Codex run (or a specific run if they provide one).
    - token usage and cache hit
    - estimated Codex/Claude cost
    - full Codex final message
+
+## Release Workflow
+
+All changes are automatically tracked in `docs/changelog/CHANGELOG.json` and released via release-please.
+
+**VSCode integration:** Press `Ctrl+Shift+B` (Build Tasks) and select:
+
+- **"Release: Prepare changelog"** — Rebuild changelog and generate release notes preview
+- **"Release: Trigger release-please workflow"** — Create/update the release PR on GitHub
+- **"Release: Full workflow (prep + trigger)"** — Do both in one step
+
+For complete release guide, including troubleshooting and customization, see [RELEASE.md](RELEASE.md).

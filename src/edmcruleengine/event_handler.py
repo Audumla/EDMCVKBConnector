@@ -62,13 +62,8 @@ class EventHandler:
                 port=config.get("vkb_port", 50995),
                 header_byte=config.get("vkb_header_byte", 0xA5),
                 command_byte=config.get("vkb_command_byte", 13),
-                initial_retry_interval=config.get("initial_retry_interval", 2),
-                initial_retry_duration=config.get("initial_retry_duration", 60),
-                fallback_retry_interval=config.get("fallback_retry_interval", 10),
                 socket_timeout=config.get("socket_timeout", 5),
                 on_connected=self._on_socket_connected,
-                process_readiness_check=self._check_vkb_process_readiness,
-                on_reconnect_failed=self._handle_reconnect_failed,
             )
         else:
             self.vkb_client = vkb_client
@@ -98,7 +93,6 @@ class EventHandler:
         self.vkb_link_manager = VKBLinkManager(config, self.plugin_dir)
         self._vkb_link_recovery_lock = threading.Lock()
         self._vkb_link_recovery_inflight = False
-        self._last_vkb_link_recovery = 0.0
         self._connection_status_lock = threading.Lock()
         self._connection_status_override: Optional[str] = None
         self._endpoint_change_active = False  # Suppresses recovery during intentional restart
@@ -289,6 +283,34 @@ class EventHandler:
             return minimum
         return parsed
 
+    def _get_config_interval_seconds(
+        self,
+        key_seconds: str,
+        default_seconds: float,
+        *,
+        minimum_seconds: float = 0.001,
+        legacy_ms_key: Optional[str] = None,
+    ) -> float:
+        value: Any = default_seconds
+        if self.config:
+            raw = self.config.get(key_seconds)
+            if raw is None and legacy_ms_key:
+                raw_ms = self.config.get(legacy_ms_key)
+                if raw_ms is not None:
+                    try:
+                        value = float(raw_ms) / 1000.0
+                    except (TypeError, ValueError):
+                        value = default_seconds
+            elif raw is not None:
+                value = raw
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            parsed = float(default_seconds)
+        if parsed < minimum_seconds:
+            return minimum_seconds
+        return parsed
+
     def _wait_for_vkb_listener_ready(self, host: str, port: int) -> bool:
         """Wait until VKB-Link TCP listener is reachable or timeout expires."""
         timeout_seconds = self._get_config_float(
@@ -296,7 +318,12 @@ class EventHandler:
             10.0,
             minimum=0.1,
         )
-        poll_interval = self._get_config_int("vkb_link_poll_interval_ms", 250, minimum=10) / 1000.0
+        poll_interval = self._get_config_interval_seconds(
+            "vkb_link_poll_interval_seconds",
+            0.25,
+            minimum_seconds=0.01,
+            legacy_ms_key="vkb_link_poll_interval_ms",
+        )
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
             try:
@@ -363,7 +390,7 @@ class EventHandler:
             if self.vkb_client.connect():
                 logger.info(f"VKB-Link: connected to {host}:{port}")
             else:
-                logger.warning(f"VKB-Link: connect to {host}:{port} failed; reconnect worker will retry")
+                logger.warning(f"VKB-Link: connect to {host}:{port} failed")
         except Exception as e:
             logger.error(f"VKB-Link: endpoint change failed: {e}")
         finally:
@@ -506,13 +533,9 @@ class EventHandler:
                 if self._should_probe_listener_before_connect():
                     self._wait_for_vkb_listener_ready(host, port)
 
-            # Ensure reconnect callbacks always re-send shift state on new socket connections.
+            # Ensure callbacks always re-send shift state on new socket connections.
             self.vkb_client.set_on_connected(self._on_socket_connected)
             success = self.vkb_client.connect()
-            # Start reconnection attempts regardless of initial success
-            self.vkb_client.start_reconnection()
-            if not success:
-                self._attempt_vkb_link_recovery(reason="connect_failed")
             return success
         finally:
             self.set_connection_status_override(None)
@@ -573,7 +596,11 @@ class EventHandler:
         If the process is detected as crashed (was running, now is not), trigger recovery.
         Only monitors if auto_manage is enabled.
         """
-        check_interval = 5.0  # Check every 5 seconds
+        check_interval = self._get_config_interval_seconds(
+            "vkb_link_process_monitor_interval_seconds",
+            5.0,
+            minimum_seconds=0.1,
+        )
 
         while not self._process_monitor_stop.is_set():
             try:
@@ -814,8 +841,6 @@ class EventHandler:
         if force or payload["shift"] != self._last_sent_shift or payload["subshift"] != self._last_sent_subshift:
             if not self.vkb_client.send_event("VKBShiftBitmap", payload):
                 logger.warning("Failed to send VKB shift/subshift bitmap")
-                if allow_recovery:
-                    self._attempt_vkb_link_recovery(reason="send_failed")
                 return False
             self._last_sent_shift = payload["shift"]
             self._last_sent_subshift = payload["subshift"]
@@ -881,9 +906,11 @@ class EventHandler:
             return
         if not bool(self.config.get("vkb_link_auto_manage", True)):
             return
-        if reason == "send_failed" and not self._has_successful_vkb_connection:
-            logger.info(
-                "VKB-Link recovery suppressed for send_failed before first successful VKB connection"
+        process_recovery_reasons = {"process_crash_detected", "process_crashed"}
+        if reason not in process_recovery_reasons:
+            logger.debug(
+                "VKB-Link recovery ignored for non-process reason: %s",
+                reason,
             )
             return
         # Skip recovery if an intentional endpoint change is already in progress
@@ -891,23 +918,17 @@ class EventHandler:
             logger.debug("VKB-Link recovery suppressed: endpoint change in progress")
             return
 
-        cooldown = int(self.config.get("vkb_link_recovery_cooldown", 60) or 60)
-        now = time.time()
-        if now - self._last_vkb_link_recovery < cooldown:
-            return
-
         with self._vkb_link_recovery_lock:
             if self._vkb_link_recovery_inflight:
                 return
             self._vkb_link_recovery_inflight = True
-            self._last_vkb_link_recovery = now
 
         host = self.config.get("vkb_host", "127.0.0.1")
         port = self.config.get("vkb_port", 50995)
 
         def _worker() -> None:
             try:
-                # Clear terminal error so reconnect worker can retry after recovery
+                # Clear terminal error before process-driven recovery reconnect.
                 if self.vkb_client:
                     self.vkb_client.clear_terminal_error()
                 self.set_connection_status_override("Recovering VKB-Link...")

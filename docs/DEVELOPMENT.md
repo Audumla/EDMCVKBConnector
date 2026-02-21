@@ -48,10 +48,29 @@ python -m pytest
 - `scripts/bootstrap_dev_env.py`: setup and linking workflow.
 - `scripts/run_edmc_from_dev.py`: launch EDMC dev instance.
 - `scripts/package_plugin.py`: build distributable ZIP.
+- `scripts/log_change.py`: append a grouped changelog entry with a globally unique CHG id.
+- `scripts/build_changelog.py`: rebuild `CHANGELOG.md` from `docs/changelog/CHANGELOG.json` + `docs/changelog/CHANGELOG.archive.json`.
+- `scripts/changelog_activity.py`: pre-release activity (rebuild changelog + compact release-notes preview).
 - `scripts/signal_catalog_editor.py`: interactive catalog editor.
 - `scripts/validate_signal_catalog.py`: validate catalog structure/operators/event refs.
 - `scripts/verify_catalog_coverage.py`: coverage checks against known ED events.
 - `scripts/dev_paths.py`: shared path resolution for dev scripts.
+
+## Changelog and Release Prep
+1. Record each task with a stable workstream group:
+```bash
+python scripts/log_change.py \
+    --agent codex \
+    --group "<workstream-slug>" \
+    --tags "Bug Fix" \
+    --summary "One-line summary" \
+    --details "Detail one" "Detail two"
+```
+2. Before pushing for release creation, run the activity:
+```bash
+python scripts/changelog_activity.py --strict
+```
+3. Review `dist/RELEASE_NOTES.preview.md`, then push and let Release Please create the release.
 
 ## Documentation Set
 - `README.md`: quick start and documentation map.

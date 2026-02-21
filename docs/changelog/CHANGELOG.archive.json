@@ -1,6 +1,6 @@
 [
   {
-    "id": "CHG-001",
+    "id": "CHG-arc-001",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -18,7 +18,7 @@
     ]
   },
   {
-    "id": "CHG-002",
+    "id": "CHG-arc-002",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -36,7 +36,7 @@
     ]
   },
   {
-    "id": "CHG-003",
+    "id": "CHG-arc-003",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -50,7 +50,7 @@
     ]
   },
   {
-    "id": "CHG-004",
+    "id": "CHG-arc-004",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -66,7 +66,7 @@
     ]
   },
   {
-    "id": "CHG-005",
+    "id": "CHG-arc-005",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -83,7 +83,7 @@
     ]
   },
   {
-    "id": "CHG-006",
+    "id": "CHG-arc-006",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -97,7 +97,7 @@
     ]
   },
   {
-    "id": "CHG-007",
+    "id": "CHG-arc-007",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
     "summary_tags": [
@@ -113,7 +113,7 @@
     ]
   },
   {
-    "id": "CHG-001",
+    "id": "CHG-arc-001-1",
     "plugin_version": "0.5.0",
     "date": "2026-02-19",
     "agent": "claude",
@@ -128,7 +128,7 @@
     ]
   },
   {
-    "id": "CHG-001",
+    "id": "CHG-arc-001-2",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -141,7 +141,7 @@
     ]
   },
   {
-    "id": "CHG-002",
+    "id": "CHG-arc-002-1",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -156,7 +156,7 @@
     ]
   },
   {
-    "id": "CHG-003",
+    "id": "CHG-arc-003-1",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -169,7 +169,7 @@
     ]
   },
   {
-    "id": "CHG-004",
+    "id": "CHG-arc-004-1",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -182,7 +182,7 @@
     ]
   },
   {
-    "id": "CHG-005",
+    "id": "CHG-arc-005-1",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -196,7 +196,7 @@
     ]
   },
   {
-    "id": "CHG-006",
+    "id": "CHG-arc-006-1",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -208,7 +208,7 @@
     ]
   },
   {
-    "id": "CHG-007",
+    "id": "CHG-arc-007-1",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -224,7 +224,7 @@
     ]
   },
   {
-    "id": "CHG-008",
+    "id": "CHG-arc-008",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -237,7 +237,7 @@
     ]
   },
   {
-    "id": "CHG-009",
+    "id": "CHG-arc-009",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -252,7 +252,7 @@
     ]
   },
   {
-    "id": "CHG-010",
+    "id": "CHG-arc-010",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -267,7 +267,7 @@
     ]
   },
   {
-    "id": "CHG-011",
+    "id": "CHG-arc-011",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -280,7 +280,7 @@
     ]
   },
   {
-    "id": "CHG-012",
+    "id": "CHG-arc-012",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -292,7 +292,7 @@
     ]
   },
   {
-    "id": "CHG-013",
+    "id": "CHG-arc-013",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -306,7 +306,7 @@
     ]
   },
   {
-    "id": "CHG-014",
+    "id": "CHG-arc-014",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -319,7 +319,7 @@
     ]
   },
   {
-    "id": "CHG-015",
+    "id": "CHG-arc-015",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -334,7 +334,7 @@
     ]
   },
   {
-    "id": "CHG-016",
+    "id": "CHG-arc-016",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -348,7 +348,7 @@
     ]
   },
   {
-    "id": "CHG-017",
+    "id": "CHG-arc-017",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -362,7 +362,7 @@
     ]
   },
   {
-    "id": "CHG-018",
+    "id": "CHG-arc-018",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -377,7 +377,7 @@
     ]
   },
   {
-    "id": "CHG-019",
+    "id": "CHG-arc-019",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -392,7 +392,7 @@
     ]
   },
   {
-    "id": "CHG-020",
+    "id": "CHG-arc-020",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -407,7 +407,7 @@
     ]
   },
   {
-    "id": "CHG-021",
+    "id": "CHG-arc-021",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -422,7 +422,7 @@
     ]
   },
   {
-    "id": "CHG-022",
+    "id": "CHG-arc-022",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -436,7 +436,7 @@
     ]
   },
   {
-    "id": "CHG-023",
+    "id": "CHG-arc-023",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -451,7 +451,7 @@
     ]
   },
   {
-    "id": "CHG-024",
+    "id": "CHG-arc-024",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -466,7 +466,7 @@
     ]
   },
   {
-    "id": "CHG-025",
+    "id": "CHG-arc-025",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -482,7 +482,7 @@
     ]
   },
   {
-    "id": "CHG-026",
+    "id": "CHG-arc-026",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -498,7 +498,7 @@
     ]
   },
   {
-    "id": "CHG-027",
+    "id": "CHG-arc-027",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -513,7 +513,7 @@
     ]
   },
   {
-    "id": "CHG-028",
+    "id": "CHG-arc-028",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -529,7 +529,7 @@
     ]
   },
   {
-    "id": "CHG-029",
+    "id": "CHG-arc-029",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -544,7 +544,7 @@
     ]
   },
   {
-    "id": "CHG-030",
+    "id": "CHG-arc-030",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -558,7 +558,7 @@
     ]
   },
   {
-    "id": "CHG-031",
+    "id": "CHG-arc-031",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -574,7 +574,7 @@
     ]
   },
   {
-    "id": "CHG-032",
+    "id": "CHG-arc-032",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -588,7 +588,7 @@
     ]
   },
   {
-    "id": "CHG-033",
+    "id": "CHG-arc-033",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -603,7 +603,7 @@
     ]
   },
   {
-    "id": "CHG-034",
+    "id": "CHG-arc-034",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -618,7 +618,7 @@
     ]
   },
   {
-    "id": "CHG-035",
+    "id": "CHG-arc-035",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -632,7 +632,7 @@
     ]
   },
   {
-    "id": "CHG-036",
+    "id": "CHG-arc-036",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -647,7 +647,7 @@
     ]
   },
   {
-    "id": "CHG-037",
+    "id": "CHG-arc-037",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -661,7 +661,7 @@
     ]
   },
   {
-    "id": "CHG-038",
+    "id": "CHG-arc-038",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -674,7 +674,7 @@
     ]
   },
   {
-    "id": "CHG-039",
+    "id": "CHG-arc-039",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -688,7 +688,7 @@
     ]
   },
   {
-    "id": "CHG-040",
+    "id": "CHG-arc-040",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -702,7 +702,7 @@
     ]
   },
   {
-    "id": "CHG-041",
+    "id": "CHG-arc-041",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -718,7 +718,7 @@
     ]
   },
   {
-    "id": "CHG-042",
+    "id": "CHG-arc-042",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -733,7 +733,7 @@
     ]
   },
   {
-    "id": "CHG-043",
+    "id": "CHG-arc-043",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -748,7 +748,7 @@
     ]
   },
   {
-    "id": "CHG-044",
+    "id": "CHG-arc-044",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -763,7 +763,7 @@
     ]
   },
   {
-    "id": "CHG-045",
+    "id": "CHG-arc-045",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -778,7 +778,7 @@
     ]
   },
   {
-    "id": "CHG-046",
+    "id": "CHG-arc-046",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -793,7 +793,7 @@
     ]
   },
   {
-    "id": "CHG-047",
+    "id": "CHG-arc-047",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -808,7 +808,7 @@
     ]
   },
   {
-    "id": "CHG-048",
+    "id": "CHG-arc-048",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -823,7 +823,7 @@
     ]
   },
   {
-    "id": "CHG-049",
+    "id": "CHG-arc-049",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -837,7 +837,7 @@
     ]
   },
   {
-    "id": "CHG-050",
+    "id": "CHG-arc-050",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -851,7 +851,7 @@
     ]
   },
   {
-    "id": "CHG-051",
+    "id": "CHG-arc-051",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -866,7 +866,7 @@
     ]
   },
   {
-    "id": "CHG-052",
+    "id": "CHG-arc-052",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -882,7 +882,7 @@
     ]
   },
   {
-    "id": "CHG-053",
+    "id": "CHG-arc-053",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -896,7 +896,7 @@
     ]
   },
   {
-    "id": "CHG-054",
+    "id": "CHG-arc-054",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -911,7 +911,7 @@
     ]
   },
   {
-    "id": "CHG-055",
+    "id": "CHG-arc-055",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -926,7 +926,7 @@
     ]
   },
   {
-    "id": "CHG-056",
+    "id": "CHG-arc-056",
     "plugin_version": "0.5.1",
     "date": "2026-02-19",
     "summary_tags": [
@@ -941,7 +941,7 @@
     ]
   },
   {
-    "id": "CHG-057",
+    "id": "CHG-arc-057",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -957,7 +957,7 @@
     ]
   },
   {
-    "id": "CHG-058",
+    "id": "CHG-arc-058",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -972,7 +972,7 @@
     ]
   },
   {
-    "id": "CHG-059",
+    "id": "CHG-arc-059",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -987,7 +987,7 @@
     ]
   },
   {
-    "id": "CHG-060",
+    "id": "CHG-arc-060",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1002,7 +1002,7 @@
     ]
   },
   {
-    "id": "CHG-061",
+    "id": "CHG-arc-061",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1017,7 +1017,7 @@
     ]
   },
   {
-    "id": "CHG-062",
+    "id": "CHG-arc-062",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1032,7 +1032,7 @@
     ]
   },
   {
-    "id": "CHG-063",
+    "id": "CHG-arc-063",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1047,7 +1047,7 @@
     ]
   },
   {
-    "id": "CHG-064",
+    "id": "CHG-arc-064",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1062,7 +1062,7 @@
     ]
   },
   {
-    "id": "CHG-065",
+    "id": "CHG-arc-065",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1077,7 +1077,7 @@
     ]
   },
   {
-    "id": "CHG-066",
+    "id": "CHG-arc-066",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1093,7 +1093,7 @@
     ]
   },
   {
-    "id": "CHG-067",
+    "id": "CHG-arc-067",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1108,7 +1108,7 @@
     ]
   },
   {
-    "id": "CHG-068",
+    "id": "CHG-arc-068",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1122,7 +1122,7 @@
     ]
   },
   {
-    "id": "CHG-069",
+    "id": "CHG-arc-069",
     "plugin_version": "0.5.1",
     "date": "2026-02-20",
     "summary_tags": [
@@ -1139,7 +1139,7 @@
     ]
   },
   {
-    "id": "CHG-070",
+    "id": "CHG-arc-070",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1153,7 +1153,7 @@
     ]
   },
   {
-    "id": "CHG-071",
+    "id": "CHG-arc-071",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1168,7 +1168,7 @@
     ]
   },
   {
-    "id": "CHG-072",
+    "id": "CHG-arc-072",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1181,7 +1181,7 @@
     ]
   },
   {
-    "id": "CHG-073",
+    "id": "CHG-arc-073",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1195,7 +1195,7 @@
     ]
   },
   {
-    "id": "CHG-074",
+    "id": "CHG-arc-074",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1209,7 +1209,7 @@
     ]
   },
   {
-    "id": "CHG-075",
+    "id": "CHG-arc-075",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1224,7 +1224,7 @@
     ]
   },
   {
-    "id": "CHG-076",
+    "id": "CHG-arc-076",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1239,7 +1239,7 @@
     ]
   },
   {
-    "id": "CHG-077",
+    "id": "CHG-arc-077",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1253,7 +1253,7 @@
     ]
   },
   {
-    "id": "CHG-078",
+    "id": "CHG-arc-078",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1267,7 +1267,7 @@
     ]
   },
   {
-    "id": "CHG-079",
+    "id": "CHG-arc-079",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1282,7 +1282,7 @@
     ]
   },
   {
-    "id": "CHG-080",
+    "id": "CHG-arc-080",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1297,7 +1297,7 @@
     ]
   },
   {
-    "id": "CHG-081",
+    "id": "CHG-arc-081",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1312,7 +1312,7 @@
     ]
   },
   {
-    "id": "CHG-082",
+    "id": "CHG-arc-082",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1328,7 +1328,7 @@
     ]
   },
   {
-    "id": "CHG-083",
+    "id": "CHG-arc-083",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1345,7 +1345,7 @@
     ]
   },
   {
-    "id": "CHG-084",
+    "id": "CHG-arc-084",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [
@@ -1359,7 +1359,7 @@
     ]
   },
   {
-    "id": "CHG-085",
+    "id": "CHG-arc-085",
     "plugin_version": "0.5.1",
     "date": "2026-02-21",
     "summary_tags": [

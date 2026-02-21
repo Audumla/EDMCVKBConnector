@@ -114,11 +114,50 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             return minimum
         return parsed
 
+    def _config_interval_seconds(
+        key_seconds: str,
+        default_seconds: float,
+        *,
+        minimum_seconds: float = 0.01,
+        legacy_ms_key: Optional[str] = None,
+    ) -> float:
+        value = _config.get(key_seconds) if _config else default_seconds
+        if value is None and legacy_ms_key:
+            legacy_value = _config.get(legacy_ms_key) if _config else None
+            if legacy_value is not None:
+                try:
+                    value = float(legacy_value) / 1000.0
+                except (TypeError, ValueError):
+                    value = default_seconds
+        if value is None:
+            value = default_seconds
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            parsed = float(default_seconds)
+        if parsed < minimum_seconds:
+            return minimum_seconds
+        return parsed
+
     vkb_host = _config.get("vkb_host", "127.0.0.1") if _config else "127.0.0.1"
     vkb_port = _config.get("vkb_port", 50995) if _config else 50995
-    ini_apply_delay_ms = _config_int("vkb_ui_apply_delay_ms", 4000, minimum=0)
-    ini_status_tick_ms = _config_int("vkb_ui_feedback_interval_ms", 333, minimum=50)
-    status_poll_interval_ms = _config_int("vkb_ui_poll_interval_ms", 2000, minimum=100)
+    ini_apply_delay_ms = int(
+        _config_interval_seconds(
+            "vkb_ui_apply_delay_seconds",
+            4.0,
+            minimum_seconds=0.0,
+            legacy_ms_key="vkb_ui_apply_delay_ms",
+        ) * 1000
+    )
+    status_poll_interval_ms = int(
+        _config_interval_seconds(
+            "vkb_ui_poll_interval_seconds",
+            2.0,
+            minimum_seconds=0.1,
+            legacy_ms_key="vkb_ui_poll_interval_ms",
+        ) * 1000
+    )
+    ini_status_tick_ms = max(100, int(status_poll_interval_ms / 3))
     action_followup_delay_ms = max(ini_status_tick_ms * 4, ini_status_tick_ms)
     host_var = tk.StringVar(value=str(vkb_host))
     port_var = tk.StringVar(value=str(vkb_port))

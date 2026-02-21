@@ -64,9 +64,6 @@ def test_client_connects_to_server():
         client = VKBClient(
             host="127.0.0.1",
             port=50996,
-            initial_retry_interval=1,
-            initial_retry_duration=5,
-            fallback_retry_interval=1,
             socket_timeout=2,
         )
         
@@ -115,15 +112,9 @@ def test_client_sends_and_receives():
         print(f"  OK: Data transmission test passed ({server.bytes_received} bytes received)")
 
 
-def test_reconnection_after_server_restart():
-    """Test that client automatically reconnects when server restarts.
-    
-    Uses new query methods to validate data reception:
-    - server.get_message_count(): Check if messages were stored
-    - server.get_messages(): Inspect actual received messages
-    - server.find_messages_with_payload(): Search for specific payloads
-    """
-    print("Test: VKBClient reconnects after server restart")
+def test_reconnect_requires_explicit_connect_after_server_restart():
+    """Test that reconnect is explicit and not socket-worker driven."""
+    print("Test: VKBClient reconnect after server restart requires explicit connect()")
     
     port = 50998
     
@@ -135,17 +126,11 @@ def test_reconnection_after_server_restart():
         client = VKBClient(
             host="127.0.0.1",
             port=port,
-            initial_retry_interval=0.2,
-            initial_retry_duration=3,
-            fallback_retry_interval=0.2,
             socket_timeout=2,
         )
         
         assert client.connect(), "Failed initial connection"
         assert client.connected, "Not connected after connect()"
-        
-        # Start automatic reconnection worker BEFORE server shutdown
-        client.start_reconnection()
         
         print(f"    Phase 1: Connected to server1")
         
@@ -167,27 +152,26 @@ def test_reconnection_after_server_restart():
         print(f"    Phase 1: Server1 received {msg_count} message(s), total {server1.bytes_received} bytes")
         print(f"    Phase 1: Message 1 hex: {first_msg['data'].hex()}")
     
-    # Server1 is now shut down, client connection is lost
-    # The reconnection worker should be trying to reconnect
-    print(f"    Phase 2: Server1 stopped, reconnection worker active")
+    # Server1 is now shut down, client connection is lost.
+    print(f"    Phase 2: Server1 stopped")
     time.sleep(1.5)  # Wait for OS socket cleanup
+    # Deterministic transition to disconnected state.
+    client.disconnect()
+    assert not client.connected, "Client should be disconnected before reconnect test"
     
     # Phase 2: Start new server and verify client reconnects
     print(f"    Phase 2: Starting server2 on port {port}...")
     with running_mock_server(port=port) as server2:
         server2.verbose = False
         
-        # Wait for client to reconnect
-        max_wait = 5
-        start_time = time.time()
-        connected = False
-        
-        while not client.connected and (time.time() - start_time) < max_wait:
-            time.sleep(0.2)
-        
-        elapsed = time.time() - start_time
-        assert client.connected, f"Client failed to reconnect in {elapsed:.2f}s"
-        print(f"    Phase 2: Reconnected in {elapsed:.2f}s")
+        # No automatic reconnect expected.
+        time.sleep(0.5)
+        assert not client.connected, "Client should not auto-reconnect without explicit connect()"
+
+        # Explicit reconnect.
+        assert client.connect(), "Explicit reconnect failed"
+        assert client.connected, "Client not connected after explicit reconnect"
+        print("    Phase 2: Explicit reconnect succeeded")
         
         # Use query methods to check what was received
         pre_send_count = server2.get_message_count()
@@ -214,8 +198,7 @@ def test_reconnection_after_server_restart():
     
     client.disconnect()
     
-    # Test validates reconnection behavior via query methods
-    print(f"  OK: Automatic reconnection validated - server state queries working")
+    print("  OK: Explicit reconnect behavior validated")
 
 
 def test_connection_with_event_handler():
@@ -297,9 +280,6 @@ def test_connection_timeout():
     client = VKBClient(
         host="127.0.0.1",
         port=51001,  # No server running on this port
-        initial_retry_interval=0.1,
-        initial_retry_duration=0.5,
-        fallback_retry_interval=0.1,
         socket_timeout=1,
     )
     
@@ -340,9 +320,6 @@ def test_disconnect_during_reconnection():
     client = VKBClient(
         host="127.0.0.1",
         port=51003,  # No server
-        initial_retry_interval=0.1,
-        initial_retry_duration=10,  # Long retry duration
-        fallback_retry_interval=0.1,
         socket_timeout=1,
     )
     

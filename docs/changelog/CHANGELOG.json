@@ -1,0 +1,84 @@
+[
+  {
+    "id": "CHG-55c6ba67",
+    "change_group": "migrate-all-existing-changelog-ids-to-simpler-co",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Code Refactoring",
+      "Build / Packaging"
+    ],
+    "summary": "Migrate all existing changelog IDs to simpler commit-hash format",
+    "details": [
+      "Created migrate_changelog_ids.py script to convert timestamp-based IDs to CHG-<commit-hash>",
+      "Converted CHANGELOG.archive.json entries to CHG-arc-NNN format for clarity",
+      "Eliminated 50+ character IDs in favor of 8-12 character IDs",
+      "All IDs now globally unique and merge-safe across branches",
+      "Rebuilt CHANGELOG.md with migrated IDs, no duplicate ID conflicts"
+    ]
+  },
+  {
+    "id": "CHG-55c6ba67-1",
+    "change_group": "vkb-link-recovery",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring",
+      "Bug Fix"
+    ],
+    "summary": "Enforced restart-after-confirmed-stop and removed obsolete VKB retry/cooldown timers",
+    "details": [
+      "VKBLinkManager restart path now verifies no VKB-Link process remains before launching a new process and uses a short default restart delay (0.25s)",
+      "Removed plugin config defaults and fallback keys for initial/fallback socket retry intervals plus vkb_link_recovery_cooldown",
+      "Simplified VKBClient API by removing unused retry timer parameters and updated affected tests to match explicit process-driven reconnect behavior"
+    ]
+  },
+  {
+    "id": "CHG-55c6ba67-2",
+    "change_group": "clarify-and-reorganize-configuration-files-for-b",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
+    "summary": "Clarify and reorganize configuration files for better discoverability",
+    "details": [
+      "Renamed config_defaults.json to changelog-config.json for clarity",
+      "Clarified config sections: changelog_summarizer -> changelog_summarization",
+      "Added _comment fields to config_defaults.json for self-documentation",
+      "Updated all scripts and docs to reference new changelog-config.json",
+      "Removed ambiguous field names: max_tokens -> claude_max_tokens, removed unused codex_model from summarization config"
+    ]
+  },
+  {
+    "id": "CHG-55c6ba67-3",
+    "change_group": "vkb-link-recovery",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
+    "summary": "Made process monitor interval configurable and unified timer keys to seconds with fewer UI timer knobs",
+    "details": [
+      "Added vkb_link_process_monitor_interval_seconds and switched link polling to vkb_link_poll_interval_seconds with legacy ms fallback support",
+      "Removed separate UI feedback timer config and derive feedback tick from vkb_ui_poll_interval_seconds to reduce timer count",
+      "Updated defaults/fallbacks and config tests to match the new seconds-based timer schema"
+    ]
+  },
+  {
+    "id": "CHG-55c6ba67-4",
+    "change_group": "changelog-reorganization",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Move changelog files to docs/changelog/ subdirectory",
+    "details": [
+      "Organized CHANGELOG.json, CHANGELOG.archive.json, CHANGELOG.summaries.json, and changelog-config.json into docs/changelog/"
+    ]
+  }
+]

@@ -72,6 +72,54 @@
             ],
             "problemMatcher": [],
             "detail": "Launch the signal catalog editor UI"
+        },
+        {
+            "label": "Release: Prepare changelog",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/changelog_activity.py",
+                "--strict"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Rebuild CHANGELOG.md and generate release notes preview (required before release)"
+        },
+        {
+            "label": "Release: Trigger release-please workflow",
+            "type": "shell",
+            "command": "gh",
+            "args": [
+                "workflow",
+                "run",
+                "release-please.yml"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Trigger the release-please GitHub Actions workflow (creates/updates release PR)"
+        },
+        {
+            "label": "Release: Full workflow (prep + trigger)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/scripts/release.sh"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Prepare changelog and trigger release-please in one step"
         }
     ]
 }
