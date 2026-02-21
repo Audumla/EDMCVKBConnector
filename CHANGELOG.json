@@ -1215,5 +1215,19 @@
       "Updated CLAUDE.md documentation with new configuration options",
       "Config values load from config_defaults.json and can be overridden via CLI args"
     ]
+  },
+  {
+    "id": "CHG-084",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Merged VKB-Link-enhanced-loading and copilot/add-status-line-and-mock-data branches into main",
+    "details": [
+      "Merged VKB-Link-enhanced-loading branch fixing UI loop issue during minimized startup",
+      "Merged copilot/add-status-line-and-mock-data adding connection status display and event anonymization",
+      "Skipped copilot/update-documentation-and-guides to preserve main's documentation files"
+    ]
   }
 ]
