@@ -336,6 +336,18 @@ def _infer_topics(text: str) -> list[str]:
     return matched
 
 
+def _shorten_group_key(key: str, max_len: int = 32) -> str:
+    """Shorten a group key to fit nicely in display (tables, etc)."""
+    if len(key) <= max_len:
+        return key
+    # Truncate at word boundaries
+    truncated = key[:max_len]
+    last_dash = truncated.rfind("-")
+    if last_dash > 10:  # Only if we have at least 10 chars before the dash
+        truncated = truncated[:last_dash]
+    return truncated + "…" if truncated != key else truncated
+
+
 def _format_topics_for_tag(tag: str, topics: list[str]) -> str:
     if not topics:
         return "multiple areas"
@@ -375,8 +387,6 @@ def _intelligent_tag_summary(tag: str, tag_groups: list[dict]) -> str:
 
     template = TAG_SUMMARY_TEMPLATES.get(tag, TAG_SUMMARY_TEMPLATES["Other"])
     summary = template.format(topics=topics_phrase)
-    if len(tag_groups) > 1:
-        summary += f" (condensed from {len(tag_groups)} grouped changes)"
     return summary
 
 
@@ -554,12 +564,6 @@ def build_markdown(
     if date_range:
         lines.append(f"\n_{date_range}_")
 
-    lines.append("")
-    lines.append(
-        f"Condensed {len(entries)} changelog entries into {len(groups)} grouped changes."
-    )
-    lines.append("")
-
     ordered_tags = [t for t in TAG_ORDER if t in buckets]
     remaining = [t for t in sorted(buckets) if t not in TAG_ORDER]
 
@@ -578,15 +582,9 @@ def build_markdown(
             hidden_count = len(tag_groups) - len(visible_groups)
 
             for group in visible_groups:
-                suffixes = []
-                if group["explicit_group"]:
-                    suffixes.append(f"group `{group['group_key']}`")
-                if group["entry_count"] > 1:
-                    suffixes.append(f"condensed from {group['entry_count']} updates")
-
                 bullet = group["headline"]
-                if suffixes:
-                    bullet += " (" + "; ".join(suffixes) + ")"
+                if group["explicit_group"]:
+                    bullet += f" (group: `{_shorten_group_key(group['group_key'])}`)"
                 lines.append(f"- {bullet}")
             if hidden_count > 0:
                 lines.append(f"- Additional {hidden_count} grouped updates in this category.")
@@ -599,8 +597,9 @@ def build_markdown(
         lines.append("| Group | Entries | Primary Tag |")
         lines.append("|-------|---------|-------------|")
         for group in explicit_groups:
+            short_key = _shorten_group_key(group['group_key'], max_len=28)
             lines.append(
-                f"| {group['group_key']} | {group['entry_count']} | {group['primary_tag']} |"
+                f"| {short_key} | {group['entry_count']} | {group['primary_tag']} |"
             )
         lines.append("")
 

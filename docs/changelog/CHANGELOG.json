@@ -80,5 +80,22 @@
     "details": [
       "Organized CHANGELOG.json, CHANGELOG.archive.json, CHANGELOG.summaries.json, and changelog-config.json into docs/changelog/"
     ]
+  },
+  {
+    "id": "CHG-0c018dfd",
+    "change_group": "release-notes-cleanup",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Documentation Update",
+      "Code Refactoring"
+    ],
+    "summary": "Improve release notes formatting by removing meta-commentary and shortening group IDs",
+    "details": [
+      "Removed verbose meta-commentary like 'Condensed X entries into Y grouped changes'",
+      "Removed '(condensed from N updates)' suffixes from bullet points",
+      "Shortened group IDs in Change Group Index table to fit column width easily",
+      "Simplified summary display to focus on actual changes rather than grouping metadata"
+    ]
   }
 ]
