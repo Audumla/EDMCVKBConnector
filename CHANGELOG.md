@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.6.0...v0.7.0) (2026-02-21)
+
+
+### Features
+
+* 0.3.0 release ([9f738e8](https://github.com/Audumla/EDMCVKBConnector/commit/9f738e8792dce66fd35c97c45d99b8a02ff89884))
+* add log_change.py so agents run one command to record changes (CHG-007) ([142a7e2](https://github.com/Audumla/EDMCVKBConnector/commit/142a7e2a71f6fd76bf0bcfa0dc80a1b47fef5280))
+* add release notes generation from CHANGELOG.json ([8af41e7](https://github.com/Audumla/EDMCVKBConnector/commit/8af41e7fb757bfc0292cd8239b500832ecb10f38))
+* Repaired deployment scripts ([1e4b58f](https://github.com/Audumla/EDMCVKBConnector/commit/1e4b58fdbbfc072109f1f26e910c5607ce1ba54f))
+
+
+### Bug Fixes
+
+* Fix NameError in event_handler track_unregistered_events property ([17d3837](https://github.com/Audumla/EDMCVKBConnector/commit/17d38377de255ea006ba44e7e793087853c2f4a0))
+
 ## [0.5.1](https://github.com/Audumla/EDMCVKBConnector/compare/v0.5.0...v0.5.1) (2026-02-21)
 
 
