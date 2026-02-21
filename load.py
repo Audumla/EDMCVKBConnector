@@ -178,6 +178,52 @@ def _resolve_rules_file_path() -> str:
     return os.path.join(os.getcwd(), "rules.json")
 
 
+def _update_ini_file(ini_path: str, host: str, port: str) -> bool:
+    """
+    Update VKB-Link INI file with TCP configuration.
+    
+    Creates or updates the [TCP] section with:
+    - Adress={host}  (note: typo is deliberate per VKB-Link requirements)
+    - Port={port}
+    
+    Args:
+        ini_path: Path to the INI file
+        host: VKB-Link host address
+        port: VKB-Link port number
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        import configparser
+        
+        # Read existing INI file or create new one
+        config = configparser.ConfigParser()
+        config.optionxform = str  # Preserve case
+        
+        if os.path.exists(ini_path):
+            config.read(ini_path, encoding='utf-8')
+        
+        # Ensure [TCP] section exists
+        if not config.has_section('TCP'):
+            config.add_section('TCP')
+        
+        # Set values (note: "Adress" typo is deliberate per VKB-Link spec)
+        config.set('TCP', 'Adress', host)
+        config.set('TCP', 'Port', port)
+        
+        # Write back to file
+        with open(ini_path, 'w', encoding='utf-8') as f:
+            config.write(f)
+        
+        logger.info(f"Updated VKB-Link INI file: {ini_path} with host={host}, port={port}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to update INI file {ini_path}: {e}", exc_info=True)
+        return False
+
+
 def _load_rules_file_for_ui() -> tuple[list[dict], bool, str]:
     """
     Load rule objects for UI editing.
@@ -454,7 +500,23 @@ def _persist_prefs_from_ui() -> None:
     if shift_bitmap is not None and subshift_bitmap is not None:
         _config.set("test_shift_bitmap", int(shift_bitmap) & 0x03)
         _config.set("test_subshift_bitmap", int(subshift_bitmap) & 0x7F)
-
+    
+    # Anonymization settings
+    anonymize_var = _prefs_vars.get("anonymize_events")
+    if anonymize_var is not None:
+        _config.set("anonymize_events", bool(anonymize_var.get()))
+    
+    mock_cmdr_var = _prefs_vars.get("mock_commander_name")
+    if mock_cmdr_var is not None:
+        _config.set("mock_commander_name", mock_cmdr_var.get().strip())
+    
+    mock_ship_var = _prefs_vars.get("mock_ship_name")
+    if mock_ship_var is not None:
+        _config.set("mock_ship_name", mock_ship_var.get().strip())
+    
+    mock_ident_var = _prefs_vars.get("mock_ship_ident")
+    if mock_ident_var is not None:
+        _config.set("mock_ship_ident", mock_ident_var.get().strip())
 
 
 def _apply_test_shift_from_ui() -> None:
