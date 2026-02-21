@@ -1009,5 +1009,61 @@
       "Removed unused json and logging imports from event_handler.py",
       "Replaced json.loads(json.dumps()) deep copy antipattern with copy.deepcopy() in prefs_panel.py"
     ]
+  },
+  {
+    "id": "CHG-070",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Check VKB-Link process existence before any reconnection attempt",
+    "details": [
+      "Added process_readiness_check callback to VKBClient to gate reconnection attempts",
+      "VKB-Link process now verified running before TCP reconnection in all scenarios",
+      "Applied post-start settle delay to reconnection flow when process is detected as running"
+    ]
+  },
+  {
+    "id": "CHG-071",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Detect connection failures and handle INI mismatches with intelligent recovery",
+    "details": [
+      "Added terminal error flag to prevent infinite reconnection attempts when configuration is correct but connection fails",
+      "Check INI host/port against plugin config when reconnection fails despite process running",
+      "If INI mismatch found: trigger recovery to stop, fix INI, and restart VKB-Link",
+      "If INI correct and connection fails: set terminal error status 'Cannot connect to VKB-Link' and halt reconnection attempts"
+    ]
+  },
+  {
+    "id": "CHG-072",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Simplified workspace VS Code Python settings to avoid duplicate system interpreter discovery",
+    "details": [
+      "Removed python-envs system manager override from .vscode/settings.json so the workspace relies on the pinned .venv interpreter.",
+      "Kept python.defaultInterpreterPath and pytest paths pinned to /.venv/Scripts."
+    ]
+  },
+  {
+    "id": "CHG-073",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Reconnect worker now follows exact same startup sequence as plugin initialization",
+    "details": [
+      "Process readiness check now actively calls ensure_running() when process not found during reconnection",
+      "Reconnection flow now mirrors startup: check process → ensure running → apply settle delay → TCP connect",
+      "Handles download/install/bootstrap of VKB-Link if needed during reconnection, not just on startup"
+    ]
   }
 ]

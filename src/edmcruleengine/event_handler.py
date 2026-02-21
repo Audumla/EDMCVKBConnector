@@ -67,6 +67,8 @@ class EventHandler:
                 fallback_retry_interval=config.get("fallback_retry_interval", 10),
                 socket_timeout=config.get("socket_timeout", 5),
                 on_connected=self._on_socket_connected,
+                process_readiness_check=self._check_vkb_process_readiness,
+                on_reconnect_failed=self._handle_reconnect_failed,
             )
         else:
             self.vkb_client = vkb_client
@@ -101,6 +103,7 @@ class EventHandler:
         self._connection_status_override: Optional[str] = None
         self._endpoint_change_active = False  # Suppresses recovery during intentional restart
         self._has_successful_vkb_connection = False
+        self._vkb_process_was_running = False  # Track process state for settle delay gating
 
     def set_connection_status_override(self, status: Optional[str]) -> None:
         """Set temporary UI-facing connection status text."""
@@ -111,6 +114,134 @@ class EventHandler:
         """Get temporary UI-facing connection status text, if any."""
         with self._connection_status_lock:
             return self._connection_status_override
+
+    def _check_vkb_process_readiness(self) -> bool:
+        """
+        Check if VKB-Link process is running and ready for TCP connection.
+
+        Follows the SAME flow as plugin startup:
+        1. Check if process is running (process lookup)
+        2. If NOT running → call ensure_running() (download/install/start)
+        3. Apply post-start settle delay
+        4. Return ready status
+
+        This ensures reconnection uses identical startup sequence.
+
+        Returns:
+            True if process is running and ready to connect, False otherwise.
+        """
+        if not self.vkb_link_manager or not self.config:
+            return True  # No manager, allow connection attempt
+
+        # Check current process status (process lookup, not TCP)
+        status = self.vkb_link_manager.get_status(check_running=True)
+        is_running = status.running is True
+
+        if not is_running:
+            # Process not running: follow startup sequence and call ensure_running()
+            auto_manage = bool(self.config.get("vkb_link_auto_manage", True))
+            if not auto_manage and not status.exe_path:
+                # Auto-manage disabled and no known exe path → can't start it
+                logger.debug("VKB-Link process not running; auto-manage disabled; deferring reconnect")
+                self._vkb_process_was_running = False
+                return False
+
+            # Call ensure_running() to download/install/bootstrap/start if needed
+            # This mirrors the startup flow exactly
+            logger.info("VKB-Link process not running during reconnect; calling ensure_running()")
+            host = self.config.get("vkb_host", "127.0.0.1")
+            port = self.config.get("vkb_port", 50995)
+            result = self.vkb_link_manager.ensure_running(
+                host=host,
+                port=port,
+                reason="reconnect",
+            )
+            if not result.success:
+                logger.warning(f"Failed to ensure VKB-Link running during reconnect: {result.message}")
+                self._vkb_process_was_running = False
+                return False
+
+            is_running = True
+            self._vkb_process_was_running = True
+
+        # Process is now confirmed running
+        if not self._vkb_process_was_running:
+            # Process just transitioned to running (from not running)
+            # Apply the post-start settle delay before returning ready
+            self._vkb_process_was_running = True
+            self.vkb_link_manager.wait_for_post_start_settle()
+            logger.debug("VKB-Link process ready; applied post-start settle delay before reconnect")
+        elif is_running:
+            # Process was already running, still running - ready for TCP
+            pass
+
+        return True
+
+    def _handle_reconnect_failed(self) -> None:
+        """
+        Handle reconnection failure when process is running and ready.
+
+        Detects INI mismatches and triggers recovery, or marks terminal error if INI is correct.
+        """
+        if not self.config or not self.vkb_link_manager or not self.vkb_client:
+            return
+
+        # Get expected host/port from plugin config
+        expected_host = self.config.get("vkb_host", "127.0.0.1")
+        expected_port = self.config.get("vkb_port", 50995)
+
+        # Get current INI settings
+        ini_path = self.vkb_link_manager._resolve_ini_path(None)
+        if not ini_path or not ini_path.exists():
+            # No INI found; cannot diagnose
+            logger.warning("VKB-Link reconnection failed; INI file not found for diagnosis")
+            self.vkb_client.mark_terminal_error("Cannot connect to VKB-Link (INI not found)")
+            return
+
+        # Read INI to check host/port
+        try:
+            ini_content = ini_path.read_text(encoding='utf-8')
+            # Extract host/port from INI (simple text parsing)
+            ini_host = None
+            ini_port = None
+            for line in ini_content.splitlines():
+                line = line.strip()
+                if line.lower().startswith("adress="):
+                    ini_host = line.split("=", 1)[1].strip() or None
+                elif line.lower().startswith("port="):
+                    try:
+                        ini_port = int(line.split("=", 1)[1].strip())
+                    except ValueError:
+                        pass
+
+            # Normalize host comparison (localhost vs 127.0.0.1)
+            def normalize_host(h: str) -> str:
+                h = (h or "").strip().lower()
+                if h in ("localhost", "127.0.0.1", "::1"):
+                    return "127.0.0.1"
+                return h
+
+            ini_host_norm = normalize_host(ini_host)
+            expected_host_norm = normalize_host(expected_host)
+
+            # Check for mismatch
+            if ini_host_norm != expected_host_norm or ini_port != expected_port:
+                logger.warning(
+                    f"VKB-Link INI mismatch detected: INI has {ini_host}:{ini_port}, "
+                    f"plugin expects {expected_host}:{expected_port}; triggering recovery"
+                )
+                # Trigger recovery to fix INI and restart
+                self._attempt_vkb_link_recovery(reason="ini_mismatch")
+            else:
+                # INI is correct but connection still failed
+                logger.error(
+                    f"VKB-Link reconnection failed; process running and INI correct "
+                    f"({ini_host_norm}:{ini_port})"
+                )
+                self.vkb_client.mark_terminal_error("Cannot connect to VKB-Link")
+        except Exception as e:
+            logger.error(f"Error checking VKB-Link INI during reconnect failure: {e}")
+            self.vkb_client.mark_terminal_error("Cannot diagnose VKB-Link connection failure")
 
     def _get_config_int(self, key: str, default: int, *, minimum: int = 0) -> int:
         value: Any = default
@@ -476,6 +607,9 @@ class EventHandler:
         Re-apply current shift/subshift state after any socket reconnect.
         """
         self._has_successful_vkb_connection = True
+        # Clear terminal error on successful connection
+        if self.vkb_client:
+            self.vkb_client.clear_terminal_error()
         logger.info(
             "VKB socket connected; resending current shift state "
             f"(shift=0x{self._shift_bitmap & 0x03:02x} subshift=0x{self._subshift_bitmap & 0x7f:02x})"
@@ -661,6 +795,9 @@ class EventHandler:
 
         def _worker() -> None:
             try:
+                # Clear terminal error so reconnect worker can retry after recovery
+                if self.vkb_client:
+                    self.vkb_client.clear_terminal_error()
                 self.set_connection_status_override("Recovering VKB-Link...")
                 result = self.vkb_link_manager.ensure_running(host=host, port=port, reason=reason)
                 logger.info(f"VKB-Link recovery result: {result.message}")

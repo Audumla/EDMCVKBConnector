@@ -49,6 +49,8 @@ class VKBClient:
         fallback_retry_interval: int = DEFAULT_FALLBACK_RETRY_INTERVAL,
         socket_timeout: int = DEFAULT_SOCKET_TIMEOUT,
         on_connected: Optional[callable] = None,
+        process_readiness_check: Optional[callable] = None,
+        on_reconnect_failed: Optional[callable] = None,
     ):
         """
         Initialize VKB client.
@@ -65,6 +67,10 @@ class VKBClient:
             fallback_retry_interval: Fallback retry interval after initial phase in seconds (default: 10)
             socket_timeout: Socket timeout in seconds (default: 5)
             on_connected: Optional callback function to invoke after successful connection
+            process_readiness_check: Optional callback that returns True if VKB-Link process is running.
+                                    Used to gate reconnection attempts before attempting TCP.
+            on_reconnect_failed: Optional callback when reconnection fails after process is ready.
+                                Allows EventHandler to check INI match and trigger recovery or terminal error.
         """
         self.host = host
         self.port = port
@@ -73,6 +79,15 @@ class VKBClient:
 
         # Connection callback for resending state after reconnection
         self._on_connected_callback = on_connected
+        # Process readiness check: returns True if process is running and settle delay applied
+        self._process_readiness_check = process_readiness_check
+        # Callback when reconnection fails despite process being ready
+        self._on_reconnect_failed_callback = on_reconnect_failed
+        # Track when process was detected as ready to avoid redundant settle delays
+        self._process_was_ready = False
+        # Terminal error: if set, stop all reconnection attempts
+        self._terminal_error = False
+        self._terminal_error_message = ""
 
         # Reconnection configuration (instance-based, not class-based, for better testability)
         self.INITIAL_RETRY_INTERVAL = initial_retry_interval
@@ -226,6 +241,37 @@ class VKBClient:
             and bool(self._reconnect_thread and self._reconnect_thread.is_alive())
         )
 
+    def mark_terminal_error(self, message: str = "Cannot connect to VKB-Link") -> None:
+        """
+        Mark a terminal error condition that stops all reconnection attempts.
+
+        Use this when process is running and configuration matches, but TCP connection fails.
+        Once set, reconnection attempts will not be made.
+
+        Args:
+            message: Human-readable error message for status display
+        """
+        with self._reconnect_lock:
+            self._terminal_error = True
+            self._terminal_error_message = message
+        logger.warning(f"VKB-Link terminal error marked: {message}")
+
+    def is_terminal_error(self) -> bool:
+        """Check if a terminal error condition has been set."""
+        with self._reconnect_lock:
+            return self._terminal_error
+
+    def clear_terminal_error(self) -> None:
+        """Clear the terminal error condition (used on new connection attempt or recovery)."""
+        with self._reconnect_lock:
+            self._terminal_error = False
+            self._terminal_error_message = ""
+
+    def get_terminal_error_message(self) -> str:
+        """Get the terminal error message if set."""
+        with self._reconnect_lock:
+            return self._terminal_error_message if self._terminal_error else ""
+
     def start_reconnection(self) -> None:
         """
         Start automatic reconnection attempts.
@@ -286,6 +332,12 @@ class VKBClient:
             try:
                 # Check if reconnection is needed
                 if self._reconnect_event.is_set():
+                    # If terminal error is set, stop attempting reconnection
+                    if self.is_terminal_error():
+                        logger.debug("VKB-Link terminal error set; suppressing reconnection attempts")
+                        self._stop_event.wait(0.5)
+                        continue
+
                     current_time = time.time()
                     if current_time < self._reconnect_not_before:
                         self._stop_event.wait(0.5)
@@ -299,32 +351,60 @@ class VKBClient:
                             current_time - self._last_connection_attempt
                             >= self.INITIAL_RETRY_INTERVAL
                         ):
-                            logger.debug(
-                                f"Attempting to reconnect to {self.host}:{self.port} "
-                                f"(initial phase)"
-                            )
-                            if self.connect():
-                                logger.info(
-                                    "Reconnection successful after connection loss"
+                            # Check process readiness before attempting TCP connection
+                            process_ready = True
+                            if self._process_readiness_check:
+                                process_ready = self._process_readiness_check()
+
+                            if not process_ready:
+                                logger.debug(
+                                    f"VKB-Link process not ready; deferring reconnection attempt "
+                                    f"(initial phase)"
                                 )
                             else:
-                                self._last_connection_attempt = time.time()
+                                logger.debug(
+                                    f"Attempting to reconnect to {self.host}:{self.port} "
+                                    f"(initial phase)"
+                                )
+                                if self.connect():
+                                    logger.info(
+                                        "Reconnection successful after connection loss"
+                                    )
+                                else:
+                                    self._last_connection_attempt = time.time()
+                                    # Connection failed despite process being ready
+                                    if self._on_reconnect_failed_callback:
+                                        self._on_reconnect_failed_callback()
                     else:
                         # After minute: retry every 10 seconds
                         if (
                             current_time - self._last_connection_attempt
                             >= self.FALLBACK_RETRY_INTERVAL
                         ):
-                            logger.debug(
-                                f"Attempting to reconnect to {self.host}:{self.port} "
-                                f"(fallback phase)"
-                            )
-                            if self.connect():
-                                logger.info(
-                                    "Reconnection successful (fallback phase)"
+                            # Check process readiness before attempting TCP connection
+                            process_ready = True
+                            if self._process_readiness_check:
+                                process_ready = self._process_readiness_check()
+
+                            if not process_ready:
+                                logger.debug(
+                                    f"VKB-Link process not ready; deferring reconnection attempt "
+                                    f"(fallback phase)"
                                 )
                             else:
-                                self._last_connection_attempt = time.time()
+                                logger.debug(
+                                    f"Attempting to reconnect to {self.host}:{self.port} "
+                                    f"(fallback phase)"
+                                )
+                                if self.connect():
+                                    logger.info(
+                                        "Reconnection successful (fallback phase)"
+                                    )
+                                else:
+                                    self._last_connection_attempt = time.time()
+                                    # Connection failed despite process being ready
+                                    if self._on_reconnect_failed_callback:
+                                        self._on_reconnect_failed_callback()
 
                 # Sleep briefly to avoid busy-waiting
                 self._stop_event.wait(0.5)

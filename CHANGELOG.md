@@ -20,6 +20,10 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Tags | Summary |
 |----|------|------|---------|
+| CHG-073 | 2026-02-21 | Bug Fix | Reconnect worker now follows exact same startup sequence as plugin initialization |
+| CHG-072 | 2026-02-21 | Configuration Cleanup | Simplified workspace VS Code Python settings to avoid duplicate system interpreter discovery |
+| CHG-071 | 2026-02-21 | Bug Fix | Detect connection failures and handle INI mismatches with intelligent recovery |
+| CHG-070 | 2026-02-21 | Bug Fix | Check VKB-Link process existence before any reconnection attempt |
 | CHG-069 | 2026-02-20 | Code Refactoring, Performance Improvement | High-level code cleanup: removed redundant imports and constants |
 | CHG-068 | 2026-02-20 | Documentation Update | Simplify README and add dedicated VKB-Link setup guide with managed/manual workflows |
 | CHG-067 | 2026-02-20 | Bug Fix, Test Update | Send zero VKB shift state before plugin disconnect/shutdown |
@@ -100,6 +104,50 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-073 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Reconnect worker now follows exact same startup sequence as plugin initialization
+
+**Changes:**
+- Process readiness check now actively calls ensure_running() when process not found during reconnection
+- Reconnection flow now mirrors startup: check process → ensure running → apply settle delay → TCP connect
+- Handles download/install/bootstrap of VKB-Link if needed during reconnection, not just on startup
+
+### CHG-072 — 2026-02-21 · unreleased
+
+**Tags:** Configuration Cleanup
+
+**Summary:** Simplified workspace VS Code Python settings to avoid duplicate system interpreter discovery
+
+**Changes:**
+- Removed python-envs system manager override from .vscode/settings.json so the workspace relies on the pinned .venv interpreter.
+- Kept python.defaultInterpreterPath and pytest paths pinned to /.venv/Scripts.
+
+### CHG-071 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Detect connection failures and handle INI mismatches with intelligent recovery
+
+**Changes:**
+- Added terminal error flag to prevent infinite reconnection attempts when configuration is correct but connection fails
+- Check INI host/port against plugin config when reconnection fails despite process running
+- If INI mismatch found: trigger recovery to stop, fix INI, and restart VKB-Link
+- If INI correct and connection fails: set terminal error status 'Cannot connect to VKB-Link' and halt reconnection attempts
+
+### CHG-070 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Check VKB-Link process existence before any reconnection attempt
+
+**Changes:**
+- Added process_readiness_check callback to VKBClient to gate reconnection attempts
+- VKB-Link process now verified running before TCP reconnection in all scenarios
+- Applied post-start settle delay to reconnection flow when process is detected as running
 
 ### CHG-069 — 2026-02-20 · unreleased
 
