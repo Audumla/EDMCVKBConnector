@@ -76,7 +76,8 @@ def save_json(entries: list[dict]) -> None:
         f.write("\n")
 
 
-def _slugify(value: str, fallback: str = "misc", max_len: int = 48) -> str:
+def _slugify(value: str, fallback: str = "misc", max_len: int = 70) -> str:
+    """Convert text to kebab-case slug, respecting max length while keeping meaning intact."""
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     if not slug:
         slug = fallback
@@ -101,11 +102,13 @@ def _git_commit_hash() -> str:
 
 def _default_group(summary: str) -> str:
     # Default grouping ties related iterative work together by topic.
-    return _slugify(summary, max_len=48)
+    # Allow up to 70 chars to keep group IDs meaningful and complete.
+    return _slugify(summary, max_len=70)
 
 
 def _normalise_group(value: str) -> str:
-    return _slugify(value, fallback="ungrouped", max_len=64)
+    # User-provided groups can be slightly longer (up to 75 chars) for extra clarity.
+    return _slugify(value, fallback="ungrouped", max_len=75)
 
 
 def generate_unique_id(agent: str, existing_ids: set[str]) -> str:

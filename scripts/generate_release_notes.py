@@ -336,14 +336,19 @@ def _infer_topics(text: str) -> list[str]:
     return matched
 
 
-def _shorten_group_key(key: str, max_len: int = 32) -> str:
-    """Shorten a group key to fit nicely in display (tables, etc)."""
+def _shorten_group_key(key: str, max_len: int = 50) -> str:
+    """Shorten a group key to fit nicely in display (tables, etc).
+
+    Most group keys should fit in 50 chars. Only truncates if necessary,
+    and truncates at word boundaries (dashes) to preserve meaningful phrases.
+    """
     if len(key) <= max_len:
         return key
-    # Truncate at word boundaries
+    # Truncate at word boundaries (dashes in kebab-case)
     truncated = key[:max_len]
     last_dash = truncated.rfind("-")
-    if last_dash > 10:  # Only if we have at least 10 chars before the dash
+    # Only truncate at dash if we have meaningful content before it
+    if last_dash > 15:  # Keep at least 15 chars of meaningful content
         truncated = truncated[:last_dash]
     return truncated + "…" if truncated != key else truncated
 
@@ -597,7 +602,7 @@ def build_markdown(
         lines.append("| Group | Entries | Primary Tag |")
         lines.append("|-------|---------|-------------|")
         for group in explicit_groups:
-            short_key = _shorten_group_key(group['group_key'], max_len=28)
+            short_key = _shorten_group_key(group['group_key'])
             lines.append(
                 f"| {short_key} | {group['entry_count']} | {group['primary_tag']} |"
             )
