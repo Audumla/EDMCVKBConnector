@@ -1,18 +1,17 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
     "python.terminal.activateEnvironment": true,
-    "python.testing.pytestPath": "${workspaceFolder}\\.venv\\Scripts\\pytest.exe",
+    "python.testing.pytestPath": "${workspaceFolder}/.venv/Scripts/pytest.exe",
     "python.testing.pytestArgs": [
-        "test",
-        "-v",
-        "-s",
-        "--log-cli-level=DEBUG"
+        "."
     ],
     "python.testing.pytestDiscoverInstance": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "[python]": {
-        "testing.pytestArgs": ["test"]
+        "testing.pytestArgs": [
+            "test"
+        ]
     },
     "chatgpt.openOnStartup": true
 }

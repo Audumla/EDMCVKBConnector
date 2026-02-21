@@ -55,6 +55,7 @@ python -m pytest
 
 ## Documentation Set
 - `README.md`: quick start and documentation map.
+- `docs/VKB_LINK_SETUP.md`: practical VKBDevCfg and VKB-Link setup plus managed/manual operation modes.
 - `docs/RULE_EDITOR_TUTORIAL.md`: UI guide for creating and managing rules through the plugin settings panel.
 - `docs/RULES_GUIDE.md`: complete `rules.json` file format reference (fields, operators, actions, validation).
 - `docs/SIGNALS_REFERENCE.md`: complete signal catalog reference (sources/triggers/samples).

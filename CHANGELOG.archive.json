@@ -3,7 +3,6 @@
     "id": "CHG-001",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Configuration Cleanup",
       "Code Refactoring"
@@ -22,7 +21,6 @@
     "id": "CHG-002",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Documentation Update",
       "Configuration Cleanup"
@@ -41,7 +39,6 @@
     "id": "CHG-003",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Documentation Update"
     ],
@@ -56,7 +53,6 @@
     "id": "CHG-004",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Build / Packaging",
       "New Feature"
@@ -73,7 +69,6 @@
     "id": "CHG-005",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Build / Packaging",
       "Documentation Update"
@@ -91,7 +86,6 @@
     "id": "CHG-006",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Build / Packaging"
     ],
@@ -106,7 +100,6 @@
     "id": "CHG-007",
     "plugin_version": "0.4.0",
     "date": "2026-02-19",
-    "agent": "copilot",
     "summary_tags": [
       "Build / Packaging",
       "Documentation Update"

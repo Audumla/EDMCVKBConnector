@@ -9,7 +9,7 @@ For the complete JSON file format reference, see [`docs/RULES_GUIDE.md`](RULES_G
 ## Prerequisites
 
 - EDMC is running with **EDMCVKBConnector** loaded.
-- VKB-Link is running and the plugin **Settings** tab shows **Connected**.
+- VKB-Link is running (manually or via plugin **Auto-manage**) and the plugin **Settings** tab shows **Connected**.
 - You can open `File → Settings → Plugins → VKB Connector`.
 
 ---

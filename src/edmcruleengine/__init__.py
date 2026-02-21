@@ -34,6 +34,7 @@ def set_plugin_logger_name(name: str) -> None:
     _submodule_names = (
         "config", "vkb_client", "event_handler",
         "rules_engine", "unregistered_events_tracker",
+        "vkb_link_manager",
     )
     for suffix in _submodule_names:
         for prefix in ("edmcruleengine", "src.edmcruleengine"):

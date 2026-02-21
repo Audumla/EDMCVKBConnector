@@ -9,5 +9,8 @@ Maintained scripts in this directory:
 - `validate_signal_catalog.py`: validate catalog structure/operators/event references.
 - `verify_catalog_coverage.py`: check catalog coverage against known ED events.
 - `dev_paths.py`: shared path resolution used by dev scripts.
+- `run_codex_plan.py`: run `codex exec` from a plan file and write monitorable run artifacts under `agent_artifacts/codex/reports/plan_runs/` (auto-discovers VS Code bundled `codex.exe` if `codex` is not on `PATH`).
+- `claude_run_plan.py`: Claude wrapper around `run_codex_plan.py` that writes `claude_report.json` and a formatted `codex_results.md` summary (tokens, estimated cost, final message).
+- `codex_results.py`: print a clean, user-facing `/codex-results` summary from the latest or specified Codex run.
 
 One-off migration and agent-generated maintenance scripts were removed to keep this directory focused on repeatable workflows.

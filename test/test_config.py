@@ -1,5 +1,9 @@
 """Unit tests for Config module."""
 
+import json
+from pathlib import Path
+
+import edmcruleengine.config as config_module
 from edmcruleengine.config import Config
 
 
@@ -7,13 +11,28 @@ def test_config_defaults():
     """Test that Config returns correct defaults."""
     config = Config()
     
-    assert config.get("vkb_host", "127.0.0.1") == "127.0.0.1"
-    assert config.get("vkb_port", 50995) == 50995
-    assert config.get("initial_retry_interval", 2) == 2
-    assert config.get("initial_retry_duration", 60) == 60
-    assert config.get("fallback_retry_interval", 10) == 10
-    assert config.get("socket_timeout", 5) == 5
+    assert config.get("vkb_host") == "127.0.0.1"
+    assert config.get("vkb_port") == 50995
+    assert config.get("initial_retry_interval") == 2
+    assert config.get("initial_retry_duration") == 60
+    assert config.get("fallback_retry_interval") == 10
+    assert config.get("socket_timeout") == 5
+    assert config.get("vkb_link_warmup_delay_seconds") == config_module.DEFAULTS["vkb_link_warmup_delay_seconds"]
+    assert config.get("vkb_link_operation_timeout_seconds") == config_module.DEFAULTS["vkb_link_operation_timeout_seconds"]
+    assert config.get("vkb_link_poll_interval_ms") == config_module.DEFAULTS["vkb_link_poll_interval_ms"]
+    assert config.get("vkb_link_restart_delay_seconds") == config_module.DEFAULTS["vkb_link_restart_delay_seconds"]
+    assert config.get("vkb_ui_apply_delay_ms") == config_module.DEFAULTS["vkb_ui_apply_delay_ms"]
+    assert config.get("vkb_ui_feedback_interval_ms") == config_module.DEFAULTS["vkb_ui_feedback_interval_ms"]
+    assert config.get("vkb_ui_poll_interval_ms") == config_module.DEFAULTS["vkb_ui_poll_interval_ms"]
     print("[OK] Config defaults test passed")
+
+
+def test_defaults_loaded_from_config_defaults_file():
+    """Defaults map should include values from config_defaults.json."""
+    defaults_path = Path(config_module.__file__).resolve().with_name(config_module.DEFAULTS_FILE_NAME)
+    loaded = json.loads(defaults_path.read_text(encoding="utf-8"))
+    for key, value in loaded.items():
+        assert config_module.DEFAULTS.get(key) == value
 
 
 def test_config_get_methods():

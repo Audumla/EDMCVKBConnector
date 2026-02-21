@@ -1,1 +1,1069 @@
-[]
+[
+  {
+    "id": "CHG-001",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Release notes now show only one-line summaries, not detail bullets",
+    "details": [
+      "Changed group_by_tag() to use entry 'summary' field instead of 'details' list",
+      "Keeps the tag-grouped sections and summary table; removes verbose bullet points"
+    ]
+  },
+  {
+    "id": "CHG-002",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature",
+      "UI Improvement"
+    ],
+    "summary": "Added VKB-Link auto-management with download/update and UI controls",
+    "details": [
+      "Added VKB-Link manager for process detection, INI sync, and download/update flows",
+      "Hooked recovery into connection failures with configurable auto-manage and cooldown",
+      "Extended preferences UI with VKB-Link management, update, locate, and relocate controls"
+    ]
+  },
+  {
+    "id": "CHG-003",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Added project Codex config for on-request approvals and workspace writes",
+    "details": [
+      "Added .codex/config.toml with approval_policy = on-request",
+      "Set sandbox_mode = workspace-write for project-scoped access"
+    ]
+  },
+  {
+    "id": "CHG-004",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Add VKB-Link startup/shutdown handling and detailed lifecycle logging",
+    "details": [
+      "Start VKB-Link on plugin startup when not already running and stop it on plugin shutdown if started by the plugin",
+      "Add step-by-step logging for VKB-Link status, updates, installs, and process control"
+    ]
+  },
+  {
+    "id": "CHG-005",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Improve VKB-Link update discovery and status/error display",
+    "details": [
+      "Extract OneDrive links specifically from the Software section before scanning for VKB-Link archives",
+      "Show VKB-Link status as '<exe> v<version>' and surface action errors in the status line"
+    ]
+  },
+  {
+    "id": "CHG-006",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Align initial VKB-Link status text with simplified display",
+    "details": [
+      "Initialize VKB-Link status line to 'VKB-Link.exe v?'"
+    ]
+  },
+  {
+    "id": "CHG-007",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Implement automated VKB-Link download from MEGA public folder with AES-CTR decryption",
+    "details": [
+      "Added MEGA API integration to vkb_link_manager.py: folder listing via https://g.api.mega.co.nz/cs, AES-ECB node-key decryption, AES-CBC attribute decryption, AES-CTR file decryption",
+      "_fetch_latest_release() now queries MEGA as primary source (folder 980CgDDL) and falls back to VKB homepage scraping if unavailable",
+      "New _mega_download() method on VKBLinkManager: requests per-file download URL from MEGA API, streams and decrypts with AES-128-CTR, saves valid zip to disk",
+      "Extended VKBLinkRelease dataclass with mega_node_handle and mega_raw_key optional fields",
+      "Fixed package_plugin.py INCLUDE list: added event_recorder, paths, prefs_panel, ui_components, unregistered_events_tracker, and vkb_link_manager modules"
+    ]
+  },
+  {
+    "id": "CHG-008",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Auto-install cryptography library silently when not present",
+    "details": [
+      "Added _ensure_cryptography() helper that pip-installs the cryptography package via sys.executable if it is not importable",
+      "_fetch_latest_release() and _mega_download() now call _ensure_cryptography() instead of raising ImportError; no user action required"
+    ]
+  },
+  {
+    "id": "CHG-009",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Streamline VKB-Link preferences panel layout and auto-INI synchronization",
+    "details": [
+      "Removed 'Manage' button and 'Relocate' function; auto-manage checkbox now on same line as Host/Port fields",
+      "Added 'VKB-Link status:' label; changed status text to 'Link Established vX.X.X' when connected, 'Disconnected' when not",
+      "Removed 'VKB-Link.exe vX.X.X' display; replaced 'Check Updates' button with single 'Update' button",
+      "Implemented auto-INI update: saves INI file 4 seconds after Host/Port change (if auto-manage enabled); timer resets on field focus; shows 'Settings Changed' / 'Updating INI Settings' status"
+    ]
+  },
+  {
+    "id": "CHG-010",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Fix NameError in VKB-Link prefs and move Update button to status line",
+    "details": [
+      "Fixed undefined variable reference: changed vkb_app_status_var to vkb_status_var in _run_manager_action()",
+      "Moved Update button to status_row and positioned right-aligned with status indicator",
+      "Removed duplicate _get_vkb_manager() and _check_updates() function definitions"
+    ]
+  },
+  {
+    "id": "CHG-011",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Separated VKB-Link status line into its own frame",
+    "details": [
+      "Wrapped the VKB-Link status row in a dedicated frame",
+      "Moved the status controls to the new frame to stabilize vertical spacing"
+    ]
+  },
+  {
+    "id": "CHG-012",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Left-align VKB-Link status text next to its label",
+    "details": [
+      "Set the status label anchor to west so the text starts immediately after the label"
+    ]
+  },
+  {
+    "id": "CHG-013",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Fix VKB-Link INI button packing when status row moved",
+    "details": [
+      "Avoided packing the INI button relative to a widget in a different frame",
+      "Kept INI button ordering relative to Locate button when visible"
+    ]
+  },
+  {
+    "id": "CHG-014",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Match VKB-Link status label font and center the row",
+    "details": [
+      "Set the status label font to match the message size",
+      "Switched the status line to grid layout for consistent vertical centering"
+    ]
+  },
+  {
+    "id": "CHG-015",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Remove Configure INI button and prioritize standalone INI status messages",
+    "details": [
+      "Removed the Configure INI control and its visibility logic from the VKB-Link preferences panel",
+      "Made INI status states ('Settings Changed' and 'Updating INI Settings') override connection polling text",
+      "Changed out-of-date INI display to show a standalone 'INI out of date' status instead of appending to established status"
+    ]
+  },
+  {
+    "id": "CHG-016",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Add restart-phase status and dotted INI pending indicator",
+    "details": [
+      "Added a delayed 'Restarting VKB-Link...' status phase during update actions",
+      "Animated pending INI status by appending dots while waiting for the 4-second auto-write timer",
+      "Added timer cancellation guards so dot animation stops cleanly on apply or focus reset"
+    ]
+  },
+  {
+    "id": "CHG-017",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Speed up pending INI dots and alternate warning color",
+    "details": [
+      "Increased pending-status dot cadence to 333ms (three dots per second)",
+      "Alternated pending-status color between #f39c12 and darker orange #d68910",
+      "Updated status override matching so dotted 'Settings Changed...' remains in warning style"
+    ]
+  },
+  {
+    "id": "CHG-018",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Documentation Update",
+      "Code Refactoring"
+    ],
+    "summary": "Removed agent source names from changelog storage and rendered outputs",
+    "details": [
+      "Updated scripts/log_change.py to stop writing agent fields and to render markdown rows/sections without an Agent column",
+      "Updated scripts/generate_release_notes.py to remove the Agent column from generated release notes tables",
+      "Sanitized existing CHANGELOG.json, CHANGELOG.archive.json, and CHANGELOG.md entries to remove agent source names from recorded metadata and headings"
+    ]
+  },
+  {
+    "id": "CHG-019",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Delay startup connect after launching VKB-Link and show transient connection state",
+    "details": [
+      "Added startup sequencing so connect waits for VKB-Link start task and pauses 5 seconds when VKB-Link was launched by the plugin",
+      "Exposed temporary connection status overrides on EventHandler for UI visibility during startup/connect",
+      "Updated preferences status polling to display connection override text before normal connected/disconnected state"
+    ]
+  },
+  {
+    "id": "CHG-020",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Apply 5s reconnect delay after VKB-Link start/restart recovery and expand lifecycle logging",
+    "details": [
+      "Added reconnect deferral support in VKBClient so retries can be paused after process launch",
+      "Updated recovery flow to wait 5 seconds with status/countdown before reconnect when VKB-Link was started or restarted",
+      "Expanded VKB-Link process lifecycle logs for start/stop/restart actions and INI-update connection state"
+    ]
+  },
+  {
+    "id": "CHG-021",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Reduce false INI mismatch status by syncing path and normalizing host comparison",
+    "details": [
+      "Persisted vkb_ini_path in EDMC config after auto-INI writes from the preferences timer",
+      "Synced the panel's cached INI path from config before status comparisons",
+      "Normalized localhost/loopback host values during INI-vs-prefs checks to avoid false 'INI out of date' alerts"
+    ]
+  },
+  {
+    "id": "CHG-022",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Ensure shift/subshift state is resent on every new VKB socket connection",
+    "details": [
+      "Re-applied the on-connected callback before connect and recovery reconnect calls",
+      "Added explicit connection log lines showing forced state resend payload",
+      "Updated shift-state sender to return success/failure so resend issues are logged clearly"
+    ]
+  },
+  {
+    "id": "CHG-023",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Documentation Update"
+    ],
+    "summary": "Made VKB-Link startup/shutdown lifecycle status consistently visible in INFO logs",
+    "details": [
+      "Set plugin logger minimum level to INFO in load.py so lifecycle messages are not dropped by higher default levels",
+      "Added explicit startup post-action VKB-Link status logs including running state, exe path, version, and managed flag",
+      "Added explicit shutdown pre-stop and post-stop VKB-Link status logs with started-by-plugin context"
+    ]
+  },
+  {
+    "id": "CHG-024",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Centralize VKB-Link control with consistent 5s post-start delay and unified logging",
+    "details": [
+      "Added action_taken field to VKBLinkActionResult to track lifecycle actions (started/restarted/stopped/none)",
+      "Created _apply_post_start_delay() helper on EventHandler as single point for post-start warmup delay logic",
+      "Replaced string-inspection delay checks with typed action_taken field across startup and recovery paths",
+      "Improved VKB-Link lifecycle logging with clear action state messages (starting/stopping/restarting)"
+    ]
+  },
+  {
+    "id": "CHG-025",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Restart VKB-Link when host/port settings change to apply new endpoint configuration",
+    "details": [
+      "Added _apply_endpoint_change() to EventHandler that stops VKB-Link, updates INI, restarts process, and reconnects",
+      "Modified prefs_panel to call endpoint change handler instead of just updating INI file",
+      "Added countdown parameter to _apply_post_start_delay() for silent 5s wait without per-second UI updates or logs",
+      "New flow: settings change -> 4s timer -> VKB-Link restart with new endpoint -> 5s silent warmup -> reconnect"
+    ]
+  },
+  {
+    "id": "CHG-026",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Add diagnostic logging and safety auto-start for VKB-Link during polling",
+    "details": [
+      "Added diagnostic logging to _apply_ini_update() to reveal why restart may not occur (auto_manage disabled or event_handler unavailable)",
+      "Added safety mechanism in _poll_vkb_status() to auto-start VKB-Link if configured but not running",
+      "Polling loop now checks every 2s if VKB-Link should be running, and starts it if needed (crash recovery)",
+      "Auto-started VKB-Link applies 5s warmup delay and reconnects to ensure stable connection"
+    ]
+  },
+  {
+    "id": "CHG-027",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix VKB-Link restart blocking main thread and status messages never rendering",
+    "details": [
+      "Moved _apply_endpoint_change() call into a background thread so status updates render before blocking work starts",
+      "Added ini_action_inflight guard to prevent concurrent endpoint-change operations",
+      "Rewrote _poll_vkb_status() to keep main thread clear of subprocess calls; safety auto-start runs in a dedicated background thread with its own inflight guard",
+      "Fixed _apply_endpoint_change() to clear connection_status_override on both success and failure reconnect paths"
+    ]
+  },
+  {
+    "id": "CHG-028",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "UI Improvement"
+    ],
+    "summary": "Fix countdown logs, wrong endpoint on reconnect, and disconnected vs reconnecting status mismatch",
+    "details": [
+      "Suppress _attempt_vkb_link_recovery during intentional endpoint changes via _endpoint_change_active flag",
+      "Remove countdown logs from all _apply_post_start_delay call sites (countdown=False everywhere)",
+      "Add is_reconnecting() to VKBClient returning True when reconnect worker is active but not yet connected",
+      "Show 'Reconnecting...' (blue) in preferences status panel instead of 'Disconnected' when reconnect worker is running"
+    ]
+  },
+  {
+    "id": "CHG-029",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature",
+      "Documentation Update"
+    ],
+    "summary": "Added a Codex plan runner script that writes monitorable run artifacts under agent outputs",
+    "details": [
+      "Added scripts/run_codex_plan.py to execute codex exec from a plan file and stream logs/events/status into agent_artifacts/codex/reports/plan_runs/<run_id>",
+      "Implemented heartbeat-updated status.json plus stdout/stderr/event/final-message files for external progress monitoring",
+      "Documented the new runner in scripts/README.md so other agents can call it consistently"
+    ]
+  },
+  {
+    "id": "CHG-030",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Created test plan and dry-ran run_codex_plan.py to verify plan handoff",
+    "details": [
+      "Wrote agent_artifacts/claude/temp/test_plan.md as a minimal Codex prompt",
+      "Executed run_codex_plan.py --dry-run and confirmed metadata.json, status.json, command.txt, plan_input.txt are generated correctly",
+      "Verified the codex exec command is built with correct sandbox, approval, workspace, and stdin (-) arguments"
+    ]
+  },
+  {
+    "id": "CHG-031",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "New Feature",
+      "Documentation Update"
+    ],
+    "summary": "Auto-discover VS Code bundled Codex CLI when codex is missing from PATH",
+    "details": [
+      "Updated scripts/run_codex_plan.py to resolve codex from PATH first, then fall back to .vscode/.vscode-insiders extension bundles (openai.chatgpt-*/bin/windows-x86_64/codex.exe)",
+      "Added Git Bash/MSYS path normalization so /c/Users/... values for HOME or --codex-bin resolve to valid Windows paths",
+      "Documented the fallback behavior in scripts/README.md for cross-agent invocation clarity"
+    ]
+  },
+  {
+    "id": "CHG-032",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Added comprehensive VKB-Link manager tests including an opt-in live production integration path",
+    "details": [
+      "Added test/test_vkb_link_manager.py covering helper parsing, exe/INI discovery, ensure_running paths, update/stop flows, install behavior, and MEGA/fallback release handling",
+      "Added test/test_vkb_link_manager_live.py for real production-like validation (download/start/connect/update/stop) gated behind RUN_VKB_LINK_LIVE=1",
+      "Executed both suites; deterministic suite surfaced five behavior mismatches in current implementation while the live suite was attempted and skipped safely due an already-running VKB-Link process"
+    ]
+  },
+  {
+    "id": "CHG-033",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Write VKB-Link INI before starting process after install/download flows",
+    "details": [
+      "Updated src/edmcruleengine/vkb_link_manager.py to resolve/write INI before process start in ensure_running and update_to_latest install paths",
+      "Added _resolve_or_default_ini_path() to default to <exe_dir>/VKBLink.ini when no INI exists yet and persist vkb_ini_path",
+      "Expanded test/test_vkb_link_manager.py with ordering assertions and default-INI coverage; reran deterministic and live suites"
+    ]
+  },
+  {
+    "id": "CHG-034",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Force first-run INI targeting to the downloaded executable directory before VKB-Link start",
+    "details": [
+      "Changed _resolve_or_default_ini_path() to prioritize INI resolution near the specific executable being started and create a default <exe_dir>/VKBLink.ini path when missing",
+      "Pre-start/pre-restart INI sync now avoids stale persisted INI paths from prior installs and always targets the active install directory",
+      "Added test_ensure_running_download_ignores_stale_saved_ini_and_targets_exe_dir and reran targeted/full VKB manager tests"
+    ]
+  },
+  {
+    "id": "CHG-035",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Verified run_codex_plan.py live end-to-end with VSCode-bundled codex binary",
+    "details": [
+      "Script auto-discovered codex.exe via discover_vscode_codex() from openai.chatgpt VSCode extension",
+      "Live run completed in ~24s with state=succeeded, return_code=0, 12 events",
+      "Codex correctly listed load.py and PLUGIN_REGISTRY.py without modifying any files"
+    ]
+  },
+  {
+    "id": "CHG-036",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Removed OneDrive/homepage fallback and made VKB-Link release discovery MEGA-only with explicit live-test artifact cleanup",
+    "details": [
+      "Updated src/edmcruleengine/vkb_link_manager.py to remove OneDrive/homepage scraping fallback in _fetch_latest_release; MEGA is now the sole release source",
+      "Removed obsolete OneDrive/fallback tests and replaced them with MEGA-unavailable/MEGA-listing-failure expectations in test/test_vkb_link_manager.py",
+      "Updated test/test_vkb_link_manager_live.py cleanup to explicitly delete downloaded/expanded install artifacts after each run"
+    ]
+  },
+  {
+    "id": "CHG-037",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Added claude_run_plan.py wrapper that appends claude_report.json to Codex run directories",
+    "details": [
+      "Created scripts/claude_run_plan.py as Claude's entry point for plan execution: calls run_codex_plan.py, then writes claude_report.json alongside the run artifacts",
+      "claude_report.json captures Claude model, input/output tokens, cost estimate (with per-model pricing table), Codex event breakdown (commands/reasoning/messages), token usage with cache hit %, duration, and final_message",
+      "Handles both live and --dry-run modes by matching 'Run directory:' and 'Dry run created:' output prefixes to locate the run directory"
+    ]
+  },
+  {
+    "id": "CHG-038",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Added /codex label convention to CLAUDE.md for delegating tasks to Codex via claude_run_plan.py",
+    "details": [
+      "Added 'Codex Delegation' section defining the /codex prompt label and the exact steps Claude must follow when it appears",
+      "Steps cover: writing the plan file, calling claude_run_plan.py with token/model args, reporting the outcome, and updating the changelog"
+    ]
+  },
+  {
+    "id": "CHG-039",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Made VKB-Link live integration test run by default on Windows",
+    "details": [
+      "Removed RUN_VKB_LINK_LIVE env-gate from test/test_vkb_link_manager_live.py so the live test is no longer opt-in",
+      "Removed runtime skip that previously bypassed the test when VKB-Link was already running",
+      "Executed test/test_vkb_link_manager_live.py directly; it now runs automatically and currently xfails on TCP port refusal after successful download/install/start"
+    ]
+  },
+  {
+    "id": "CHG-040",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Live VKB-Link test now uses a repo-local runtime directory under test/",
+    "details": [
+      "Updated test_vkb_link_manager_live to create runtime paths under test/_live_runtime instead of system temp",
+      "Kept per-run isolation with run-<timestamp>-<pid> directories inside test/_live_runtime",
+      "Verified cleanup removes run artifacts and deletes test/_live_runtime when empty"
+    ]
+  },
+  {
+    "id": "CHG-041",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Comprehensive code review completed identifying critical security and correctness issues",
+    "details": [
+      "Executed static code review via Codex agent covering VKB-Link integration, preferences UI, rules engine, and test suite",
+      "Identified 2 critical security issues: missing executable signature verification, runtime pip auto-install",
+      "Identified 5 high-priority correctness issues: duplicate rule IDs not prevented, incomplete process detection, subshift range inconsistency, rule editor crash path, numeric type casting bugs",
+      "Identified 6 medium-priority issues: stale INI path references, UX inconsistencies, callback accumulation, race condition in safety auto-start, flaky live tests, under-tested recovery paths",
+      "Review artifacts stored in agent_artifacts/codex/reports/plan_runs/20260219T111945Z_code-review/"
+    ]
+  },
+  {
+    "id": "CHG-042",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Bootstrap VKB-Link once after fresh install before applying managed INI settings",
+    "details": [
+      "ensure_running now performs a bootstrap start/stop cycle after first install when no INI exists, then writes host/port and performs the managed start",
+      "INI resolution now prefers a persisted INI path when it belongs to the active executable directory to avoid stale cross-install paths",
+      "Added unit coverage for the bootstrap sequence and reran VKB-Link manager unit + live tests"
+    ]
+  },
+  {
+    "id": "CHG-043",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Performance Improvement",
+      "Documentation Update"
+    ],
+    "summary": "Optimized Codex delegation token estimates and event parsing",
+    "details": [
+      "Reduced default token estimates from 35k/25k to 5k/2k for typical plan files (80-85% cost reduction)",
+      "Optimized parse_codex_events() to use single-pass event parsing instead of storing all events in memory",
+      "Updated CLAUDE.md documentation to reflect new token defaults and clarify when to override estimates"
+    ]
+  },
+  {
+    "id": "CHG-044",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Update VKB-Link INI in place without overwriting unrelated settings",
+    "details": [
+      "Reworked _write_ini to patch only [TCP] Adress and Port keys while preserving other sections/comments and inline key comments",
+      "Added fallback behavior to create a minimal [TCP] section when no TCP section exists",
+      "Added unit coverage asserting unrelated INI content survives endpoint updates and reran VKB-Link manager tests"
+    ]
+  },
+  {
+    "id": "CHG-045",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update",
+      "Code Refactoring"
+    ],
+    "summary": "Move INI patch assertions to pure text tests so tests do not write INI files directly",
+    "details": [
+      "Extracted INI update logic into _patch_ini_text and kept _write_ini as thin file I/O wrapper",
+      "Replaced direct _write_ini file-based tests with pure _patch_ini_text assertions",
+      "Reran VKB-Link manager test suite with all tests passing"
+    ]
+  },
+  {
+    "id": "CHG-046",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Use graceful VKB-Link shutdown with forced fallback and wait for INI creation after shutdown",
+    "details": [
+      "Bootstrap flow now polls for new/touched VKB INI files for several seconds after stopping VKB-Link to catch delayed file writes",
+      "Process stop now attempts graceful termination first (taskkill /T or pkill) and only escalates to force kill if still running",
+      "Updated stop-process test assertions and reran manager + live VKB-Link tests"
+    ]
+  },
+  {
+    "id": "CHG-047",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update",
+      "Code Refactoring"
+    ],
+    "summary": "Add thorough VKB-Link control tests for UI endpoint-change flow and live stop/start cycle",
+    "details": [
+      "Updated EventHandler endpoint-change logic to resolve INI path via _resolve_or_default_ini_path for robust host/port patching",
+      "Added new test_event_handler_vkb_link unit tests covering stop/start, INI patch, config/client endpoint updates, reconnect behavior, and missing-manager handling",
+      "Expanded live VKB-Link test to include an explicit mid-cycle stop/start/reconnect/send sequence before update and cleanup"
+    ]
+  },
+  {
+    "id": "CHG-048",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "New Feature",
+      "Documentation Update"
+    ],
+    "summary": "Added formatted /codex-results reporting with Codex token and estimated-cost visibility",
+    "details": [
+      "Enhanced scripts/claude_run_plan.py to estimate Codex execution cost from input/cached/output tokens, include model/rate metadata, and emit codex_results.md alongside claude_report.json",
+      "Enhanced scripts/run_codex_plan.py status.json with structured token_usage and best-effort cost_estimate fields sourced from turn.completed usage events",
+      "Added scripts/codex_results.py plus CLAUDE.md and scripts/README.md updates so /codex-results can print a polished summary including final message, token usage, and estimated spend"
+    ]
+  },
+  {
+    "id": "CHG-049",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Extend live VKB-Link test to execute real UI endpoint-change flow",
+    "details": [
+      "Live test now calls EventHandler._apply_endpoint_change with a new port after an explicit stop/start cycle",
+      "Uses EventHandler with the live VKBClient and manager to validate stop, INI patch, restart, reconnect, and send on the new endpoint",
+      "Stubs EventHandler catalog/rules loading in that live-only phase to keep focus on VKB-Link control behavior"
+    ]
+  },
+  {
+    "id": "CHG-050",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fixed script issues: --refresh persistence and duplicate pricing table",
+    "details": [
+      "Fixed codex_results.py so --refresh flag now persists regenerated content to codex_results.md file",
+      "Removed duplicate CODEX_PRICING table from run_codex_plan.py; now imports from claude_run_plan.py for single source of truth",
+      "Updated CLAUDE.md to document --refresh and --write flag behavior"
+    ]
+  },
+  {
+    "id": "CHG-051",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Fixed pricing and cost calculation approach: no duplication, minimal tokens",
+    "details": [
+      "Reverted run_codex_plan.py to keep CODEX_PRICING local (no imports)",
+      "Modified claude_run_plan.py to read cost_estimate from status.json instead of recalculating",
+      "Falls back to recalculating only if rate overrides are provided or status.json cost is missing",
+      "Result: no duplicate pricing tables, no imports between scripts, no token waste on duplicate calculations"
+    ]
+  },
+  {
+    "id": "CHG-052",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Test Update",
+      "Build / Packaging"
+    ],
+    "summary": "Externalized VKB-Link timing defaults to config_defaults and wired runtime modules to config-driven values",
+    "details": [
+      "Added src/edmcruleengine/config_defaults.json and updated config.py to load defaults from this file with a matching fallback map",
+      "Replaced hardcoded VKB-Link and preferences-panel timing constants with config-backed values in event_handler.py, vkb_link_manager.py, and prefs_panel.py",
+      "Updated packaging include list and expanded config tests; re-ran unit + live VKB-Link tests successfully"
+    ]
+  },
+  {
+    "id": "CHG-053",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Validated Codex delegation script updates with a live test_scripts run",
+    "details": [
+      "Executed scripts/claude_run_plan.py with agent_artifacts/claude/temp/test_scripts.md and completed successfully",
+      "Verified status.json cost_estimate matched claude_report.json codex_execution.cost_estimate exactly",
+      "Confirmed scripts/codex_results.py --refresh rewrites codex_results.md and persists regenerated content"
+    ]
+  },
+  {
+    "id": "CHG-054",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Test Update"
+    ],
+    "summary": "Consolidated VKB-Link and UI timer settings into a smaller shared set",
+    "details": [
+      "Replaced multiple VKB-Link timer keys with warmup/operation-timeout/poll/restart settings and updated event handler and manager call sites",
+      "Replaced multiple preferences timer keys with UI apply/poll/feedback settings and derived follow-up delay from feedback interval",
+      "Updated defaults/tests and re-ran unit plus live VKB-Link test suites successfully"
+    ]
+  },
+  {
+    "id": "CHG-055",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Start VKB-Link as a detached child process while preserving clean stop behavior",
+    "details": [
+      "Updated VKBLinkManager._start_process to launch VKB-Link with detached process flags and DEVNULL stdio so it runs independently from the plugin host",
+      "Kept graceful shutdown first and adjusted stop wait window to at least 5 seconds before force termination to improve clean exits",
+      "Validated with test_vkb_link_manager.py and live start/stop/restart integration test"
+    ]
+  },
+  {
+    "id": "CHG-056",
+    "plugin_version": "unreleased",
+    "date": "2026-02-19",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Config helper lookups now honor config_defaults values instead of hardcoded fallback literals",
+    "details": [
+      "Updated EventHandler, VKBLinkManager, and prefs panel config helper methods to call config.get(key) first and only apply literal fallback when missing/invalid",
+      "This fixes warmup/timer overrides from config_defaults.json not taking effect (e.g., vkb_link_warmup_delay_seconds)",
+      "Updated affected tests to assert configured defaults rather than hardcoded timer literals and re-ran targeted suites"
+    ]
+  },
+  {
+    "id": "CHG-057",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "New Feature",
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Added configurable VKB-Link launch mode and restored legacy startup behavior by default",
+    "details": [
+      "Introduced vkb_link_launch_mode config key (legacy|detached), defaulting to legacy so plugin-launched behavior matches prior implementation",
+      "Detached startup remains available for troubleshooting via config without code edits",
+      "Updated config helper fallback behavior tests and endpoint-change assertions to follow configured warmup values"
+    ]
+  },
+  {
+    "id": "CHG-058",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Harden VKB-Link restart shutdown timing so low operation timeout does not cause premature force-kill",
+    "details": [
+      "Found restart oddness correlated with vkb_link_operation_timeout_seconds set to 2 in config_defaults",
+      "Updated _stop_process to use minimum command timeout 10s and minimum graceful exit wait 8s before escalation",
+      "Validated manager test suite after change"
+    ]
+  },
+  {
+    "id": "CHG-059",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Enforced VKB-Link single-instance behavior by stopping all detected duplicates before restart/stop/update actions",
+    "details": [
+      "Added multi-process discovery helpers for Windows and POSIX so manager can enumerate all running VKB-Link instances",
+      "Updated ensure_running/update_to_latest/stop_running to stop all detected processes when needed and then continue with a single controlled start",
+      "Added regression tests for duplicate-process cleanup in ensure_running and stop_running; test/test_vkb_link_manager.py passes"
+    ]
+  },
+  {
+    "id": "CHG-060",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Added VKB-Link TCP listener readiness wait before reconnect attempts after start/restart",
+    "details": [
+      "EventHandler now probes host:port readiness (using vkb_link_operation_timeout_seconds and vkb_link_poll_interval_ms) before attempting connect after warmup",
+      "Wired readiness wait into startup connect flow, endpoint-change restart flow, recovery flow, and polling safety auto-start flow",
+      "Updated endpoint-change tests to account for listener readiness probe and re-ran event-handler + manager test suites"
+    ]
+  },
+  {
+    "id": "CHG-061",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Prevented duplicate VKB-Link launches by serializing lifecycle operations and closing safety-start race",
+    "details": [
+      "Added a manager lifecycle lock so ensure_running/update_to_latest/stop_running cannot run concurrently and race into duplicate starts",
+      "Added pre-start recheck paths in ensure_running so if another path starts VKB-Link first, duplicate launch is skipped",
+      "Moved prefs-panel safety inflight flag assignment before thread start and updated manager tests to fully mock multi-process discovery without touching live processes"
+    ]
+  },
+  {
+    "id": "CHG-062",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Fixed Windows VKB process discovery normalization to stop false duplicate-instance restarts",
+    "details": [
+      "Changed _find_running_processes_windows to prefer unique PID-based results and only run WMIC fallback when PowerShell yields no actionable PID entries",
+      "Hardened WMIC parsing against malformed blank-line blocks so path-only/pid-only partial records no longer create phantom duplicate processes",
+      "Added Windows unit test covering duplicate partial discovery output and verified test_vkb_link_manager.py passes"
+    ]
+  },
+  {
+    "id": "CHG-063",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Suppressed send-failed VKB recovery before first successful connection to prevent startup restart loops",
+    "details": [
+      "Added EventHandler connection state flag that is set on first successful socket connection",
+      "_attempt_vkb_link_recovery now skips send_failed-triggered process recovery until a successful connection has been established",
+      "Added unit test for suppressed early send_failed recovery and reran event-handler + manager suites"
+    ]
+  },
+  {
+    "id": "CHG-064",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Harden VKB-Link post-start settle handling for connect and recovery flows",
+    "details": [
+      "Added a public VKBLinkManager wait_for_post_start_settle() hook and used it before listener probing.",
+      "Updated EventHandler connect/recovery workflows to honor post-start warmup timing and reduce early reconnect races.",
+      "Expanded VKB-Link event-handler tests to assert settle waiting behavior, including recovery worker execution."
+    ]
+  },
+  {
+    "id": "CHG-065",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Do not stop pre-existing VKB-Link processes on plugin shutdown",
+    "details": [
+      "Changed plugin shutdown policy to stop VKB-Link only when this plugin instance started/restarted it.",
+      "Refined startup ownership tracking so successful ensure_running calls only mark ownership for action_taken started/restarted.",
+      "Added load.py shutdown regression tests covering pre-existing-process preservation and owned-process shutdown."
+    ]
+  },
+  {
+    "id": "CHG-066",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup",
+      "Test Update"
+    ],
+    "summary": "Disable pre-connect listener probing by default to avoid VKB-Link UI stalls",
+    "details": [
+      "Added vkb_link_probe_listener_before_connect (default false) to config defaults and fallback defaults.",
+      "EventHandler now probes listener readiness only when that config flag is enabled; normal connect/recovery uses warmup-delay then direct connect.",
+      "Updated event-handler tests to validate no probe by default and probe behavior when explicitly enabled."
+    ]
+  },
+  {
+    "id": "CHG-067",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Bug Fix",
+      "Test Update"
+    ],
+    "summary": "Send zero VKB shift state before plugin disconnect/shutdown",
+    "details": [
+      "Added EventHandler.clear_shift_state_for_shutdown() to send Shift/Subshift zeros without triggering recovery on send failure.",
+      "plugin_stop now calls shutdown clear-state send before disconnecting VKB client.",
+      "Added shutdown and event-handler tests to verify clear-state send occurs on plugin exit and skips recovery side effects."
+    ]
+  },
+  {
+    "id": "CHG-068",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Simplify README and add dedicated VKB-Link setup guide with managed/manual workflows",
+    "details": [
+      "Reworked README quick start to stay concise and emphasize plugin-managed VKB-Link for users not already running it.",
+      "Added docs/VKB_LINK_SETUP.md covering VKBDevCfg master-device setup, VKB-Link TCP setup, and both Auto-manage and manual operation paths.",
+      "Updated documentation cross-links in docs/DEVELOPMENT.md and docs/RULE_EDITOR_TUTORIAL.md to reflect Auto-manage and the new setup guide."
+    ]
+  },
+  {
+    "id": "CHG-069",
+    "plugin_version": "unreleased",
+    "date": "2026-02-20",
+    "summary_tags": [
+      "Code Refactoring",
+      "Performance Improvement"
+    ],
+    "summary": "High-level code cleanup: removed redundant imports and constants",
+    "details": [
+      "Removed duplicate VKB_LINK_VERSION_RE regex (MEGA_VKB_LINK_RE was identical)",
+      "Removed unused struct import from vkb_link_manager.py",
+      "Removed redundant sys.platform check in _find_running_processes_windows",
+      "Removed unused json and logging imports from event_handler.py",
+      "Replaced json.loads(json.dumps()) deep copy antipattern with copy.deepcopy() in prefs_panel.py"
+    ]
+  },
+  {
+    "id": "CHG-070",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Check VKB-Link process existence before any reconnection attempt",
+    "details": [
+      "Added process_readiness_check callback to VKBClient to gate reconnection attempts",
+      "VKB-Link process now verified running before TCP reconnection in all scenarios",
+      "Applied post-start settle delay to reconnection flow when process is detected as running"
+    ]
+  },
+  {
+    "id": "CHG-071",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Detect connection failures and handle INI mismatches with intelligent recovery",
+    "details": [
+      "Added terminal error flag to prevent infinite reconnection attempts when configuration is correct but connection fails",
+      "Check INI host/port against plugin config when reconnection fails despite process running",
+      "If INI mismatch found: trigger recovery to stop, fix INI, and restart VKB-Link",
+      "If INI correct and connection fails: set terminal error status 'Cannot connect to VKB-Link' and halt reconnection attempts"
+    ]
+  },
+  {
+    "id": "CHG-072",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Simplified workspace VS Code Python settings to avoid duplicate system interpreter discovery",
+    "details": [
+      "Removed python-envs system manager override from .vscode/settings.json so the workspace relies on the pinned .venv interpreter.",
+      "Kept python.defaultInterpreterPath and pytest paths pinned to /.venv/Scripts."
+    ]
+  },
+  {
+    "id": "CHG-073",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Reconnect worker now follows exact same startup sequence as plugin initialization",
+    "details": [
+      "Process readiness check now actively calls ensure_running() when process not found during reconnection",
+      "Reconnection flow now mirrors startup: check process → ensure running → apply settle delay → TCP connect",
+      "Handles download/install/bootstrap of VKB-Link if needed during reconnection, not just on startup"
+    ]
+  }
+]

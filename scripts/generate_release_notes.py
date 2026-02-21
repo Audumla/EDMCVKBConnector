@@ -1,7 +1,7 @@
 """
 Generate release notes from CHANGELOG.json.
 
-Reads the shared agent changelog and outputs a human-readable RELEASE_NOTES.md
+Reads the shared changelog and outputs a human-readable RELEASE_NOTES.md
 grouped by summary tag.
 
 ------------------------------------------------------------------------------
@@ -133,13 +133,14 @@ def filter_entries(
 
 
 def group_by_tag(entries: list[dict]) -> dict[str, list[str]]:
-    """File each entry's detail bullets under its primary summary tag only."""
+    """File each entry's summary under its primary summary tag only."""
     buckets: dict[str, list[str]] = {}
     for entry in entries:
         tags = entry.get("summary_tags", ["Other"])
         primary_tag = tags[0] if tags else "Other"
-        details = entry.get("details", [entry.get("summary", "")])
-        buckets.setdefault(primary_tag, []).extend(details)
+        summary = entry.get("summary", "")
+        if summary:
+            buckets.setdefault(primary_tag, []).append(summary)
     return buckets
 
 
@@ -171,12 +172,11 @@ def build_markdown(version: str, entries: list[dict]) -> str:
 
     lines.append("---")
     lines.append("")
-    lines.append("| ID | Date | Agent | Summary |")
-    lines.append("|----|------|-------|---------|")
+    lines.append("| ID | Date | Summary |")
+    lines.append("|----|------|---------|")
     for e in sorted(entries, key=lambda x: x.get("id", "")):
         lines.append(
-            f"| {e.get('id','')} | {e.get('date','')} "
-            f"| {e.get('agent','')} | {e.get('summary','')} |"
+            f"| {e.get('id','')} | {e.get('date','')} | {e.get('summary','')} |"
         )
     lines.append("")
 

@@ -13,6 +13,7 @@ License: MIT
 import logging
 import os
 import json
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -67,6 +68,10 @@ plugin_logger_name = logger.name
 from edmcruleengine import set_plugin_logger_name
 set_plugin_logger_name(plugin_logger_name)
 
+# Ensure lifecycle visibility even if EDMC/root defaults are WARNING.
+if logger.getEffectiveLevel() > logging.INFO:
+    logger.setLevel(logging.INFO)
+
 # Local-only fallback logging if EDMC logging isn't available.
 if not _using_edmc_logger and not logger.hasHandlers():
     level = logging.INFO
@@ -86,6 +91,7 @@ _event_handler = None
 _event_recorder = None
 _plugin_dir = None
 _prefs_vars = {}
+_vkb_link_started_by_plugin = False
 
 
 def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]:
@@ -234,7 +240,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     Returns:
         Plugin name as displayed in EDMC UI.
     """
-    global _config, _event_handler, _event_recorder, _plugin_dir
+    global _config, _event_handler, _event_recorder, _plugin_dir, _vkb_link_started_by_plugin
 
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
@@ -243,6 +249,7 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         import threading
 
         logger.info(f"VKB Connector v{VERSION} starting")
+        _vkb_link_started_by_plugin = False
 
         # Initialize configuration (uses EDMC's stored preferences)
         _config = Config()
@@ -279,10 +286,61 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         except Exception as e:
             logger.warning(f"Error refreshing unregistered events on startup: {e}")
 
+        startup_ready = threading.Event()
+
+        def _start_vkb_link_if_needed() -> None:
+            """Ensure VKB-Link app is running on startup (if not already running)."""
+            global _vkb_link_started_by_plugin
+            try:
+                if not _event_handler or not _config:
+                    logger.warning("Startup: VKB-Link check skipped (handler/config unavailable)")
+                    return
+                manager = getattr(_event_handler, "vkb_link_manager", None)
+                if not manager:
+                    logger.warning("Startup: VKB-Link manager unavailable")
+                    return
+                status = manager.get_status(check_running=True)
+                logger.info(
+                    "Startup: VKB-Link status: "
+                    f"running={status.running} exe_path={status.exe_path or 'none'} "
+                    f"install_dir={status.install_dir or 'none'} "
+                    f"version={status.version or 'unknown'} managed={status.managed}"
+                )
+                if status.running:
+                    logger.info("Startup: VKB-Link already running; no start required")
+                    return
+                logger.info("Startup: VKB-Link not running; starting now")
+                result = manager.ensure_running(host=vkb_host, port=vkb_port, reason="startup")
+                logger.info(f"Startup: VKB-Link ensure_running result: {result.message}")
+                if result.success and result.action_taken in ("started", "restarted"):
+                    _vkb_link_started_by_plugin = True
+                if result.status is not None:
+                    logger.info(
+                        "Startup: VKB-Link post-start status: "
+                        f"running={result.status.running} "
+                        f"exe_path={result.status.exe_path or 'none'} "
+                        f"version={result.status.version or 'unknown'} "
+                        f"managed={result.status.managed}"
+                    )
+                else:
+                    logger.info("Startup: VKB-Link post-start status unavailable")
+            except Exception as e:
+                logger.error(f"Startup: VKB-Link start check failed: {e}", exc_info=True)
+            finally:
+                startup_ready.set()
+
+        # Start VKB-Link check in background thread to avoid blocking UI
+        vkb_link_thread = threading.Thread(target=_start_vkb_link_if_needed, daemon=True)
+        vkb_link_thread.start()
+
         # Start connection attempt in background thread to avoid blocking UI
         def _connect_in_background() -> None:
             """Try to connect to VKB in background without blocking the UI."""
             try:
+                if not startup_ready.wait(timeout=30):
+                    logger.warning("Startup: VKB-Link start sequence timed out; continuing with connect")
+                if _event_handler:
+                    _event_handler.set_connection_status_override("Connecting to VKB-Link...")
                 if _event_handler.connect():
                     logger.info("Successfully connected to VKB hardware on startup")
                 else:
@@ -292,6 +350,9 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
                     )
             except Exception as e:
                 logger.error(f"Error during background connection attempt: {e}", exc_info=True)
+            finally:
+                if _event_handler:
+                    _event_handler.set_connection_status_override(None)
 
         # Start the connection attempt in a daemon thread so it doesn't block
         connect_thread = threading.Thread(target=_connect_in_background, daemon=True)
@@ -311,14 +372,51 @@ def plugin_stop() -> None:
     
     Gracefully shuts down the VKB connector and stops all background reconnection attempts.
     """
-    global _event_handler, _event_recorder
+    global _event_handler, _event_recorder, _vkb_link_started_by_plugin
 
     try:
         logger.info("VKB Connector stopping")
         if _event_recorder and _event_recorder.is_recording:
             _event_recorder.stop()
         if _event_handler:
+            try:
+                _event_handler.clear_shift_state_for_shutdown()
+            except Exception as e:
+                logger.warning(f"Shutdown: failed to send VKB-Link clear state: {e}")
             _event_handler.disconnect()
+            manager = getattr(_event_handler, "vkb_link_manager", None)
+            if manager:
+                try:
+                    status_before_stop = manager.get_status(check_running=True)
+                    logger.info(
+                        "Shutdown: VKB-Link pre-stop status: "
+                        f"running={status_before_stop.running} "
+                        f"exe_path={status_before_stop.exe_path or 'none'} "
+                        f"version={status_before_stop.version or 'unknown'} "
+                        f"managed={status_before_stop.managed} "
+                        f"started_by_plugin={_vkb_link_started_by_plugin}"
+                    )
+                except Exception:
+                    logger.info("Shutdown: VKB-Link pre-stop status unavailable")
+            if _vkb_link_started_by_plugin:
+                if manager:
+                    logger.info("Shutdown: stopping VKB-Link (started-by-plugin policy)")
+                    result = manager.stop_running(reason="plugin_shutdown")
+                    logger.info(f"Shutdown: VKB-Link stop result: {result.message}")
+                    if result.status is not None:
+                        logger.info(
+                            "Shutdown: VKB-Link post-stop status: "
+                            f"running={result.status.running} "
+                            f"exe_path={result.status.exe_path or 'none'} "
+                            f"version={result.status.version or 'unknown'} "
+                            f"managed={result.status.managed}"
+                        )
+                    else:
+                        logger.info("Shutdown: VKB-Link post-stop status unavailable")
+                else:
+                    logger.warning("Shutdown: VKB-Link manager unavailable for stop")
+            else:
+                logger.info("Shutdown: VKB-Link was not started by plugin; leaving running")
             logger.info("VKB Connector stopped successfully")
     except Exception as e:
         logger.error(f"Error stopping VKB Connector: {e}", exc_info=True)

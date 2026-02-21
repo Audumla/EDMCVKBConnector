@@ -29,6 +29,7 @@ INCLUDE = [
     "src/edmcruleengine/__init__.py",
     "src/edmcruleengine/version.py",
     "src/edmcruleengine/config.py",
+    "src/edmcruleengine/config_defaults.json",
     "src/edmcruleengine/event_handler.py",
     "src/edmcruleengine/event_recorder.py",
     "src/edmcruleengine/message_formatter.py",
@@ -42,6 +43,7 @@ INCLUDE = [
     "src/edmcruleengine/ui_components.py",
     "src/edmcruleengine/unregistered_events_tracker.py",
     "src/edmcruleengine/vkb_client.py",
+    "src/edmcruleengine/vkb_link_manager.py",
 ]
 
 
