@@ -1229,5 +1229,17 @@
       "Merged copilot/add-status-line-and-mock-data adding connection status display and event anonymization",
       "Skipped copilot/update-documentation-and-guides to preserve main's documentation files"
     ]
+  },
+  {
+    "id": "CHG-085",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix NameError in event_handler track_unregistered_events property",
+    "details": [
+      "Fixed missing self reference when accessing config in EventAnonymizer initialization"
+    ]
   }
 ]
