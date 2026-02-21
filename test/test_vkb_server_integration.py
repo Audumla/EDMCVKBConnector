@@ -39,6 +39,8 @@ class _TestConfig:
         self._values.update(overrides)
     def get(self, key, default=None):
         return self._values.get(key, default)
+    def set(self, key, value):
+        self._values[key] = value
 
 
 @contextmanager
@@ -208,6 +210,13 @@ def test_connection_with_event_handler():
     with running_mock_server(port=50999) as server:
         config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=50999)
         handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
+        handler.vkb_link_manager = Mock(
+            get_status=Mock(return_value=Mock(running=True, exe_path=r"H:\dummy\VKB-Link.exe")),
+            wait_for_post_start_settle=Mock(),
+            should_probe_listener_before_connect=Mock(return_value=False),
+            start_process_health_monitor=Mock(),
+            stop_process_health_monitor=Mock(),
+        )
         
         # Update config to use test port
         handler.vkb_client.port = 50999

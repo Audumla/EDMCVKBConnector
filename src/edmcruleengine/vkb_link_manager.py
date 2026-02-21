@@ -8,6 +8,7 @@ import base64
 import json
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -16,7 +17,7 @@ import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 from urllib.request import Request, urlopen
 
 from . import plugin_logger
@@ -288,6 +289,9 @@ class VKBLinkManager:
         self._last_start_monotonic = 0.0
         self._last_startup_original_minimized: Optional[bool] = None
         self._last_startup_ini_path: Optional[Path] = None
+        self._process_monitor_thread: Optional[threading.Thread] = None
+        self._process_monitor_stop = threading.Event()
+        self._last_known_process_running = False
 
     def _cfg_int(self, key: str, default: int, *, minimum: int = 0) -> int:
         value = default
@@ -346,6 +350,98 @@ class VKBLinkManager:
         if parsed < minimum_seconds:
             return minimum_seconds
         return parsed
+
+    def should_probe_listener_before_connect(self) -> bool:
+        if not self.config:
+            return False
+        return bool(self.config.get("vkb_link_probe_listener_before_connect", False))
+
+    def read_ini_endpoint(self, ini_path: Path | str) -> Optional[tuple[str, int]]:
+        import configparser
+
+        cp = configparser.ConfigParser()
+        cp.read(str(ini_path), encoding="utf-8")
+        if "TCP" not in cp:
+            return None
+        host = cp.get("TCP", "Adress", fallback="").strip()
+        port_value = cp.get("TCP", "Port", fallback="").strip()
+        try:
+            port = int(port_value)
+        except Exception:
+            return None
+        return host, port
+
+    def wait_for_listener_ready(self, host: str, port: int) -> bool:
+        timeout_seconds = self._cfg_float(
+            "vkb_link_operation_timeout_seconds",
+            10.0,
+            minimum=0.1,
+        )
+        poll_interval = self._cfg_interval_seconds(
+            "vkb_link_poll_interval_seconds",
+            0.25,
+            minimum_seconds=0.01,
+            legacy_ms_key="vkb_link_poll_interval_ms",
+        )
+        deadline = time.time() + timeout_seconds
+        while time.time() < deadline:
+            try:
+                with socket.create_connection((host, int(port)), timeout=0.5):
+                    logger.info(f"VKB-Link listener is ready at {host}:{port}")
+                    return True
+            except OSError:
+                time.sleep(poll_interval)
+        logger.warning(
+            "Timed out waiting for VKB-Link listener readiness at "
+            f"{host}:{port} (timeout={timeout_seconds:.1f}s)"
+        )
+        return False
+
+    def start_process_health_monitor(self, on_process_crash: Callable[[], None]) -> None:
+        if self._process_monitor_thread is not None:
+            return
+
+        self._last_known_process_running = self.is_running()
+        self._process_monitor_stop.clear()
+        self._process_monitor_thread = threading.Thread(
+            target=self._monitor_process_health,
+            args=(on_process_crash,),
+            daemon=True,
+            name="VKB-LinkProcessMonitor",
+        )
+        self._process_monitor_thread.start()
+
+    def stop_process_health_monitor(self) -> None:
+        if self._process_monitor_thread is None:
+            return
+        self._process_monitor_stop.set()
+        try:
+            self._process_monitor_thread.join(timeout=2.0)
+        except Exception as e:
+            logger.debug(f"Error stopping process monitor thread: {e}")
+        self._process_monitor_thread = None
+
+    def _monitor_process_health(self, on_process_crash: Callable[[], None]) -> None:
+        while not self._process_monitor_stop.is_set():
+            check_interval = self._cfg_interval_seconds(
+                "vkb_link_process_monitor_interval_seconds",
+                5.0,
+                minimum_seconds=0.1,
+            )
+            try:
+                auto_manage = bool(self.config and self.config.get("vkb_link_auto_manage", True))
+                if auto_manage:
+                    is_running = self.is_running()
+                    if self._last_known_process_running and not is_running:
+                        logger.warning(
+                            "VKB-Link process crash detected during health monitoring; "
+                            "triggering recovery"
+                        )
+                        on_process_crash()
+                    self._last_known_process_running = is_running
+            except Exception as e:
+                logger.debug(f"Error in process health monitor: {e}")
+            self._process_monitor_stop.wait(check_interval)
 
     def get_status(self, *, check_running: bool = False) -> VKBLinkStatus:
         exe_path = (self.config.get("vkb_link_exe_path", "") or "").strip() if self.config else ""

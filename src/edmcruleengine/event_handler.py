@@ -3,7 +3,6 @@ Event handler for forwarding Elite Dangerous events to VKB hardware.
 """
 
 import re
-import socket
 import threading
 import time
 from pathlib import Path
@@ -97,13 +96,7 @@ class EventHandler:
         self._connection_status_override: Optional[str] = None
         self._endpoint_change_active = False  # Suppresses recovery during intentional restart
         self._has_successful_vkb_connection = False
-        self._vkb_process_was_running = False  # Track process state for settle delay gating
-
-        # Process health monitoring
-        self._process_monitor_thread: Optional[threading.Thread] = None
-        self._process_monitor_stop = threading.Event()
-        self._last_known_process_running = False  # Track state to avoid duplicate recovery triggers
-        self._start_process_health_monitor()
+        self.vkb_link_manager.start_process_health_monitor(self._on_vkb_link_process_crash)
 
     def set_connection_status_override(self, status: Optional[str]) -> None:
         """Set temporary UI-facing connection status text."""
@@ -115,234 +108,8 @@ class EventHandler:
         with self._connection_status_lock:
             return self._connection_status_override
 
-    def _check_vkb_process_readiness(self) -> bool:
-        """
-        Check if VKB-Link process is running and ready for TCP connection.
-
-        Follows the SAME flow as plugin startup:
-        1. Check if process is running (process lookup)
-        2. If NOT running → call ensure_running() (download/install/start)
-        3. Apply post-start settle delay
-        4. Return ready status
-
-        This ensures reconnection uses identical startup sequence.
-
-        Returns:
-            True if process is running and ready to connect, False otherwise.
-        """
-        if not self.vkb_link_manager or not self.config:
-            return True  # No manager, allow connection attempt
-
-        # Check current process status (process lookup, not TCP)
-        status = self.vkb_link_manager.get_status(check_running=True)
-        is_running = status.running is True
-
-        if not is_running:
-            # Process not running: follow startup sequence and call ensure_running()
-            auto_manage = bool(self.config.get("vkb_link_auto_manage", True))
-            if not auto_manage and not status.exe_path:
-                # Auto-manage disabled and no known exe path → can't start it
-                logger.debug("VKB-Link process not running; auto-manage disabled; deferring reconnect")
-                self._vkb_process_was_running = False
-                return False
-
-            # Call ensure_running() to download/install/bootstrap/start if needed
-            # This mirrors the startup flow exactly
-            logger.info("VKB-Link process not running during reconnect; calling ensure_running()")
-            host = self.config.get("vkb_host", "127.0.0.1")
-            port = self.config.get("vkb_port", 50995)
-            result = self.vkb_link_manager.ensure_running(
-                host=host,
-                port=port,
-                reason="reconnect",
-            )
-            if not result.success:
-                logger.warning(f"Failed to ensure VKB-Link running during reconnect: {result.message}")
-                self._vkb_process_was_running = False
-                return False
-
-            is_running = True
-            self._vkb_process_was_running = True
-
-        # Process is now confirmed running
-        if not self._vkb_process_was_running:
-            # Process just transitioned to running (from not running)
-            # Apply the post-start settle delay before returning ready
-            self._vkb_process_was_running = True
-            self.vkb_link_manager.wait_for_post_start_settle()
-            logger.debug("VKB-Link process ready; applied post-start settle delay before reconnect")
-        elif is_running:
-            # Process was already running, still running - ready for TCP
-            pass
-
-        return True
-
-    def _handle_reconnect_failed(self) -> None:
-        """
-        Handle reconnection failure when process is running and ready.
-
-        Detects INI mismatches, process crashes, and triggers recovery as needed.
-        """
-        if not self.config or not self.vkb_link_manager or not self.vkb_client:
-            return
-
-        # First check: Is the VKB-Link process still actually running?
-        # (Process could have crashed between readiness check and TCP attempt)
-        if self.vkb_link_manager.is_running():
-            logger.info("VKB-Link reconnection failed but process is still running; checking INI")
-        else:
-            # Process is NOT running - restart it immediately
-            logger.warning(
-                "VKB-Link process has crashed or stopped; restarting via standard startup path"
-            )
-            self._attempt_vkb_link_recovery(reason="process_crashed")
-            return
-
-        # Get expected host/port from plugin config
-        expected_host = self.config.get("vkb_host", "127.0.0.1")
-        expected_port = self.config.get("vkb_port", 50995)
-
-        # Get current INI settings
-        ini_path = self.vkb_link_manager._resolve_ini_path(None)
-        if not ini_path or not ini_path.exists():
-            # No INI found; cannot diagnose
-            logger.warning("VKB-Link reconnection failed; INI file not found for diagnosis")
-            self.vkb_client.mark_terminal_error("Cannot connect to VKB-Link (INI not found)")
-            return
-
-        # Read INI to check host/port
-        try:
-            ini_content = ini_path.read_text(encoding='utf-8')
-            # Extract host/port from INI (simple text parsing)
-            ini_host = None
-            ini_port = None
-            for line in ini_content.splitlines():
-                line = line.strip()
-                if line.lower().startswith("adress="):
-                    ini_host = line.split("=", 1)[1].strip() or None
-                elif line.lower().startswith("port="):
-                    try:
-                        ini_port = int(line.split("=", 1)[1].strip())
-                    except ValueError:
-                        pass
-
-            # Normalize host comparison (localhost vs 127.0.0.1)
-            def normalize_host(h: str) -> str:
-                h = (h or "").strip().lower()
-                if h in ("localhost", "127.0.0.1", "::1"):
-                    return "127.0.0.1"
-                return h
-
-            ini_host_norm = normalize_host(ini_host)
-            expected_host_norm = normalize_host(expected_host)
-
-            # Check for mismatch
-            if ini_host_norm != expected_host_norm or ini_port != expected_port:
-                logger.warning(
-                    f"VKB-Link INI mismatch detected: INI has {ini_host}:{ini_port}, "
-                    f"plugin expects {expected_host}:{expected_port}; triggering recovery"
-                )
-                # Trigger recovery to fix INI and restart
-                self._attempt_vkb_link_recovery(reason="ini_mismatch")
-            else:
-                # INI is correct but connection still failed
-                logger.error(
-                    f"VKB-Link reconnection failed; process running and INI correct "
-                    f"({ini_host_norm}:{ini_port})"
-                )
-                self.vkb_client.mark_terminal_error("Cannot connect to VKB-Link")
-        except Exception as e:
-            logger.error(f"Error checking VKB-Link INI during reconnect failure: {e}")
-            self.vkb_client.mark_terminal_error("Cannot diagnose VKB-Link connection failure")
-
-    def _get_config_int(self, key: str, default: int, *, minimum: int = 0) -> int:
-        value: Any = default
-        if self.config:
-            value = self.config.get(key)
-            if value is None:
-                value = default
-        try:
-            parsed = int(value)
-        except (TypeError, ValueError):
-            parsed = default
-        if parsed < minimum:
-            return minimum
-        return parsed
-
-    def _get_config_float(self, key: str, default: float, *, minimum: float = 0.0) -> float:
-        value: Any = default
-        if self.config:
-            value = self.config.get(key)
-            if value is None:
-                value = default
-        try:
-            parsed = float(value)
-        except (TypeError, ValueError):
-            parsed = default
-        if parsed < minimum:
-            return minimum
-        return parsed
-
-    def _get_config_interval_seconds(
-        self,
-        key_seconds: str,
-        default_seconds: float,
-        *,
-        minimum_seconds: float = 0.001,
-        legacy_ms_key: Optional[str] = None,
-    ) -> float:
-        value: Any = default_seconds
-        if self.config:
-            raw = self.config.get(key_seconds)
-            if raw is None and legacy_ms_key:
-                raw_ms = self.config.get(legacy_ms_key)
-                if raw_ms is not None:
-                    try:
-                        value = float(raw_ms) / 1000.0
-                    except (TypeError, ValueError):
-                        value = default_seconds
-            elif raw is not None:
-                value = raw
-        try:
-            parsed = float(value)
-        except (TypeError, ValueError):
-            parsed = float(default_seconds)
-        if parsed < minimum_seconds:
-            return minimum_seconds
-        return parsed
-
-    def _wait_for_vkb_listener_ready(self, host: str, port: int) -> bool:
-        """Wait until VKB-Link TCP listener is reachable or timeout expires."""
-        timeout_seconds = self._get_config_float(
-            "vkb_link_operation_timeout_seconds",
-            10.0,
-            minimum=0.1,
-        )
-        poll_interval = self._get_config_interval_seconds(
-            "vkb_link_poll_interval_seconds",
-            0.25,
-            minimum_seconds=0.01,
-            legacy_ms_key="vkb_link_poll_interval_ms",
-        )
-        deadline = time.time() + timeout_seconds
-        while time.time() < deadline:
-            try:
-                with socket.create_connection((host, int(port)), timeout=0.5):
-                    logger.info(f"VKB-Link listener is ready at {host}:{port}")
-                    return True
-            except OSError:
-                time.sleep(poll_interval)
-        logger.warning(
-            "Timed out waiting for VKB-Link listener readiness at "
-            f"{host}:{port} (timeout={timeout_seconds:.1f}s)"
-        )
-        return False
-
-    def _should_probe_listener_before_connect(self) -> bool:
-        """Whether to probe the listener with a temporary socket before connect."""
-        if not self.config:
-            return False
-        return bool(self.config.get("vkb_link_probe_listener_before_connect", False))
+    def _on_vkb_link_process_crash(self) -> None:
+        self._attempt_vkb_link_recovery(reason="process_crash_detected")
 
     def _apply_endpoint_change(self, host: str, port: int) -> None:
         """Restart VKB-Link and reconnect after host/port settings change.
@@ -382,8 +149,8 @@ class EventHandler:
                 logger.error("VKB-Link: managed endpoint change failed")
                 return
 
-            if self._should_probe_listener_before_connect():
-                self._wait_for_vkb_listener_ready(host, port)
+            if self.vkb_link_manager.should_probe_listener_before_connect():
+                self.vkb_link_manager.wait_for_listener_ready(host, port)
             logger.info(f"VKB-Link: connecting to {host}:{port}")
             self.set_connection_status_override("Connecting to VKB-Link...")
             self.vkb_client.set_on_connected(self._on_socket_connected)
@@ -530,8 +297,8 @@ class EventHandler:
                     if not ensure_result.success:
                         return False
                 self.vkb_link_manager.wait_for_post_start_settle()
-                if self._should_probe_listener_before_connect():
-                    self._wait_for_vkb_listener_ready(host, port)
+                if self.vkb_link_manager.should_probe_listener_before_connect():
+                    self.vkb_link_manager.wait_for_listener_ready(host, port)
 
             # Ensure callbacks always re-send shift state on new socket connections.
             self.vkb_client.set_on_connected(self._on_socket_connected)
@@ -562,74 +329,7 @@ class EventHandler:
     def disconnect(self) -> None:
         """Disconnect from VKB hardware and stop health monitoring."""
         self.vkb_client.disconnect()
-        self._stop_process_health_monitor()
-
-    def _start_process_health_monitor(self) -> None:
-        """Start the background process health monitoring thread."""
-        if self._process_monitor_thread is not None:
-            return  # Already running
-
-        self._process_monitor_stop.clear()
-        self._process_monitor_thread = threading.Thread(
-            target=self._monitor_process_health,
-            daemon=True,
-            name="VKB-LinkProcessMonitor",
-        )
-        self._process_monitor_thread.start()
-
-    def _stop_process_health_monitor(self) -> None:
-        """Stop the background process health monitoring thread."""
-        if self._process_monitor_thread is None:
-            return
-
-        self._process_monitor_stop.set()
-        try:
-            self._process_monitor_thread.join(timeout=2.0)
-        except Exception as e:
-            logger.debug(f"Error stopping process monitor thread: {e}")
-        self._process_monitor_thread = None
-
-    def _monitor_process_health(self) -> None:
-        """
-        Periodically monitor VKB-Link process health.
-
-        If the process is detected as crashed (was running, now is not), trigger recovery.
-        Only monitors if auto_manage is enabled.
-        """
-        check_interval = self._get_config_interval_seconds(
-            "vkb_link_process_monitor_interval_seconds",
-            5.0,
-            minimum_seconds=0.1,
-        )
-
-        while not self._process_monitor_stop.is_set():
-            try:
-                # Only monitor if we're managing the process
-                auto_manage = bool(self.config and self.config.get("vkb_link_auto_manage", True))
-                if not auto_manage or not self.vkb_link_manager:
-                    self._process_monitor_stop.wait(check_interval)
-                    continue
-
-                # Check current process state
-                status = self.vkb_link_manager.get_status(check_running=True)
-                is_running = status.running is True
-
-                # Detect crash: process was running, now it's not
-                if self._last_known_process_running and not is_running:
-                    logger.warning(
-                        "VKB-Link process crash detected during health monitoring; "
-                        "triggering recovery"
-                    )
-                    self._attempt_vkb_link_recovery(reason="process_crash_detected")
-
-                # Update state tracking
-                self._last_known_process_running = is_running
-
-            except Exception as e:
-                logger.debug(f"Error in process health monitor: {e}")
-
-            # Wait for stop signal or timeout
-            self._process_monitor_stop.wait(check_interval)
+        self.vkb_link_manager.stop_process_health_monitor()
 
     def clear_shift_state_for_shutdown(self) -> bool:
         """Send a zero shift/subshift state before shutdown without recovery side effects."""
@@ -936,8 +636,8 @@ class EventHandler:
                 logger.info(f"VKB-Link recovery result: {result.message}")
                 if result.success:
                     self.vkb_link_manager.wait_for_post_start_settle()
-                    if self._should_probe_listener_before_connect():
-                        self._wait_for_vkb_listener_ready(host, port)
+                    if self.vkb_link_manager.should_probe_listener_before_connect():
+                        self.vkb_link_manager.wait_for_listener_ready(host, port)
                     self.set_connection_status_override("Connecting to VKB-Link...")
                     self.vkb_client.set_on_connected(self._on_socket_connected)
                     reconnected = self.vkb_client.connect()

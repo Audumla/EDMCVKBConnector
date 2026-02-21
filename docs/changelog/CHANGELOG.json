@@ -130,5 +130,37 @@
       "Group names now 20-38 chars instead of 48+ chars, no truncation needed",
       "Improved readability of release notes and change group index"
     ]
+  },
+  {
+    "id": "CHG-fc428a14",
+    "change_group": "vkb-link-separation",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Code Refactoring",
+      "Configuration Cleanup"
+    ],
+    "summary": "Centralized VKB-Link process monitoring and listener-probe logic in VKBLinkManager and switched callers to manager delegation",
+    "details": [
+      "Added VKBLinkManager APIs for listener readiness probing and process health monitoring with crash callback support",
+      "Removed in-handler VKB-Link monitor/probe internals from EventHandler and delegated connect/recovery/endpoint flows to manager methods",
+      "Updated prefs panel and VKB-Link tests to call manager APIs, plus adjusted integration test config stubs for manager-backed behavior"
+    ]
+  },
+  {
+    "id": "CHG-fc428a14-1",
+    "change_group": "vkb-link-separation",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Code Refactoring",
+      "Test Update"
+    ],
+    "summary": "Completed VKB-Link delegation cleanup by moving INI endpoint parsing to manager and updating integration tests",
+    "details": [
+      "Added VKBLinkManager.read_ini_endpoint so prefs UI no longer parses VKB-Link INI directly",
+      "Adjusted test_event_handler_vkb_link mocks for manager-driven probe/monitor APIs",
+      "Updated test_vkb_server_integration EventHandler scenario to use a manager stub aligned with delegated manager responsibilities"
+    ]
   }
 ]

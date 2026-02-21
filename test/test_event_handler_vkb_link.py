@@ -11,6 +11,7 @@ import pytest
 
 from edmcruleengine.config import DEFAULTS
 from edmcruleengine.event_handler import EventHandler
+from edmcruleengine.vkb_link_manager import VKBLinkManager
 
 
 class DictConfig:
@@ -30,6 +31,8 @@ def _make_handler(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **overrides):
     # Keep unit tests focused on endpoint-change flow.
     monkeypatch.setattr(EventHandler, "_load_catalog", lambda self: None)
     monkeypatch.setattr(EventHandler, "_load_rules", lambda self: None)
+    monkeypatch.setattr(VKBLinkManager, "start_process_health_monitor", lambda self, on_process_crash: None)
+    monkeypatch.setattr(VKBLinkManager, "stop_process_health_monitor", lambda self: None)
     handler = EventHandler(cfg, plugin_dir=str(tmp_path))
     return handler, cfg
 
@@ -43,10 +46,11 @@ def test_apply_endpoint_change_restarts_and_reconnects(tmp_path, monkeypatch):
         message="VKB-Link restarted with updated endpoint",
         action_taken="restarted",
     )
+    manager.should_probe_listener_before_connect.return_value = False
     handler.vkb_link_manager = manager
 
     ready_mock = Mock(return_value=True)
-    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
+    manager.wait_for_listener_ready = ready_mock
     handler.vkb_client.set_on_connected = Mock()
     handler.vkb_client.connect = Mock(return_value=True)
 
@@ -78,9 +82,10 @@ def test_apply_endpoint_change_starts_when_not_running(tmp_path, monkeypatch):
         message="VKB-Link started with updated endpoint",
         action_taken="started",
     )
+    manager.should_probe_listener_before_connect.return_value = False
     handler.vkb_link_manager = manager
 
-    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
+    manager.wait_for_listener_ready = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=False)
     handler.vkb_client.set_on_connected = Mock()
 
@@ -105,11 +110,12 @@ def test_apply_endpoint_change_does_not_connect_when_start_fails(tmp_path, monke
         message="Failed to restart VKB-Link after endpoint update",
         action_taken="none",
     )
+    manager.should_probe_listener_before_connect.return_value = False
     handler.vkb_link_manager = manager
 
     handler.vkb_client.connect = Mock(return_value=True)
     handler.vkb_client.set_on_connected = Mock()
-    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
+    manager.wait_for_listener_ready = Mock(return_value=True)
 
     handler._apply_endpoint_change("10.0.0.5", 60003)
 
@@ -158,9 +164,10 @@ def test_connect_ensures_vkb_process_before_socket_connect(tmp_path, monkeypatch
     manager.get_status.return_value = Mock(running=False, exe_path=r"G:\Games\vkb\VKB-Link.exe")
     manager.ensure_running.return_value = Mock(success=True, message="VKB-Link started")
     manager.wait_for_post_start_settle = Mock()
+    manager.should_probe_listener_before_connect.return_value = False
     handler.vkb_link_manager = manager
 
-    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", Mock(return_value=True))
+    manager.wait_for_listener_ready = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=True)
     handler.vkb_client.set_on_connected = Mock()
 
@@ -207,11 +214,12 @@ def test_recovery_waits_for_post_start_settle_before_listener_probe(tmp_path, mo
     manager = Mock()
     manager.ensure_running.return_value = Mock(success=True, message="VKB-Link started")
     manager.wait_for_post_start_settle = Mock()
+    manager.should_probe_listener_before_connect.return_value = True
     handler.vkb_link_manager = manager
     handler._has_successful_vkb_connection = True
 
     ready_mock = Mock(return_value=True)
-    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
+    manager.wait_for_listener_ready = ready_mock
     handler.vkb_client.set_on_connected = Mock()
     handler.vkb_client.connect = Mock(return_value=True)
 
@@ -235,10 +243,11 @@ def test_connect_does_not_probe_listener_by_default(tmp_path, monkeypatch):
     manager = Mock()
     manager.get_status.return_value = Mock(running=True, exe_path=r"G:\Games\vkb\VKB-Link.exe")
     manager.wait_for_post_start_settle = Mock()
+    manager.should_probe_listener_before_connect.return_value = False
     handler.vkb_link_manager = manager
 
     ready_mock = Mock(return_value=True)
-    monkeypatch.setattr(handler, "_wait_for_vkb_listener_ready", ready_mock)
+    manager.wait_for_listener_ready = ready_mock
     handler.vkb_client.connect = Mock(return_value=True)
     handler.vkb_client.set_on_connected = Mock()
 

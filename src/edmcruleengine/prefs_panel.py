@@ -582,27 +582,16 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         elif not visible and locate_btn.winfo_ismapped():
             locate_btn.pack_forget()
 
-    def _read_ini_endpoint(ini_path: str) -> Optional[tuple[str, int]]:
-        import configparser
-        cp = configparser.ConfigParser()
-        cp.read(ini_path, encoding="utf-8")
-        if "TCP" not in cp:
-            return None
-        host = cp.get("TCP", "Adress", fallback="").strip()
-        port_value = cp.get("TCP", "Port", fallback="").strip()
-        try:
-            port = int(port_value)
-        except Exception:
-            return None
-        return host, port
-
     def _ini_matches_prefs() -> Optional[bool]:
         if not vkb_ini_path_saved:
             return None
         ini_path = Path(vkb_ini_path_saved)
         if not ini_path.exists():
             return None
-        endpoint = _read_ini_endpoint(str(ini_path))
+        manager = _get_vkb_manager()
+        if not manager:
+            return None
+        endpoint = manager.read_ini_endpoint(ini_path)
         if endpoint is None:
             return None
         host = host_var.get().strip()
@@ -723,7 +712,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                     if result.success:
                         logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
                         if result.action_taken in ("started", "restarted"):
-                            _event_handler._wait_for_vkb_listener_ready(host, port)
+                            manager.wait_for_listener_ready(host, port)
                             _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
                             _event_handler.vkb_client.connect()
                     else:
