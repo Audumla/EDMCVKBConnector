@@ -24,7 +24,7 @@ from . import plugin_logger
 logger = plugin_logger(__name__)
 
 VKB_LINK_EXE_NAMES = ("VKB-Link.exe",)
-VKB_LINK_INI_NAMES = ("VKBLink.ini", "VKB-Link.ini", "VKBLink64.ini", "VKB-Link64.ini")
+VKB_LINK_INI_NAMES = ("VKB-Link.ini")
 VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 
 MEGA_API_URL = "https://g.api.mega.co.nz/cs"

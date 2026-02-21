@@ -76,12 +76,41 @@ def save_json(entries: list[dict]) -> None:
         f.write("\n")
 
 
-def _slugify(value: str, fallback: str = "misc", max_len: int = 70) -> str:
-    """Convert text to kebab-case slug, respecting max length while keeping meaning intact."""
+def _slugify(value: str, fallback: str = "misc") -> str:
+    """Convert text to kebab-case slug."""
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    if not slug:
-        slug = fallback
-    return slug[:max_len]
+    return slug if slug else fallback
+
+
+def _extract_group_topic(text: str) -> str:
+    """Extract a concise group name from summary/group text.
+
+    Takes first 2-4 key words, resulting in short, focused group names:
+    - "Refactor changelog tooling" → "refactor-changelog-tooling"
+    - "Migrate all existing IDs" → "migrate-existing-ids"
+    - "Fix VKB link recovery" → "fix-vkb-link-recovery"
+    """
+    # Common filler words to skip when identifying key terms
+    stopwords = {
+        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+        "of", "with", "by", "from", "that", "this", "is", "are", "be", "been",
+        "all", "each", "every", "both", "some", "any", "other", "such", "as",
+    }
+
+    # Extract words and filter out stopwords
+    words = text.lower().split()
+    key_words = [w.replace("-", "").replace(",", "").replace(".", "")
+                 for w in words if w.replace("-", "").replace(",", "").replace(".", "")
+                 and w.replace("-", "").replace(",", "").replace(".", "") not in stopwords]
+
+    # Take up to 4 key words for a concise but meaningful group
+    key_words = key_words[:4]
+
+    # Convert to kebab-case
+    slug = "-".join(key_words).lower()
+    slug = re.sub(r"[^a-z0-9\-]+", "-", slug).strip("-")
+
+    return slug if slug else "misc"
 
 
 def _git_commit_hash() -> str:
@@ -101,14 +130,15 @@ def _git_commit_hash() -> str:
 
 
 def _default_group(summary: str) -> str:
-    # Default grouping ties related iterative work together by topic.
-    # Allow up to 70 chars to keep group IDs meaningful and complete.
-    return _slugify(summary, max_len=70)
+    """Generate a concise group name from a summary (2-4 key words)."""
+    return _extract_group_topic(summary)
 
 
 def _normalise_group(value: str) -> str:
-    # User-provided groups can be slightly longer (up to 75 chars) for extra clarity.
-    return _slugify(value, fallback="ungrouped", max_len=75)
+    """Normalize user-provided group name to kebab-case."""
+    slug = _slugify(value, fallback="ungrouped")
+    # User-provided groups can be longer if they're being explicit
+    return slug if len(slug) <= 40 else slug[:40]
 
 
 def generate_unique_id(agent: str, existing_ids: set[str]) -> str:

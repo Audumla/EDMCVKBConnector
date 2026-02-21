@@ -1,7 +1,7 @@
 [
   {
     "id": "CHG-55c6ba67",
-    "change_group": "migrate-all-existing-changelog-ids-to-simpler-co",
+    "change_group": "migrate-existing-changelog-ids",
     "plugin_version": "unreleased",
     "date": "2026-02-21",
     "summary_tags": [
@@ -36,7 +36,7 @@
   },
   {
     "id": "CHG-55c6ba67-2",
-    "change_group": "clarify-and-reorganize-configuration-files-for-b",
+    "change_group": "clarify-reorganize-configuration-files",
     "plugin_version": "unreleased",
     "date": "2026-02-21",
     "summary_tags": [
@@ -70,7 +70,7 @@
   },
   {
     "id": "CHG-55c6ba67-4",
-    "change_group": "changelog-reorganization",
+    "change_group": "move-changelog-files",
     "plugin_version": "unreleased",
     "date": "2026-02-21",
     "summary_tags": [
@@ -83,7 +83,7 @@
   },
   {
     "id": "CHG-0c018dfd",
-    "change_group": "release-notes-cleanup",
+    "change_group": "improve-release-notes-formatting",
     "plugin_version": "unreleased",
     "date": "2026-02-21",
     "summary_tags": [
@@ -100,7 +100,7 @@
   },
   {
     "id": "CHG-3dbb20de",
-    "change_group": "allow-longer-meaningful-group-ids",
+    "change_group": "increase-group-id-length",
     "plugin_version": "unreleased",
     "date": "2026-02-21",
     "summary_tags": [
@@ -112,6 +112,23 @@
       "Increased _normalise_group from 64 to 75 characters",
       "Updated release notes display to handle 50-char IDs",
       "Allows complete, meaningful group names in change entries"
+    ]
+  },
+  {
+    "id": "CHG-c71b0c59",
+    "change_group": "refactor-group-naming",
+    "plugin_version": "unreleased",
+    "date": "2026-02-21",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Refactor group naming to extract concise topic-focused names",
+    "details": [
+      "Created _extract_group_topic() to generate short group names from summaries",
+      "Extracts 2-4 key words while filtering common stopwords",
+      "Updated existing CHANGELOG.json entries to use new shorter names",
+      "Group names now 20-38 chars instead of 48+ chars, no truncation needed",
+      "Improved readability of release notes and change group index"
     ]
   }
 ]
