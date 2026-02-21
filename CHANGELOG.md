@@ -1,4 +1,13 @@
-# Release Notes - v0.5.0
+# Changelog
+
+## [0.5.1](https://github.com/Audumla/EDMCVKBConnector/compare/v0.5.0...v0.5.1) (2026-02-21)
+
+
+### Bug Fixes
+
+* Fix NameError in event_handler track_unregistered_events property ([17d3837](https://github.com/Audumla/EDMCVKBConnector/commit/17d38377de255ea006ba44e7e793087853c2f4a0))
+
+## Release Notes - v0.5.0
 
 _2026-02-19 - 2026-02-21_
 
