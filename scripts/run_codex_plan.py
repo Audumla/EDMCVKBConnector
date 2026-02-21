@@ -4,6 +4,9 @@ Run a Codex non-interactive session from a plan file and write progress artifact
 This script is intended to be called by another automation agent/process.
 All run outputs are written under:
     agent_artifacts/codex/reports/plan_runs/<run_id>/
+
+By default, each non-dry run executes in an isolated Git worktree on a new branch
+so file edits do not affect the caller's currently checked-out branch.
 """
 
 from __future__ import annotations
@@ -26,6 +29,14 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "reports" / "plan_runs"
+DEFAULT_WORKTREE_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "temp" / "worktrees"
+DEFAULT_CODEX_MODEL = "gpt-5.3-codex"
+EFFORT_LEVEL_MAP: dict[int, str] = {
+    1: "minimal",
+    2: "low",
+    3: "medium",
+    4: "high",
+}
 
 # OpenAI API pricing used for best-effort run cost estimates
 # (kept here, not imported; claude_run_plan.py reads cost_estimate from status.json instead of recalculating)
@@ -193,18 +204,47 @@ def parse_args() -> argparse.Namespace:
         help=f"Root folder for run artifacts (default: {DEFAULT_OUTPUT_ROOT}).",
     )
     parser.add_argument(
+        "--no-isolated-branch",
+        action="store_true",
+        help="Run directly in --workspace instead of creating a per-run worktree branch.",
+    )
+    parser.add_argument(
+        "--branch-prefix",
+        default="codex/plan-runs",
+        help="Git branch prefix for isolated runs (default: codex/plan-runs).",
+    )
+    parser.add_argument(
+        "--worktree-root",
+        type=Path,
+        default=DEFAULT_WORKTREE_ROOT,
+        help=f"Root folder for isolated run worktrees (default: {DEFAULT_WORKTREE_ROOT}).",
+    )
+    parser.add_argument(
         "--codex-bin",
         default="codex",
         help="Codex CLI executable name/path (default: codex).",
     )
     parser.add_argument(
         "--model",
+        default=DEFAULT_CODEX_MODEL,
+        help=f"Model value passed to Codex (default: {DEFAULT_CODEX_MODEL}).",
+    )
+    parser.add_argument(
+        "--effort",
+        type=int,
+        choices=sorted(EFFORT_LEVEL_MAP.keys()),
         default=None,
-        help="Optional model value passed to Codex.",
+        help="Reasoning effort level shorthand: 1=minimal, 2=low, 3=medium, 4=high.",
+    )
+    parser.add_argument(
+        "--thinking-budget",
+        choices=["none", "low", "medium", "high"],
+        default=None,
+        help="Extended thinking budget level (maps to effort: low→2, medium→3, high→4). Overrides --effort if provided.",
     )
     parser.add_argument(
         "--cost-model",
-        default="gpt-5",
+        default=DEFAULT_CODEX_MODEL,
         help="Model profile used for best-effort token cost estimate in status.json.",
     )
     parser.add_argument(
@@ -268,7 +308,89 @@ def unique_run_dir(output_root: Path, run_label: str) -> Path:
         idx += 1
 
 
-def build_command(args: argparse.Namespace, final_message_file: Path) -> list[str]:
+def git_run(repo: Path, git_args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(repo), *git_args],
+        capture_output=True,
+        text=True,
+    )
+
+
+def resolve_git_root(workspace: Path) -> Path:
+    result = git_run(workspace, ["rev-parse", "--show-toplevel"])
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"Workspace is not a Git repository: {detail or workspace}")
+    return Path(result.stdout.strip())
+
+
+def sanitize_branch_name(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9._/\-]+", "-", value)
+    cleaned = cleaned.strip("/.-")
+    while "//" in cleaned:
+        cleaned = cleaned.replace("//", "/")
+    while ".." in cleaned:
+        cleaned = cleaned.replace("..", ".")
+    cleaned = cleaned.replace("@{", "-")
+    return cleaned or "codex/plan-run"
+
+
+def branch_exists(repo: Path, branch_name: str) -> bool:
+    result = git_run(repo, ["show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"])
+    return result.returncode == 0
+
+
+def unique_branch_name(repo: Path, base_name: str) -> str:
+    base = sanitize_branch_name(base_name)
+    if not branch_exists(repo, base):
+        return base
+    suffix = 1
+    while True:
+        candidate = f"{base}-{suffix:02d}"
+        if not branch_exists(repo, candidate):
+            return candidate
+        suffix += 1
+
+
+def unique_worktree_dir(worktree_root: Path, branch_name: str) -> Path:
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "-", branch_name.replace("/", "__")).strip("-") or "run"
+    candidate = worktree_root / safe_name
+    if not candidate.exists():
+        return candidate
+    suffix = 1
+    while True:
+        next_candidate = worktree_root / f"{safe_name}-{suffix:02d}"
+        if not next_candidate.exists():
+            return next_candidate
+        suffix += 1
+
+
+def create_isolated_worktree(
+    *,
+    workspace: Path,
+    run_id: str,
+    branch_prefix: str,
+    worktree_root: Path,
+) -> tuple[str, Path, Path]:
+    repo_root = resolve_git_root(workspace)
+    branch_name = unique_branch_name(repo_root, f"{branch_prefix}/{run_id}")
+    worktree_root.mkdir(parents=True, exist_ok=True)
+    worktree_dir = unique_worktree_dir(worktree_root, branch_name)
+    result = git_run(
+        repo_root,
+        ["worktree", "add", "-b", branch_name, str(worktree_dir), "HEAD"],
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"Failed to create isolated worktree branch: {detail or branch_name}")
+    return branch_name, worktree_dir, repo_root
+
+
+def build_command(
+    args: argparse.Namespace,
+    final_message_file: Path,
+    execution_workspace: Path,
+) -> list[str]:
     cmd = [
         args.codex_bin,
         "--sandbox",
@@ -277,7 +399,7 @@ def build_command(args: argparse.Namespace, final_message_file: Path) -> list[st
         args.approval,
         "exec",
         "--cd",
-        str(args.workspace.resolve()),
+        str(execution_workspace.resolve()),
         "--output-last-message",
         str(final_message_file),
     ]
@@ -289,7 +411,21 @@ def build_command(args: argparse.Namespace, final_message_file: Path) -> list[st
         cmd.extend(["--profile", args.profile])
     for add_dir in args.add_dir:
         cmd.extend(["--add-dir", add_dir])
-    for config_override in args.config:
+    config_overrides = list(args.config)
+    has_explicit_effort = any(
+        re.match(r"^\s*model_reasoning_effort\s*=", item or "") for item in config_overrides
+    )
+
+    # If thinking-budget is provided, map it to effort level (overrides --effort if both given)
+    effort_to_use = args.effort
+    if args.thinking_budget and args.thinking_budget != "none":
+        thinking_budget_map = {"low": 2, "medium": 3, "high": 4, "none": 1}
+        effort_to_use = thinking_budget_map.get(args.thinking_budget, args.effort)
+
+    if effort_to_use is not None and not has_explicit_effort:
+        effort_name = EFFORT_LEVEL_MAP[effort_to_use]
+        config_overrides.append(f'model_reasoning_effort="{effort_name}"')
+    for config_override in config_overrides:
         cmd.extend(["--config", config_override])
     if args.codex_arg:
         cmd.extend(args.codex_arg)
@@ -303,6 +439,8 @@ def main() -> int:
     plan_file = args.plan_file.resolve()
     workspace = args.workspace.resolve()
     output_root = args.output_root.resolve()
+    worktree_root = args.worktree_root.resolve()
+    isolation_requested = not args.no_isolated_branch
 
     if not plan_file.exists():
         print(f"ERROR: Plan file not found: {plan_file}", file=sys.stderr)
@@ -325,6 +463,27 @@ def main() -> int:
     run_dir = unique_run_dir(output_root, run_label)
     run_dir.mkdir(parents=True, exist_ok=False)
 
+    execution_workspace = workspace
+    isolated_branch_name: str | None = None
+    isolated_worktree_path: Path | None = None
+    git_repo_root: Path | None = None
+    if isolation_requested and not args.dry_run:
+        try:
+            (
+                isolated_branch_name,
+                isolated_worktree_path,
+                git_repo_root,
+            ) = create_isolated_worktree(
+                workspace=workspace,
+                run_id=run_dir.name,
+                branch_prefix=args.branch_prefix,
+                worktree_root=worktree_root,
+            )
+            execution_workspace = isolated_worktree_path
+        except RuntimeError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+
     plan_copy = run_dir / "plan_input.txt"
     metadata_file = run_dir / "metadata.json"
     status_file = run_dir / "status.json"
@@ -335,7 +494,7 @@ def main() -> int:
     command_file = run_dir / "command.txt"
 
     shutil.copy2(plan_file, plan_copy)
-    command = build_command(args, final_message_file)
+    command = build_command(args, final_message_file, execution_workspace)
     command_file.write_text(" ".join(command) + "\n", encoding="utf-8")
 
     metadata: dict[str, Any] = {
@@ -343,7 +502,18 @@ def main() -> int:
         "created_at": utc_now(),
         "plan_file": str(plan_file),
         "plan_copy": str(plan_copy),
-        "workspace": str(workspace),
+        "workspace": str(execution_workspace),
+        "workspace_requested": str(workspace),
+        "workspace_execution": str(execution_workspace),
+        "isolation": {
+            "requested": isolation_requested,
+            "active": isolated_branch_name is not None,
+            "branch_prefix": args.branch_prefix,
+            "branch_name": isolated_branch_name,
+            "worktree_root": str(worktree_root),
+            "worktree_path": str(isolated_worktree_path) if isolated_worktree_path else None,
+            "git_repo_root": str(git_repo_root) if git_repo_root else None,
+        },
         "resolved_codex_bin": resolved_codex_bin,
         "codex_bin_resolution": resolve_method or "as_provided_or_path",
         "command": command,
@@ -412,7 +582,7 @@ def main() -> int:
     try:
         proc = subprocess.Popen(
             command,
-            cwd=str(workspace),
+            cwd=str(execution_workspace),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -537,6 +707,9 @@ def main() -> int:
         raise
 
     print(f"Run directory: {run_dir}")
+    if isolated_branch_name:
+        print(f"Execution branch: {isolated_branch_name}")
+        print(f"Execution workspace: {execution_workspace}")
     print(f"Status file: {status_file}")
     return int(status["return_code"] or 0)
 

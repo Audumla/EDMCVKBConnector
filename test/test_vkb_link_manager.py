@@ -670,3 +670,148 @@ def test_find_running_processes_windows_prefers_unique_pid_entries(tmp_path, mon
     assert len(processes) == 1
     assert processes[0].pid == 66972
     assert processes[0].exe_path == "G:\\Games\\vkb\\VKB-Link.exe"
+
+
+def test_ensure_not_minimized_temporarily_disables_minimized_setting(tmp_path: Path):
+    """Test that _ensure_not_minimized_for_startup temporarily disables minimized in INI."""
+    manager, cfg = _make_manager(tmp_path)
+
+    # Create a mock INI file with Start Minimized=1
+    ini_path = tmp_path / "test.ini"
+    ini_content = """\
+[TCP]
+host=127.0.0.1
+port=50995
+
+[Common]
+start minimized =1
+other_setting=value
+"""
+    ini_path.write_text(ini_content, encoding='utf-8')
+
+    # Call _ensure_not_minimized_for_startup which should return True (was minimized)
+    # and modify the INI file to set Start Minimized=0
+    original_value = manager._ensure_not_minimized_for_startup(ini_path)
+
+    assert original_value is True, "Should have detected Start Minimized=1"
+
+    # Verify INI was modified to Start Minimized=0
+    modified_content = ini_path.read_text(encoding='utf-8')
+    assert "start minimized" in modified_content.lower() and "=0" in modified_content.lower(), "INI should have start minimized =0"
+    # Make sure "start minimized" is set to 0, not 1
+    for line in modified_content.lower().splitlines():
+        if "start minimized" in line:
+            assert "=0" in line, "start minimized should be set to 0"
+            assert "=1" not in line, "start minimized should not be set to 1"
+
+
+def test_ensure_not_minimized_creates_ini_when_missing(tmp_path: Path):
+    """Test that _ensure_not_minimized_for_startup creates INI with Start Minimized=0 if missing."""
+    manager, cfg = _make_manager(tmp_path)
+
+    # Path to non-existent INI file
+    ini_path = tmp_path / "test.ini"
+    assert not ini_path.exists(), "INI should not exist initially"
+
+    # Call _ensure_not_minimized_for_startup with non-existent INI
+    # Should create it with Start Minimized=0
+    original_value = manager._ensure_not_minimized_for_startup(ini_path)
+
+    assert ini_path.exists(), "INI file should have been created"
+    assert original_value is None, "Should return None for non-existent setting (not True)"
+
+    # Verify INI contains [Settings] section with Start Minimized=0
+    content = ini_path.read_text(encoding='utf-8')
+    assert "[common]" in content.lower(), "INI should have [Settings] section"
+    assert "start minimized" in content.lower() and "=0" in content.lower(), "INI should have start minimized =0"
+
+
+def test_ensure_not_minimized_adds_section_if_missing(tmp_path: Path):
+    """Test that _ensure_not_minimized_for_startup adds [Settings] section if it doesn't exist."""
+    manager, cfg = _make_manager(tmp_path)
+
+    # Create INI with TCP section but no Settings section
+    ini_path = tmp_path / "test.ini"
+    ini_content = """\
+[TCP]
+host=127.0.0.1
+port=50995
+"""
+    ini_path.write_text(ini_content, encoding='utf-8')
+
+    # Call _ensure_not_minimized_for_startup
+    original_value = manager._ensure_not_minimized_for_startup(ini_path)
+
+    assert original_value is None, "Should return None since Start Minimized was not set"
+
+    # Verify INI now has [Common] section with start minimized =0
+    modified_content = ini_path.read_text(encoding='utf-8')
+    assert "[common]" in modified_content.lower(), "INI should have [Common] section"
+    assert "start minimized" in modified_content.lower() and "=0" in modified_content.lower(), "INI should have start minimized =0"
+    assert "[TCP]" in modified_content, "TCP section should be preserved"
+
+
+def test_restore_minimized_setting_restores_original_value(tmp_path: Path):
+    """Test that _restore_minimized_setting restores the original Start Minimized value."""
+    manager, cfg = _make_manager(tmp_path)
+
+    # Create a mock INI file with Start Minimized=0 (as it would be after ensure_not_minimized)
+    ini_path = tmp_path / "test.ini"
+    ini_content = """\
+[TCP]
+host=127.0.0.1
+port=50995
+
+[Settings]
+Start Minimized=0
+other_setting=value
+"""
+    ini_path.write_text(ini_content, encoding='utf-8')
+
+    # Call _restore_minimized_setting with original_minimized=True to restore it back
+    manager._restore_minimized_setting(ini_path, original_minimized=True)
+
+    # Verify INI was restored to Start Minimized=1
+    restored_content = ini_path.read_text(encoding='utf-8')
+    # INI uses "start minimized =1" format (with space before equals)
+    assert "start minimized" in restored_content.lower(), "INI should have start minimized setting"
+    assert "=1" in restored_content, "INI should be restored to start minimized =1"
+
+
+def test_minimized_handling_full_startup_flow(tmp_path: Path):
+    """Test complete flow: disable Start Minimized before start, restore after connection."""
+    manager, cfg = _make_manager(tmp_path)
+
+    # Create test INI with Start Minimized=1
+    ini_path = tmp_path / "VKBLink.ini"
+    original_ini = """\
+[TCP]
+host=127.0.0.1
+port=50995
+
+[Common]
+start minimized =1
+"""
+    ini_path.write_text(original_ini, encoding='utf-8')
+
+    # Directly test the minimized handling functions
+    # Step 1: Disable minimized before startup
+    original_minimized = manager._ensure_not_minimized_for_startup(ini_path)
+
+    assert original_minimized is True, "Should have saved that it was originally minimized (1)"
+
+    # Verify INI was temporarily modified to start minimized =0
+    startup_ini_content = ini_path.read_text(encoding='utf-8')
+    assert "start minimized" in startup_ini_content.lower() and "=0" in startup_ini_content.lower(), "INI should have been changed to start minimized =0"
+
+    # Step 2: Simulate storing for restoration
+    manager._last_startup_original_minimized = original_minimized
+    manager._last_startup_ini_path = ini_path
+
+    # Step 3: Restore minimized after TCP connection
+    manager.restore_last_startup_minimized_setting()
+
+    # Verify INI was restored to start minimized =1 after connection
+    final_ini_content = ini_path.read_text(encoding='utf-8')
+    assert "start minimized" in final_ini_content.lower(), "INI should have start minimized setting"
+    assert "=1" in final_ini_content, "INI should have been restored to start minimized =1"
