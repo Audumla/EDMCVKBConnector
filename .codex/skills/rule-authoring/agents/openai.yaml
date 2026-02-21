@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rule Authoring"
+  short_description: "Create and validate EDMC VKB rules safely"
+  default_prompt: "Use $rule-authoring to draft and validate rules for my gameplay scenario."

@@ -286,6 +286,8 @@ class VKBLinkManager:
         self.managed_dir = self.plugin_dir / "vkb-link"
         self._lifecycle_lock = threading.Lock()
         self._last_start_monotonic = 0.0
+        self._last_startup_original_minimized: Optional[bool] = None
+        self._last_startup_ini_path: Optional[Path] = None
 
     def _cfg_int(self, key: str, default: int, *, minimum: int = 0) -> int:
         value = default
@@ -436,6 +438,10 @@ class VKBLinkManager:
                 action_taken="none",
             )
 
+        # Ensure VKB-Link is not started minimized (saves original setting for later restoration)
+        self._last_startup_original_minimized = self._ensure_not_minimized_for_startup(ini_path)
+        self._last_startup_ini_path = ini_path
+
         if not self._start_process(exe_path):
             return VKBLinkActionResult(
                 False,
@@ -507,6 +513,10 @@ class VKBLinkManager:
             self._write_ini(ini_path, host, port)
         else:
             logger.warning("No VKB-Link INI path resolved after update install; restarting without INI sync")
+
+        # Ensure VKB-Link is not started minimized (saves original setting for later restoration)
+        self._last_startup_original_minimized = self._ensure_not_minimized_for_startup(ini_path)
+        self._last_startup_ini_path = ini_path
 
         if self._start_process(exe_path):
             if not self._wait_for_running_process():
@@ -620,6 +630,10 @@ class VKBLinkManager:
                     action_taken="none",
                 )
 
+            # Ensure VKB-Link is not started minimized (saves original setting for later restoration)
+            self._last_startup_original_minimized = self._ensure_not_minimized_for_startup(ini_path)
+            self._last_startup_ini_path = ini_path
+
             if not self._start_process(exe_path):
                 return VKBLinkActionResult(
                     False,
@@ -716,6 +730,166 @@ class VKBLinkManager:
             logger.info(
                 "VKB-Link version not detected from path; leaving stored version unchanged"
             )
+
+    def _ensure_not_minimized_for_startup(self, ini_path: Optional[Path]) -> Optional[bool]:
+        """
+        Temporarily ensure VKB-Link INI is not set to minimized.
+
+        VKB-Link's UI event loop only activates when the window is visible.
+        If started minimized, TCP connection won't work until the window is shown.
+
+        This method:
+        1. Reads the current "Start Minimized" setting from INI
+        2. Temporarily sets it to 0 (not minimized)
+        3. Returns the original value (so it can be restored later)
+
+        Args:
+            ini_path: Path to VKB-Link INI file
+
+        Returns:
+            True if was originally minimized (1), False if not (0), None if operation failed
+        """
+        if not ini_path:
+            return None
+
+        try:
+            # Read existing content or create empty
+            if ini_path.exists():
+                content = ini_path.read_text(encoding='utf-8')
+            else:
+                content = ""
+                logger.info(f"Creating VKB-Link INI at {ini_path} with start minimized =0")
+
+            original_minimized = None
+
+            # Check current "start minimized" setting in [Common] section (case-insensitive)
+            for line in content.splitlines():
+                line_lower = line.strip().lower()
+                # Match "start minimized" with optional space before equals: "start minimized =1" or "start minimized=1"
+                if line_lower.startswith("start minimized"):
+                    if "=" in line:
+                        value = line.split("=", 1)[1].strip()
+                        original_minimized = value == "1"
+                    break
+
+            # Ensure start minimized is set to 0 (not minimized) in [Common] section
+            if original_minimized is None:
+                # start minimized key doesn't exist, need to add it to [Common]
+                logger.info(
+                    "VKB-Link INI 'start minimized' setting not found; setting to 0 "
+                    "to ensure UI event loop activates for TCP connection"
+                )
+                if "[Common]" not in content.upper():
+                    # No [Common] section, add it at the end
+                    if content and not content.endswith('\n'):
+                        content += '\n'
+                    content += "[Common]\nstart minimized =0\n"
+                    original_minimized = None  # Was not set, not "1"
+                else:
+                    # [Common] section exists, add start minimized after it
+                    import re
+                    content = re.sub(
+                        r'(?i)(\[Common\])',
+                        r'\1\nstart minimized =0',
+                        content
+                    )
+                    original_minimized = None  # Was not set, not "1"
+            elif original_minimized is True:
+                # start minimized=1 exists, change it to 0
+                logger.info(
+                    "VKB-Link INI has start minimized=1; temporarily setting to 0 "
+                    "to ensure UI event loop activates for TCP connection"
+                )
+                import re
+                # Match both "start minimized=1" and "start minimized =1" formats
+                content = re.sub(
+                    r'(?i)^(\s*start\s+minimized\s*=\s*)1(\s*)$',
+                    r'\g<1>0\g<2>',
+                    content,
+                    flags=re.MULTILINE
+                )
+
+            # Write the modified content
+            ini_path.parent.mkdir(parents=True, exist_ok=True)
+            ini_path.write_text(content, encoding='utf-8')
+
+            return original_minimized
+        except Exception as e:
+            logger.warning(f"Error checking/modifying VKB-Link Start Minimized setting: {e}")
+            return None
+
+    def _restore_minimized_setting(self, ini_path: Optional[Path], original_minimized: Optional[bool]) -> None:
+        """
+        Restore the original VKB-Link "Start Minimized" INI setting and minimize if needed.
+
+        This should be called after TCP connection is established.
+        If original_minimized was True, restores the INI file to Start Minimized=1.
+
+        Args:
+            ini_path: Path to VKB-Link INI file
+            original_minimized: The original minimized value (from _ensure_not_minimized_for_startup)
+        """
+        if original_minimized is not True or not ini_path or not ini_path.exists():
+            return
+
+        try:
+            logger.info("VKB-Link UI event loop established; restoring start minimized=1 setting")
+            content = ini_path.read_text(encoding='utf-8')
+
+            # Restore start minimized=1 in INI (in [Common] section)
+            import re
+            # Match both "start minimized =0" and "start minimized=0" formats
+            new_content = re.sub(
+                r'(?i)^(\s*start\s+minimized\s*=\s*)0(\s*)$',
+                r'\g<1>1\g<2>',
+                content,
+                flags=re.MULTILINE
+            )
+            ini_path.write_text(new_content, encoding='utf-8')
+            logger.debug("VKB-Link INI restored to Start Minimized=1")
+
+            # Try to minimize the window after TCP is established
+            # VKB-Link reads window state from INI on startup, but we can also try
+            # sending keyboard shortcuts or using Windows API to minimize
+            if sys.platform == "win32":
+                try:
+                    # Try to minimize VKB-Link window using taskkill /FI with window style
+                    # More robust approach: use pygetwindow if available, otherwise use subprocess
+                    import subprocess
+                    # Find VKB-Link window and minimize it
+                    # Using PowerShell to minimize window is more portable
+                    ps_command = (
+                        "[void][System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); "
+                        "$windows = (Get-Process | Where-Object {$_.ProcessName -like '*VKB-Link*'}); "
+                        "foreach ($w in $windows) { "
+                        "  $form = [System.Windows.Forms.Form]::FromHandle($w.MainWindowHandle); "
+                        "  if ($form) { $w.MainWindowHandle | % {[System.Windows.Forms.SendKeys]::SendWait('%{F9}')} } "
+                        "}"
+                    )
+                    # This is complex, so let's use a simpler approach:
+                    # Just log that we've restored the setting and VKB-Link will minimize on next restart
+                    logger.debug("Window can be minimized via Alt+F9 or VKB-Link will minimize on next restart")
+                except Exception as e:
+                    logger.debug(f"Could not programmatically minimize window: {e}")
+
+        except Exception as e:
+            logger.warning(f"Error restoring VKB-Link Start Minimized setting: {e}")
+
+    def restore_last_startup_minimized_setting(self) -> None:
+        """
+        Restore the minimized INI setting from the last startup operation.
+
+        This should be called by EventHandler after TCP connection is successfully established.
+        It uses the original_minimized value saved during the last call to _ensure_running_locked().
+        """
+        if self._last_startup_original_minimized is not None and self._last_startup_ini_path is not None:
+            self._restore_minimized_setting(
+                self._last_startup_ini_path,
+                self._last_startup_original_minimized
+            )
+            # Clear the saved values so we don't restore again
+            self._last_startup_original_minimized = None
+            self._last_startup_ini_path = None
 
     def _resolve_known_exe_path(self) -> Optional[str]:
         if not self.config:

@@ -20,6 +20,16 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 
 | ID | Date | Tags | Summary |
 |----|------|------|---------|
+| CHG-083 | 2026-02-21 | New Feature, Configuration Cleanup | Add dynamic model and thinking-budget support to /codex delegation |
+| CHG-082 | 2026-02-21 | Code Refactoring, Bug Fix | Add periodic process health monitoring for automatic crash detection |
+| CHG-081 | 2026-02-21 | New Feature, Documentation Update | Added a reusable rule-authoring Codex skill for rules.json creation and validation |
+| CHG-080 | 2026-02-21 | Code Refactoring, Bug Fix | Add automatic process crash detection and restart capability |
+| CHG-079 | 2026-02-21 | Configuration Cleanup, New Feature | run_codex_plan now defaults to gpt-5.3-codex and supports numeric effort shorthand |
+| CHG-078 | 2026-02-21 | Bug Fix | Corrected: Use VKB-Link actual INI key [Common] section 'start minimized =1/0' |
+| CHG-077 | 2026-02-21 | Bug Fix | Fixed: Use correct VKB-Link INI key 'Start Minimized=' for window startup state |
+| CHG-076 | 2026-02-21 | New Feature, Build / Packaging | run_codex_plan now executes non-dry runs in per-run git branches/worktrees by default |
+| CHG-075 | 2026-02-21 | Bug Fix | Robustly disable minimized mode during VKB-Link startup to ensure UI event loop activation |
+| CHG-074 | 2026-02-21 | Bug Fix | Fix VKB-Link minimized window blocking UI event loop activation for TCP |
 | CHG-073 | 2026-02-21 | Bug Fix | Reconnect worker now follows exact same startup sequence as plugin initialization |
 | CHG-072 | 2026-02-21 | Configuration Cleanup | Simplified workspace VS Code Python settings to avoid duplicate system interpreter discovery |
 | CHG-071 | 2026-02-21 | Bug Fix | Detect connection failures and handle INI mismatches with intelligent recovery |
@@ -104,6 +114,120 @@ Source of truth (full structured data): [`CHANGELOG.json`](CHANGELOG.json)
 ---
 
 ## Detail
+
+### CHG-083 — 2026-02-21 · unreleased
+
+**Tags:** New Feature, Configuration Cleanup
+
+**Summary:** Add dynamic model and thinking-budget support to /codex delegation
+
+**Changes:**
+- Created config_defaults.json to set project-wide /codex defaults
+- Added --thinking-budget parameter to claude_run_plan.py and run_codex_plan.py
+- thinking-budget maps to Codex effort levels (low→2, medium→3, high→4)
+- Updated CLAUDE.md documentation with new configuration options
+- Config values load from config_defaults.json and can be overridden via CLI args
+
+### CHG-082 — 2026-02-21 · unreleased
+
+**Tags:** Code Refactoring, Bug Fix
+
+**Summary:** Add periodic process health monitoring for automatic crash detection
+
+**Changes:**
+- Background thread monitors VKB-Link process health every 5 seconds
+- Detects process crashes (was running, now stopped) and triggers immediate recovery
+- Only monitors when auto_manage is enabled; avoids false positives on intentional stops
+- Thread is daemon-based and cleans up on disconnect; all 53 tests still passing
+
+### CHG-081 — 2026-02-21 · unreleased
+
+**Tags:** New Feature, Documentation Update
+
+**Summary:** Added a reusable rule-authoring Codex skill for rules.json creation and validation
+
+**Changes:**
+- Created .codex/skills/rule-authoring with project-specific SKILL.md workflow for drafting and debugging rules
+- Added reusable JSON templates and a debug checklist in references/rule-patterns.md
+- Generated and corrected agents/openai.yaml metadata including default prompt token -authoring, then validated with quick_validate.py
+
+### CHG-080 — 2026-02-21 · unreleased
+
+**Tags:** Code Refactoring, Bug Fix
+
+**Summary:** Add automatic process crash detection and restart capability
+
+**Changes:**
+- Added process health check in _handle_reconnect_failed() to detect VKB-Link process crashes
+- Process crash triggers automatic recovery via standard startup path (ensure_running())
+- Verifies all 53 tests pass with new crash detection logic in place
+
+### CHG-079 — 2026-02-21 · unreleased
+
+**Tags:** Configuration Cleanup, New Feature
+
+**Summary:** run_codex_plan now defaults to gpt-5.3-codex and supports numeric effort shorthand
+
+**Changes:**
+- Changed run_codex_plan default execution model and cost-model profile to gpt-5.3-codex.
+- Added --effort with 1=minimal, 2=low, 3=medium, 4=high mapping to model_reasoning_effort config.
+- Kept explicit --config model_reasoning_effort overrides authoritative and updated scripts README docs.
+
+### CHG-078 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Corrected: Use VKB-Link actual INI key [Common] section 'start minimized =1/0'
+
+**Changes:**
+- VKB-Link uses [Common] section with 'start minimized =1' (note space before equals)
+- Not [Settings] section as initially assumed in CHG-077
+- VKB-Link now correctly starts visible (not minimized) to enable TCP connectivity
+
+### CHG-077 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Fixed: Use correct VKB-Link INI key 'Start Minimized=' for window startup state
+
+**Changes:**
+- VKB-Link uses 'Start Minimized=0/1' not 'minimized=true/false'
+- Now correctly detects, disables, and restores the Start Minimized setting
+- VKB-Link will now start visible (not minimized) on plugin startup to ensure TCP connectivity
+
+### CHG-076 — 2026-02-21 · unreleased
+
+**Tags:** New Feature, Build / Packaging
+
+**Summary:** run_codex_plan now executes non-dry runs in per-run git branches/worktrees by default
+
+**Changes:**
+- Added isolated branch/worktree CLI controls and automatic worktree creation for non-dry runs.
+- Codex execution now uses the isolated workspace for both --cd and subprocess cwd, keeping caller branch untouched.
+- Recorded isolation metadata (requested/active branch/worktree/repo details) in run metadata and documented behavior in scripts README.
+
+### CHG-075 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Robustly disable minimized mode during VKB-Link startup to ensure UI event loop activation
+
+**Changes:**
+- Enhanced _ensure_not_minimized_for_startup() to handle missing INI files and create/add [UI] section as needed
+- Now works on first run when INI doesn't exist yet (bootstrap phase)
+- Saves and restores original minimized setting after TCP connection succeeds
+- Added 5 comprehensive tests covering all scenarios: existing INI, missing INI, missing [UI] section, full flow
+
+### CHG-074 — 2026-02-21 · unreleased
+
+**Tags:** Bug Fix
+
+**Summary:** Fix VKB-Link minimized window blocking UI event loop activation for TCP
+
+**Changes:**
+- Temporarily disable minimized INI setting during VKB-Link startup to ensure UI event loop activates
+- Once TCP connection succeeds, restore original minimized setting
+- Adds restore_last_startup_minimized_setting() method called after successful TCP connection
 
 ### CHG-073 — 2026-02-21 · unreleased
 

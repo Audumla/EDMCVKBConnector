@@ -77,6 +77,7 @@ def load_or_build_report(run_dir: Path) -> dict:
     report_file = run_dir / "claude_report.json"
     task_summary = "Codex run summary"
     claude_model = "claude-sonnet-4-6"
+    thinking_budget = "none"
     claude_input_tokens = 0
     claude_output_tokens = 0
     codex_model_hint = "gpt-5"
@@ -87,6 +88,7 @@ def load_or_build_report(run_dir: Path) -> dict:
             claude_section = previous.get("claude_planning", {})
             if isinstance(claude_section, dict):
                 claude_model = claude_section.get("model") or claude_model
+                thinking_budget = claude_section.get("thinking_budget") or thinking_budget
                 claude_input_tokens = int(claude_section.get("input_tokens") or 0)
                 claude_output_tokens = int(claude_section.get("output_tokens") or 0)
             codex_section = previous.get("codex_execution", {})
@@ -110,6 +112,7 @@ def load_or_build_report(run_dir: Path) -> dict:
         claude_model=claude_model,
         claude_input_tokens=claude_input_tokens,
         claude_output_tokens=claude_output_tokens,
+        thinking_budget=thinking_budget,
         codex_model_hint=codex_model_hint,
         codex_input_rate=None,
         codex_cached_input_rate=None,

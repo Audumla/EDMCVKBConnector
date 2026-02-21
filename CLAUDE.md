@@ -45,36 +45,60 @@ When the user's prompt contains the label `/codex`, delegate the task to Codex v
    - Use clear markdown: Goal, Steps, Acceptance criteria, and any Out-of-scope notes.
    - Be specific enough that Codex can act without further clarification.
 
-2. **Run the wrapper script:**
+2. **Configure defaults (optional):**
+
+   Edit `config_defaults.json` to set project-wide defaults for `/codex` delegation:
+
+   ```json
+   {
+     "codex_delegation": {
+       "claude_model": "claude-sonnet-4-6",
+       "thinking_budget": "none",
+       "claude_input_tokens": 5000,
+       "claude_output_tokens": 2000,
+       "codex_model": "gpt-5"
+     }
+   }
+   ```
+
+   Supported `thinking_budget` values:
+   - `"none"` (default) — standard Claude reasoning
+   - `"low"` — minimal extended thinking (Codex effort level 2)
+   - `"medium"` — moderate extended thinking (Codex effort level 3)
+   - `"high"` — maximum extended thinking (Codex effort level 4)
+
+3. **Run the wrapper script:**
 
    ```bash
    python scripts/claude_run_plan.py \
        --plan-file agent_artifacts/claude/temp/<short-task-name>.md \
        --claude-model claude-sonnet-4-6 \
+       --thinking-budget medium \
        --task-summary "<one-line description>" \
        --run-name <short-task-name>
    ```
 
-   Note: Token estimates default to 5000 input / 2000 output. Only override if your plan is unusually large:
+   All `claude_run_plan.py` arguments are loaded from `config_defaults.json` if not specified on the command line.
+
+   Optional overrides:
 
    ```bash
+   # Token estimates (default: 5000 input / 2000 output)
    --claude-input-tokens 10000 --claude-output-tokens 5000
-   ```
 
-   Codex execution-cost estimation defaults to `gpt-5` rates. Override only if needed:
-
-   ```bash
+   # Codex model for cost estimation (default: gpt-5)
    --codex-model gpt-5-mini
-   # or explicit rates (USD / million tokens)
+
+   # Explicit cost rates (USD / million tokens)
    --codex-input-rate 0.25 --codex-cached-input-rate 0.025 --codex-output-rate 2.0
    ```
 
-3. **Report the outcome** to the user:
+4. **Report the outcome** to the user:
    - State: succeeded / failed / dry_run
    - Duration, Codex token usage, and estimated cost (from `claude_report.json`)
    - Final message from Codex (the `final_message` field)
 
-4. **Update the changelog** as normal after a successful run.
+5. **Update the changelog** as normal after a successful run.
 
 The run artifacts (plan, logs, events, report) are written under
 `agent_artifacts/codex/reports/plan_runs/<run_id>/`.

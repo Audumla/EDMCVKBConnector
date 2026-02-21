@@ -105,6 +105,12 @@ class EventHandler:
         self._has_successful_vkb_connection = False
         self._vkb_process_was_running = False  # Track process state for settle delay gating
 
+        # Process health monitoring
+        self._process_monitor_thread: Optional[threading.Thread] = None
+        self._process_monitor_stop = threading.Event()
+        self._last_known_process_running = False  # Track state to avoid duplicate recovery triggers
+        self._start_process_health_monitor()
+
     def set_connection_status_override(self, status: Optional[str]) -> None:
         """Set temporary UI-facing connection status text."""
         with self._connection_status_lock:
@@ -181,9 +187,21 @@ class EventHandler:
         """
         Handle reconnection failure when process is running and ready.
 
-        Detects INI mismatches and triggers recovery, or marks terminal error if INI is correct.
+        Detects INI mismatches, process crashes, and triggers recovery as needed.
         """
         if not self.config or not self.vkb_link_manager or not self.vkb_client:
+            return
+
+        # First check: Is the VKB-Link process still actually running?
+        # (Process could have crashed between readiness check and TCP attempt)
+        if self.vkb_link_manager.is_running():
+            logger.info("VKB-Link reconnection failed but process is still running; checking INI")
+        else:
+            # Process is NOT running - restart it immediately
+            logger.warning(
+                "VKB-Link process has crashed or stopped; restarting via standard startup path"
+            )
+            self._attempt_vkb_link_recovery(reason="process_crashed")
             return
 
         # Get expected host/port from plugin config
@@ -511,18 +529,91 @@ class EventHandler:
             self.vkb_client.port = vkb_port
 
     def disconnect(self) -> None:
-        """Disconnect from VKB hardware."""
+        """Disconnect from VKB hardware and stop health monitoring."""
         self.vkb_client.disconnect()
+        self._stop_process_health_monitor()
+
+    def _start_process_health_monitor(self) -> None:
+        """Start the background process health monitoring thread."""
+        if self._process_monitor_thread is not None:
+            return  # Already running
+
+        self._process_monitor_stop.clear()
+        self._process_monitor_thread = threading.Thread(
+            target=self._monitor_process_health,
+            daemon=True,
+            name="VKB-LinkProcessMonitor",
+        )
+        self._process_monitor_thread.start()
+
+    def _stop_process_health_monitor(self) -> None:
+        """Stop the background process health monitoring thread."""
+        if self._process_monitor_thread is None:
+            return
+
+        self._process_monitor_stop.set()
+        try:
+            self._process_monitor_thread.join(timeout=2.0)
+        except Exception as e:
+            logger.debug(f"Error stopping process monitor thread: {e}")
+        self._process_monitor_thread = None
+
+    def _monitor_process_health(self) -> None:
+        """
+        Periodically monitor VKB-Link process health.
+
+        If the process is detected as crashed (was running, now is not), trigger recovery.
+        Only monitors if auto_manage is enabled.
+        """
+        check_interval = 5.0  # Check every 5 seconds
+
+        while not self._process_monitor_stop.is_set():
+            try:
+                # Only monitor if we're managing the process
+                auto_manage = bool(self.config and self.config.get("vkb_link_auto_manage", True))
+                if not auto_manage or not self.vkb_link_manager:
+                    self._process_monitor_stop.wait(check_interval)
+                    continue
+
+                # Check current process state
+                status = self.vkb_link_manager.get_status(check_running=True)
+                is_running = status.running is True
+
+                # Detect crash: process was running, now it's not
+                if self._last_known_process_running and not is_running:
+                    logger.warning(
+                        "VKB-Link process crash detected during health monitoring; "
+                        "triggering recovery"
+                    )
+                    self._attempt_vkb_link_recovery(reason="process_crash_detected")
+
+                # Update state tracking
+                self._last_known_process_running = is_running
+
+            except Exception as e:
+                logger.debug(f"Error in process health monitor: {e}")
+
+            # Wait for stop signal or timeout
+            self._process_monitor_stop.wait(check_interval)
 
     def clear_shift_state_for_shutdown(self) -> bool:
         """Send a zero shift/subshift state before shutdown without recovery side effects."""
+        logger.info(
+            f"VKB-Link shutdown: clearing shift state "
+            f"(current shift=0x{self._shift_bitmap & 0x03:02x} subshift=0x{self._subshift_bitmap & 0x7f:02x}) "
+            f"vkb_client connected={self.vkb_client and self.vkb_client.is_connected()}"
+        )
         self._shift_bitmap = 0
         self._subshift_bitmap = 0
         sent = self._send_shift_state_if_changed(force=True, allow_recovery=False)
         if sent:
-            logger.info("VKB-Link shutdown clear state sent")
+            logger.info("VKB-Link shutdown clear state sent successfully")
         else:
-            logger.warning("VKB-Link shutdown clear state send failed")
+            logger.warning(
+                f"VKB-Link shutdown clear state send failed "
+                f"(vkb_client available={self.vkb_client is not None}, "
+                f"connected={self.vkb_client.is_connected() if self.vkb_client else False})"
+            )
         return sent
 
     def handle_event(
@@ -610,6 +701,9 @@ class EventHandler:
         # Clear terminal error on successful connection
         if self.vkb_client:
             self.vkb_client.clear_terminal_error()
+        # Restore minimized INI setting now that TCP is established (UI event loop active)
+        if self.vkb_link_manager:
+            self.vkb_link_manager.restore_last_startup_minimized_setting()
         logger.info(
             "VKB socket connected; resending current shift state "
             f"(shift=0x{self._shift_bitmap & 0x03:02x} subshift=0x{self._subshift_bitmap & 0x7f:02x})"
@@ -655,6 +749,10 @@ class EventHandler:
             self._reset_shift_state()
 
     def _reset_shift_state(self) -> None:
+        logger.info(
+            f"Resetting shift state on session event "
+            f"(current shift=0x{self._shift_bitmap & 0x03:02x} subshift=0x{self._subshift_bitmap & 0x7f:02x})"
+        )
         self._shift_bitmap = 0
         self._subshift_bitmap = 0
         self._send_shift_state_if_changed(force=True)

@@ -32,6 +32,16 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# Load default configuration
+CONFIG_FILE = PROJECT_ROOT / "config_defaults.json"
+_config_defaults = {}
+if CONFIG_FILE.exists():
+    try:
+        _config_data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        _config_defaults = _config_data.get("codex_delegation", {})
+    except json.JSONDecodeError:
+        pass
+
 # ---------------------------------------------------------------------------
 # Pricing tables (USD per million tokens)
 # ---------------------------------------------------------------------------
@@ -67,18 +77,21 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         add_help=True,
     )
     # Claude-specific args
-    parser.add_argument("--claude-model", default="claude-sonnet-4-6",
-                        help="Claude model ID used for the planning phase (default: claude-sonnet-4-6).")
-    parser.add_argument("--claude-input-tokens", type=int, default=5000,
-                        help="Input tokens used by Claude during planning (default: 5000 for typical plan files).")
-    parser.add_argument("--claude-output-tokens", type=int, default=2000,
-                        help="Output tokens used by Claude during planning (default: 2000 for typical plan files).")
+    parser.add_argument("--claude-model", default=_config_defaults.get("claude_model", "claude-sonnet-4-6"),
+                        help="Claude model ID used for the planning phase (default: from config_defaults.json or claude-sonnet-4-6).")
+    parser.add_argument("--claude-input-tokens", type=int, default=_config_defaults.get("claude_input_tokens", 5000),
+                        help="Input tokens used by Claude during planning (default: from config_defaults.json or 5000).")
+    parser.add_argument("--claude-output-tokens", type=int, default=_config_defaults.get("claude_output_tokens", 2000),
+                        help="Output tokens used by Claude during planning (default: from config_defaults.json or 2000).")
+    parser.add_argument("--thinking-budget", default=_config_defaults.get("thinking_budget", "none"),
+                        choices=["none", "low", "medium", "high"],
+                        help="Extended thinking budget for Claude (default: from config_defaults.json or 'none'). Pass to run_codex_plan.py.")
     parser.add_argument("--task-summary", default="",
                         help="One-line description of the task Claude is orchestrating.")
     parser.add_argument(
         "--codex-model",
-        default="gpt-5",
-        help="Codex model used for execution-cost estimation (default: gpt-5).",
+        default=_config_defaults.get("codex_model", "gpt-5"),
+        help="Codex model used for execution-cost estimation (default: from config_defaults.json or gpt-5).",
     )
     parser.add_argument(
         "--codex-input-rate",
@@ -283,7 +296,7 @@ def parse_codex_events(events_file: Path) -> dict[str, Any]:
     }
 
 
-def run_codex_plan(plan_file: Path, extra_args: list[str]) -> tuple[int, str | None]:
+def run_codex_plan(plan_file: Path, thinking_budget: str, extra_args: list[str]) -> tuple[int, str | None]:
     """
     Invoke run_codex_plan.py and return (returncode, run_dir_path).
     run_dir is parsed from the stdout line 'Run directory: <path>'.
@@ -292,8 +305,13 @@ def run_codex_plan(plan_file: Path, extra_args: list[str]) -> tuple[int, str | N
         sys.executable,
         str(PROJECT_ROOT / "scripts" / "run_codex_plan.py"),
         "--plan-file", str(plan_file),
-        *extra_args,
     ]
+
+    # Pass thinking budget if not 'none'
+    if thinking_budget and thinking_budget != "none":
+        cmd.extend(["--thinking-budget", thinking_budget])
+
+    cmd.extend(extra_args)
     print(f"[claude_run_plan] Launching: {' '.join(cmd)}", flush=True)
 
     proc = subprocess.run(cmd, capture_output=False, text=True,
@@ -318,6 +336,7 @@ def build_report(
     claude_model: str,
     claude_input_tokens: int,
     claude_output_tokens: int,
+    thinking_budget: str,
     codex_model_hint: str,
     codex_input_rate: float | None,
     codex_cached_input_rate: float | None,
@@ -388,6 +407,7 @@ def build_report(
 
         "claude_planning": {
             "model": claude_model,
+            "thinking_budget": thinking_budget,
             "input_tokens":  claude_input_tokens,
             "output_tokens": claude_output_tokens,
             "cost": claude_cost,
@@ -527,7 +547,7 @@ def main() -> int:
     args, extra_args = parse_args()
     generated_at = utc_now()
 
-    returncode, run_dir_str = run_codex_plan(args.plan_file, extra_args)
+    returncode, run_dir_str = run_codex_plan(args.plan_file, args.thinking_budget, extra_args)
 
     if run_dir_str is None:
         print(
@@ -546,6 +566,7 @@ def main() -> int:
         claude_model=args.claude_model,
         claude_input_tokens=args.claude_input_tokens,
         claude_output_tokens=args.claude_output_tokens,
+        thinking_budget=args.thinking_budget,
         codex_model_hint=args.codex_model,
         codex_input_rate=args.codex_input_rate,
         codex_cached_input_rate=args.codex_cached_input_rate,
