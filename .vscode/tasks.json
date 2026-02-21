@@ -109,9 +109,12 @@
         {
             "label": "Release: Full workflow (prep + trigger)",
             "type": "shell",
-            "command": "bash",
+            "command": "powershell",
             "args": [
-                "${workspaceFolder}/scripts/release.sh"
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/release.ps1"
             ],
             "problemMatcher": [],
             "presentation": {
@@ -119,7 +122,7 @@
                 "panel": "shared",
                 "focus": true
             },
-            "detail": "Prepare changelog and trigger release-please in one step"
+            "detail": "Prepare changelog and trigger release-please in one step (Windows-native)"
         }
     ]
 }
