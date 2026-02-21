@@ -382,9 +382,9 @@ class EventHandler:
         # Initialize event anonymizer
         from .event_anonymizer import EventAnonymizer
         self.anonymizer = EventAnonymizer(
-            mock_commander_name=config.get("mock_commander_name", "TestCommander"),
-            mock_ship_name=config.get("mock_ship_name", "TestShip"),
-            mock_ship_ident=config.get("mock_ship_ident", "TEST-01"),
+            mock_commander_name=self.config.get("mock_commander_name", "TestCommander"),
+            mock_ship_name=self.config.get("mock_ship_name", "TestShip"),
+            mock_ship_ident=self.config.get("mock_ship_ident", "TEST-01"),
         )
 
     def _resolve_rules_path(self) -> Path:
