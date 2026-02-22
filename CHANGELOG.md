@@ -2,6 +2,14 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.8.5](https://github.com/Audumla/EDMCVKBConnector/compare/v0.8.4...v0.8.5) (2026-02-22)
+
+
+### Bug Fixes
+
+* release fix ([84add10](https://github.com/Audumla/EDMCVKBConnector/commit/84add10b2a56a84840ba93fe7e0dfd9aa66e00dd))
+* release fix ([f46d0c6](https://github.com/Audumla/EDMCVKBConnector/commit/f46d0c618c5985df5f812f518df13df17efb3589))
+
 ## v0.8.4 — 2026-02-22
 
 This release fixes how release notes are built so your changelog shows the right details. It prevents sections from collapsing to a shortened summary and makes the output consistent.
