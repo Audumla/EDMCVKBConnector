@@ -15,14 +15,12 @@ This release includes 2 changelog updates across 2 grouped workstreams, focused 
 
 ## v0.8.4 — 2026-02-22
 
-This release fixes how release notes are built so your changelog shows the right details. It prevents sections from collapsing to a shortened summary and makes the output consistent.
+### Overview
+
+This release includes 1 changelog updates across 1 grouped workstreams, focused on Bug Fix.
 
 ### Bug Fixes
-- Fixed an issue that sometimes caused release notes to display a shortened summary; sections now show full, structured details consistently.
-- Corrected the v0.8.3 changelog so it shows the full structured summary instead of a condensed fallback.
-
-### Build & Packaging
-- Updated release tooling to ignore duplicate archived entries when generating release notes, improving the reliability of changelog builds.
+- Fixed issues in release process and changelog tooling.
 
 ---
 

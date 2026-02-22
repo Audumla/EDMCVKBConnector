@@ -1,53 +1,5 @@
 [
   {
-    "id": "CHG-ff8e113f",
-    "change_group": "release-summary-hash-alignment",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Bug Fix",
-      "Build / Packaging"
-    ],
-    "summary": "Use deduplicated archived entries when computing stamped summary keys so release changelog sections resolve correctly",
-    "details": [
-      "Updated scripts/generate_release_notes.py archive_stamped() to return the actual entries appended to archive plus duplicate-skip count.",
-      "Updated stamp/archive flow to build version summary cache from deduplicated appended entries, preventing hash mismatches with build_changelog rendering.",
-      "Regenerated v0.8.3 summary cache key and rebuilt CHANGELOG.md so v0.8.3 renders the structured summary instead of condensed fallback."
-    ]
-  },
-  {
-    "id": "CHG-c9577a5f",
-    "change_group": "vscode-git-refresh-settings",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Configuration Cleanup",
-      "UI Improvement"
-    ],
-    "summary": "Enable automatic Git fetch and prune in VS Code workspace settings",
-    "details": [
-      "Added git.autofetch=true so VS Code refreshes remote refs without manual fetches.",
-      "Added git.pruneOnFetch=true so deleted remote branches are removed from local tracking refs.",
-      "Helps the PR/branch UI reflect post-merge release workflow updates faster and with less stale branch noise."
-    ]
-  },
-  {
-    "id": "CHG-0f866788",
-    "change_group": "post-merge-release-auto-sync",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Configuration Cleanup",
-      "Build / Packaging"
-    ],
-    "summary": "Auto-sync local main after release-please stamp commits land",
-    "details": [
-      "Added .githooks/post-merge to launch a background watcher after local merges on main.",
-      "Added scripts/auto_pull_after_release.py to poll origin/main, require fast-forward safety, and run git pull --ff-only when the release stamp commit appears.",
-      "Configured repository hook line endings via .gitattributes and documented the watcher in scripts/README.md."
-    ]
-  },
-  {
     "id": "CHG-c8f120c8",
     "change_group": "prefs-panel-layout-self-update",
     "plugin_version": "unreleased",
@@ -121,6 +73,22 @@
       "Deleted the centered 'Rule saved successfully' info dialog call from the rule editor save callback.",
       "Kept rule persistence and editor-window close behavior unchanged after save.",
       "Validated src/edmcruleengine/rule_editor.py compiles after the change."
+    ]
+  },
+  {
+    "id": "CHG-d6e54af9",
+    "change_group": "changelog-duplicate-id-cleanup",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Build / Packaging"
+    ],
+    "summary": "Removed archived duplicate IDs from active changelog entries to restore strict changelog rebuild",
+    "details": [
+      "Pruned CHG-ff8e113f, CHG-c9577a5f, and CHG-0f866788 from docs/changelog/CHANGELOG.json because those IDs already exist in docs/changelog/CHANGELOG.archive.json as released entries.",
+      "Re-ran strict changelog rebuild and confirmed duplicate_ids=0 in scripts/build_changelog.py output.",
+      "Re-ran scripts/changelog_activity.py --strict and confirmed CHANGELOG and preview generation completes without duplicate-ID errors."
     ]
   }
 ]
