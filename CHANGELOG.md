@@ -2,6 +2,24 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.8.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.7.0...v0.8.0) (2026-02-22)
+
+
+### Features
+
+* add Windows-native PowerShell release script ([1572a09](https://github.com/Audumla/EDMCVKBConnector/commit/1572a0938299aebadd0b00fc134e23b171b9636d))
+
+
+### Bug Fixes
+
+* correct path resolution in release.ps1 ([df92cfe](https://github.com/Audumla/EDMCVKBConnector/commit/df92cfe76eb9ae7457b79d9a666601ee5da49b55))
+
+
+### Documentation
+
+* improve release notes formatting by removing meta-commentary ([3dbb20d](https://github.com/Audumla/EDMCVKBConnector/commit/3dbb20de911407254262c9eb8967874ebca14a39))
+* update CHANGELOG.md with detailed per-version summaries ([55c6ba6](https://github.com/Audumla/EDMCVKBConnector/commit/55c6ba67f5e1b6cda80c435d2e931d6e9ff8f735))
+
 ## [Unreleased]
 
 ### Overview
