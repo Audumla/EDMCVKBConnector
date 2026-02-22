@@ -2,6 +2,17 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## v0.8.5 — 2026-02-22
+
+### Overview
+
+This release includes 2 changelog updates across 2 grouped workstreams, focused on Configuration Cleanup.
+
+### Improvements
+- Cleaned up configuration for configuration and release process.
+
+---
+
 ## v0.8.4 — 2026-02-22
 
 This release fixes how release notes are built so your changelog shows the right details. It prevents sections from collapsing to a shortened summary and makes the output consistent.

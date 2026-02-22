@@ -2042,5 +2042,37 @@
       "Updated stamp/archive flow to build version summary cache from deduplicated appended entries, preventing hash mismatches with build_changelog rendering.",
       "Regenerated v0.8.3 summary cache key and rebuilt CHANGELOG.md so v0.8.3 renders the structured summary instead of condensed fallback."
     ]
+  },
+  {
+    "id": "CHG-c9577a5f",
+    "change_group": "vscode-git-refresh-settings",
+    "plugin_version": "0.8.5",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "UI Improvement"
+    ],
+    "summary": "Enable automatic Git fetch and prune in VS Code workspace settings",
+    "details": [
+      "Added git.autofetch=true so VS Code refreshes remote refs without manual fetches.",
+      "Added git.pruneOnFetch=true so deleted remote branches are removed from local tracking refs.",
+      "Helps the PR/branch UI reflect post-merge release workflow updates faster and with less stale branch noise."
+    ]
+  },
+  {
+    "id": "CHG-0f866788",
+    "change_group": "post-merge-release-auto-sync",
+    "plugin_version": "0.8.5",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Build / Packaging"
+    ],
+    "summary": "Auto-sync local main after release-please stamp commits land",
+    "details": [
+      "Added .githooks/post-merge to launch a background watcher after local merges on main.",
+      "Added scripts/auto_pull_after_release.py to poll origin/main, require fast-forward safety, and run git pull --ff-only when the release stamp commit appears.",
+      "Configured repository hook line endings via .gitattributes and documented the watcher in scripts/README.md."
+    ]
   }
 ]
