@@ -70,6 +70,30 @@ def _run_step(cmd: list[str], cwd: Path) -> int:
     return int(proc.returncode)
 
 
+def _tracked_dirty_files() -> list[str]:
+    """Return tracked files with local modifications (ignores untracked files)."""
+    proc = subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=no"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError("Failed to inspect git working tree status.")
+
+    files: list[str] = []
+    for raw in (proc.stdout or "").splitlines():
+        line = raw.rstrip()
+        if not line:
+            continue
+        # porcelain format: XY<space>path
+        if len(line) >= 4:
+            files.append(line[3:])
+        else:
+            files.append(line)
+    return files
+
+
 def _find_open_release_pr_version(gh_bin: str) -> str | None:
     """Return open release-please PR version (e.g. 0.8.0), if present."""
     cmd = [
@@ -152,6 +176,14 @@ def main() -> int:
         action="store_true",
         help="Print commands without executing them.",
     )
+    parser.add_argument(
+        "--allow-dirty-dispatch",
+        action="store_true",
+        help=(
+            "Allow workflow dispatch even when tracked files are modified after local prepare. "
+            "Use only when you intentionally do not want to commit/push generated local changes first."
+        ),
+    )
     args = parser.parse_args()
 
     activity_cmd = [
@@ -181,6 +213,27 @@ def main() -> int:
     if args.preview_only:
         print("Preview generation complete.")
         return 0
+
+    if not args.skip_prepare and not args.allow_dirty_dispatch:
+        dirty_files = _tracked_dirty_files()
+        if dirty_files:
+            print(
+                "ERROR: Local tracked files changed during release preparation. "
+                "Dispatch aborted to avoid releasing with stale local-only changelog state.",
+                file=sys.stderr,
+            )
+            print(
+                "Commit/push these files first (or run preview-only, commit, then dispatch with --skip-prepare).",
+                file=sys.stderr,
+            )
+            print("Changed tracked files:", file=sys.stderr)
+            for path in dirty_files:
+                print(f"  - {path}", file=sys.stderr)
+            print(
+                "To bypass this safety check intentionally, rerun with --allow-dirty-dispatch.",
+                file=sys.stderr,
+            )
+            return 2
 
     release_as = None
     if args.bump != "auto":
