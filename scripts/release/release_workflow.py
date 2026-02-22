@@ -48,7 +48,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--summarize-backend",
-        choices=("claude-cli", "codex", "copilot", "gemini", "intelligent"),
+        choices=("claude", "claude-cli", "codex", "copilot", "gemini", "lmstudio", "intelligent"),
         help="Override summarizer backend for this run.",
     )
     parser.add_argument(
@@ -108,7 +108,10 @@ def main() -> int:
     if args.skip_summarize:
         activity_cmd.append("--skip-summarize")
     if args.summarize_backend:
-        activity_cmd.extend(["--summarize-backend", args.summarize_backend])
+        backend = args.summarize_backend
+        if backend == "claude":
+            backend = "claude-cli"
+        activity_cmd.extend(["--summarize-backend", backend])
 
     if args.skip_prepare:
         print("[1/2] Skipping local changelog activity (--skip-prepare).")

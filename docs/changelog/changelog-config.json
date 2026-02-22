@@ -7,24 +7,21 @@
     "common": {
       "_comment": "Shared settings for all backends. timeout_seconds is global fallback.",
       "timeout_seconds": 300,
-      "fallback_order": ["claude-cli", "codex", "gemini", "copilot"],
+      "fallback_order": ["claude-cli", "codex", "gemini", "copilot", "lmstudio"],
       "_comment_timeout_seconds": "Single command timeout in seconds for backend CLI calls (default recommendation: 300-600).",
       "changelog_prompt_requirements": [
-        "Starts with 1-2 sentences describing what this release focuses on",
-        "Groups changes under ### Bug Fixes, ### New Features, ### Improvements, etc. as appropriate",
-        "Uses plain English bullet points that users can understand",
-        "Omits internal IDs, workstream slugs, and technical jargon",
-        "Only includes sections that have actual changes",
-        "Returns only the markdown sections (no extra commentary)"
+        "1-2 sentence overview of release focus",
+        "Group by: ### Bug Fixes, ### New Features, ### Improvements",
+        "Use plain English bullet points",
+        "Omit technical jargon, internal IDs, and slugs",
+        "Markdown sections only (no conversational filler)"
       ],
       "_comment_changelog_prompt_requirements": "Instruction bullets for changelog summary prompts.",
       "release_notes_prompt_requirements": [
-        "Group changes logically by category (Bug Fixes, New Features, Improvements)",
-        "Use plain English that end users understand",
-        "Omit internal IDs and workstream slugs",
-        "Start each section with a clear heading",
-        "Include only the most important/impactful changes",
-        "Return only the markdown content (no extra commentary)"
+        "Group by: Bug Fixes, New Features, Improvements",
+        "Plain English only",
+        "Omit internal IDs and slugs",
+        "Markdown content only (no conversational filler)"
       ],
       "_comment_release_notes_prompt_requirements": "Instruction bullets for release-note generation prompts."
     },
@@ -49,6 +46,13 @@
       "_comment_install": "Install from: https://github.com/google-gemini/cli or run: npm install -g @google-gemini/cli",
       "_comment_model": "Optional model name (e.g., gemini-2.0-flash, gemini-1.5-pro). Defaults to Gemini's selected model.",
       "model": ""
+    },
+    "lmstudio": {
+      "_comment": "LMStudio local backend settings (backend=lmstudio).",
+      "_comment_url": "The local server URL (usually http://localhost:1234/v1).",
+      "base_url": "http://localhost:1234/v1",
+      "_comment_model": "The model identifier string used by LMStudio. - qwen/qwen3-coder-30b",
+      "model": "qwen/qwen3-coder-next"
     },
     "intelligent": {
       "_comment": "Deterministic local summarizer (no LLM/API usage)."

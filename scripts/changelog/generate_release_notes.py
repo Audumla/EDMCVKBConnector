@@ -24,6 +24,14 @@ from changelog_utils import (
     CHANGELOG_ARCHIVE_JSON,
     CHANGELOG_JSON,
     CHANGELOG_SUMMARIES_JSON,
+    SIMILARITY_STOPWORDS,
+    TAG_ORDER,
+    TOPIC_PATTERNS,
+    _intelligent_tag_summary,
+    _shorten_group_key,
+    _version_tuple,
+    build_change_groups,
+    group_by_tag,
     load_config,
     load_json_list,
     load_summaries,
@@ -38,71 +46,6 @@ CHANGELOG_PATH = CHANGELOG_JSON
 CHANGELOG_ARCHIVE_PATH = CHANGELOG_ARCHIVE_JSON
 DEFAULT_OUTPUT = PROJECT_ROOT / "dist" / "RELEASE_NOTES.md"
 CHANGELOG_SUMMARIES_PATH = CHANGELOG_SUMMARIES_JSON
-
-# Display order for approved summary tags
-TAG_ORDER = [
-    "New Feature",
-    "Bug Fix",
-    "UI Improvement",
-    "Performance Improvement",
-    "Code Refactoring",
-    "Configuration Cleanup",
-    "Build / Packaging",
-    "Dependency Update",
-    "Test Update",
-    "Documentation Update",
-]
-
-TOPIC_PATTERNS: list[tuple[str, str]] = [
-    ("developer documentation", r"\b(readme|docs?|guide|tutorial)\b"),
-    ("release process", r"\b(release|release-please|workflow|pipeline|stamp|archive)\b"),
-    ("changelog tooling", r"\b(changelog|log_change|change group|grouped|release notes?)\b"),
-    ("vkb-link lifecycle", r"\b(vkb-?link|startup|shutdown|reconnect|connection|ini)\b"),
-    ("rule engine", r"\b(rule|rules\.json|catalog|signal|operator)\b"),
-    ("ui and preferences", r"\b(ui|panel|status|layout|preferences|button|font)\b"),
-    ("tests", r"\b(test|pytest|coverage|assert)\b"),
-    ("packaging", r"\b(package|packaging|zip|build|artifact)\b"),
-    ("configuration", r"\b(config|defaults|settings|manifest)\b"),
-    ("process reliability", r"\b(crash|health|monitor|timeout|retry|single-instance)\b"),
-]
-
-# Generic terms stripped from summary matching to catch iterative rewrites
-SIMILARITY_STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "for",
-    "in",
-    "of",
-    "on",
-    "the",
-    "to",
-    "with",
-    "add",
-    "added",
-    "adds",
-    "adding",
-    "change",
-    "changes",
-    "enhance",
-    "enhanced",
-    "enhancement",
-    "enhancements",
-    "fix",
-    "fixed",
-    "fixes",
-    "fixing",
-    "improve",
-    "improved",
-    "improves",
-    "improving",
-    "refactor",
-    "refactored",
-    "update",
-    "updated",
-    "updates",
-    "updating",
-}
 
 TAG_SUMMARY_TEMPLATES = {
     "New Feature": "Added new capabilities for {topics}.",
@@ -144,20 +87,6 @@ def save_archive_changelog(entries: list[dict]) -> None:
     save_json_list(CHANGELOG_ARCHIVE_PATH, entries)
 
 
-def _version_tuple(v: str) -> tuple[int, ...]:
-    parts = []
-    for p in str(v).split("."):
-        try:
-            parts.append(int(p))
-        except ValueError:
-            parts.append(0)
-    return tuple(parts)
-
-
-def _entry_sort_key(entry: dict) -> tuple[str, str]:
-    return (str(entry.get("date", "") or ""), str(entry.get("id", "") or ""))
-
-
 def _entries_hash(entries: list[dict]) -> str:
     ids = sorted(str(e.get("id", "") or "") for e in entries if str(e.get("id", "") or ""))
     content = "\n".join(ids)
@@ -196,209 +125,6 @@ def filter_entries(
     return result
 
 
-def _primary_tag(entry: dict) -> str:
-    tags = entry.get("summary_tags")
-    if isinstance(tags, list) and tags:
-        return str(tags[0])
-    return "Other"
-
-
-def _normalise_summary(text: str) -> str:
-    cleaned = re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
-    if not cleaned:
-        return ""
-    tokens = [t for t in cleaned.split() if t and t not in SIMILARITY_STOPWORDS]
-    return " ".join(tokens)
-
-
-def _summary_tokens(text: str) -> set[str]:
-    return set(_normalise_summary(text).split())
-
-
-def _summaries_similar(a: str, b: str) -> bool:
-    if not a or not b:
-        return False
-    if a == b:
-        return True
-
-    if len(a) >= 18 and a in b:
-        return True
-    if len(b) >= 18 and b in a:
-        return True
-
-    seq_ratio = SequenceMatcher(None, a, b).ratio()
-    if seq_ratio >= 0.86:
-        return True
-
-    ta = _summary_tokens(a)
-    tb = _summary_tokens(b)
-    if not ta or not tb:
-        return False
-
-    jaccard = len(ta.intersection(tb)) / len(ta.union(tb))
-    return jaccard >= 0.80
-
-
-def _summary_fingerprint(summary: str) -> str:
-    tokens = _normalise_summary(summary).split()
-    if not tokens:
-        return "misc"
-    return "-".join(tokens[:6])
-
-
-def _entry_group_key(entry: dict) -> tuple[str, bool]:
-    raw = str(entry.get("change_group", "") or "").strip()
-    if raw:
-        return raw, True
-    summary = str(entry.get("summary", "") or "")
-    return f"legacy:{_summary_fingerprint(summary)}", False
-
-
-def _dedupe_group_summaries(entries: list[dict]) -> list[str]:
-    clusters: list[dict] = []
-    for entry in entries:
-        summary = str(entry.get("summary", "") or "").strip()
-        if not summary:
-            continue
-        normalised = _normalise_summary(summary)
-        merged = False
-        for cluster in clusters:
-            if _summaries_similar(normalised, cluster["normalised"]):
-                # Keep the latest wording as representative.
-                cluster["summary"] = summary
-                cluster["normalised"] = normalised
-                cluster["count"] += 1
-                merged = True
-                break
-        if not merged:
-            clusters.append(
-                {
-                    "summary": summary,
-                    "normalised": normalised,
-                    "count": 1,
-                }
-            )
-    return [c["summary"] for c in clusters]
-
-
-def build_change_groups(entries: list[dict]) -> list[dict]:
-    grouped_entries: dict[str, dict] = {}
-    for entry in sorted(entries, key=_entry_sort_key):
-        group_key, explicit = _entry_group_key(entry)
-        if group_key not in grouped_entries:
-            grouped_entries[group_key] = {
-                "group_key": group_key,
-                "explicit_group": explicit,
-                "entries": [],
-            }
-        grouped_entries[group_key]["entries"].append(entry)
-        grouped_entries[group_key]["explicit_group"] = grouped_entries[group_key]["explicit_group"] or explicit
-
-    groups: list[dict] = []
-    for group in grouped_entries.values():
-        group_entries = sorted(group["entries"], key=_entry_sort_key)
-        unique_summaries = _dedupe_group_summaries(group_entries)
-        latest_entry = group_entries[-1]
-
-        headline = unique_summaries[-1] if unique_summaries else str(latest_entry.get("summary", "") or "")
-        if not headline:
-            headline = "Miscellaneous updates"
-
-        tag_counts = Counter(_primary_tag(e) for e in group_entries)
-        primary_tag = "Other"
-        if tag_counts:
-            primary_tag = sorted(tag_counts.items(), key=lambda kv: (-kv[1], kv[0]))[0][0]
-
-        groups.append(
-            {
-                "group_key": group["group_key"],
-                "explicit_group": group["explicit_group"],
-                "entry_count": len(group_entries),
-                "summary_count": len(unique_summaries) if unique_summaries else 1,
-                "headline": headline,
-                "primary_tag": primary_tag,
-                "latest_date": str(latest_entry.get("date", "") or ""),
-            }
-        )
-
-    return sorted(groups, key=lambda g: (g["latest_date"], g["entry_count"], g["headline"]), reverse=True)
-
-
-def group_by_tag(groups: list[dict]) -> dict[str, list[dict]]:
-    buckets: dict[str, list[dict]] = defaultdict(list)
-    for group in groups:
-        buckets[group["primary_tag"]].append(group)
-    return buckets
-
-
-def _infer_topics(text: str) -> list[str]:
-    lower = text.lower()
-    matched: list[str] = []
-    for topic, pattern in TOPIC_PATTERNS:
-        if re.search(pattern, lower):
-            matched.append(topic)
-    return matched
-
-
-def _shorten_group_key(key: str, max_len: int = 50) -> str:
-    """Shorten a group key to fit nicely in display (tables, etc).
-
-    Most group keys should fit in 50 chars. Only truncates if necessary,
-    and truncates at word boundaries (dashes) to preserve meaningful phrases.
-    """
-    if len(key) <= max_len:
-        return key
-    # Truncate at word boundaries (dashes in kebab-case)
-    truncated = key[:max_len]
-    last_dash = truncated.rfind("-")
-    # Only truncate at dash if we have meaningful content before it
-    if last_dash > 15:  # Keep at least 15 chars of meaningful content
-        truncated = truncated[:last_dash]
-    return truncated + "…" if truncated != key else truncated
-
-
-def _format_topics_for_tag(tag: str, topics: list[str]) -> str:
-    if not topics:
-        return "multiple areas"
-
-    normalized = list(dict.fromkeys(topics))
-
-    # Prefer concise language for documentation-focused summaries.
-    if tag == "Documentation Update":
-        has_dev_docs = "developer documentation" in normalized
-        has_changelog = "changelog tooling" in normalized
-        has_release = "release process" in normalized
-        if has_dev_docs and (has_changelog or has_release):
-            return "developer and release-process documentation"
-        if has_changelog and not has_dev_docs:
-            return "release-process documentation"
-
-    # Build/packaging summaries should avoid "documentation" unless nothing else applies.
-    if tag == "Build / Packaging":
-        preferred = [t for t in normalized if t not in {"developer documentation"}]
-        if preferred:
-            normalized = preferred
-
-    if len(normalized) == 1:
-        return normalized[0]
-    return f"{normalized[0]} and {normalized[1]}"
-
-
-def _intelligent_tag_summary(tag: str, tag_groups: list[dict]) -> str:
-    topic_counter: Counter[str] = Counter()
-    for group in tag_groups:
-        combined = f"{group.get('headline', '')} {group.get('group_key', '')}"
-        for topic in _infer_topics(combined):
-            topic_counter[topic] += 1
-
-    top_topics = [name for name, _ in topic_counter.most_common(3)]
-    topics_phrase = _format_topics_for_tag(tag, top_topics)
-
-    template = TAG_SUMMARY_TEMPLATES.get(tag, TAG_SUMMARY_TEMPLATES["Other"])
-    summary = template.format(topics=topics_phrase)
-    return summary
-
-
 def _date_range(entries: list[dict]) -> str:
     dates = [str(e.get("date", "") or "") for e in entries if str(e.get("date", "") or "")]
     if not dates:
@@ -408,50 +134,36 @@ def _date_range(entries: list[dict]) -> str:
 
 
 def _format_entries_for_llm(entries: list[dict], version: str, config: dict | None = None) -> str:
-    """Format changelog entries into a prompt for the LLM."""
+    """Format entries concisely for release note context."""
     if config is None:
         config = {}
-    lines = [f"# Generate release notes for version {version}", ""]
+    
+    lines = [f"# Release v{version}", ""]
 
     if not entries:
-        lines.append("(No entries)")
-        return "\n".join(lines)
-
-    lines.append("Entries:")
-    lines.append("")
+        return "No entries."
 
     for entry in entries:
-        tags = entry.get("summary_tags", [])
-        tag_str = ", ".join(str(t) for t in tags) if tags else "Other"
+        tags = entry.get("summary_tags")
+        tag_str = ", ".join(str(t) for t in tags) if tags else "Misc"
         summary = str(entry.get("summary", "")).strip()
-
         lines.append(f"[{tag_str}] {summary}")
 
         details = entry.get("details", [])
         if isinstance(details, list):
             for detail in details:
-                lines.append(f"  - {detail}")
+                clean_detail = str(detail).strip()
+                if clean_detail:
+                    lines.append(f"  - {clean_detail}")
 
-        lines.append("")
-
-    lines.append("---")
-    lines.append("")
-    requirements = config.get("common", {}).get(
-        "release_notes_prompt_requirements",
-        [
-            "Group changes logically by category (Bug Fixes, New Features, Improvements)",
-            "Use plain English that end users understand",
-            "Omit internal IDs and workstream slugs",
-            "Start each section with a clear heading",
-            "Include only the most important/impactful changes",
-            "Return only the markdown content (no extra commentary)",
-        ],
-    )
-    lines.append("Write concise release notes that:")
+    lines.append("\n---\n")
+    
+    requirements = config.get("common", {}).get("release_notes_prompt_requirements", [])
+    lines.append("Write concise release notes following these rules:")
     for requirement in requirements:
         lines.append(f"- {requirement}")
 
-    return "\n".join(lines)
+    return "\n".join(lines).strip()
 
 
 def _find_git_bash() -> str | None:
@@ -890,11 +602,11 @@ def build_markdown(
             # Intelligent mode is just the default structure below, so fallback immediately
             llm_summary = None
         else:
-            llm_summary, used_backend = run_llm_with_fallback(prompt, config, preferred_backend=backend)
+            llm_summary, used_backend = run_llm_with_fallback(prompt, config, preferred_backend=backend, entries=entries)
 
         if llm_summary:
             # Normalize LLM output
-            llm_summary = normalize_llm_summary(llm_summary)
+            llm_summary = normalize_llm_summary(llm_summary, entries=entries)
 
             lines = [f"# Release Notes - {title_version}", ""]
             date_range = _date_range(entries)

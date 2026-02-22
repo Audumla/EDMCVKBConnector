@@ -43,7 +43,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--summarize-backend",
-        choices=("claude-cli", "codex", "copilot", "gemini", "intelligent"),
+        choices=("claude", "claude-cli", "codex", "copilot", "gemini", "lmstudio", "intelligent"),
         help="Override changelog summarizer backend for this run.",
     )
     parser.add_argument(
@@ -67,7 +67,10 @@ def main() -> int:
             "--unreleased",
         ]
         if args.summarize_backend:
-            cmd.extend(["--backend", args.summarize_backend])
+            backend = args.summarize_backend
+            if backend == "claude":
+                backend = "claude-cli"
+            cmd.extend(["--backend", backend])
         proc = subprocess.run(cmd, cwd=PROJECT_ROOT)
         if proc.returncode != 0:
             print("ERROR: Summarization failed. Fix the error or run with --skip-summarize to bypass.", file=sys.stderr)

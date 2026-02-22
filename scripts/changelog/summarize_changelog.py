@@ -17,17 +17,15 @@ from pathlib import Path
 from changelog_utils import (
     CHANGELOG_ARCHIVE_JSON,
     CHANGELOG_JSON,
+    TAG_ORDER,
+    _intelligent_tag_summary,
+    build_change_groups,
+    group_by_tag,
     load_config,
     load_json_list,
     load_summaries,
     run_llm_with_fallback,
     save_summaries,
-)
-from generate_release_notes import (
-    TAG_ORDER,
-    _intelligent_tag_summary,
-    build_change_groups,
-    group_by_tag,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -61,50 +59,43 @@ def compute_version_hash(entries: list[dict]) -> str:
 
 
 def format_entries_for_prompt(entries: list[dict], version: str, config: dict | None = None) -> str:
-    """Format changelog entries into a prompt for the LLM."""
+    """Format changelog entries concisely for LLM context."""
     if config is None:
         config = {}
-    lines = [f"# Summarize changelog entries for version {version}", ""]
+    
+    # Use version context only in the header
+    lines = [f"# Changes for v{version}", ""]
 
     if not entries:
-        lines.append("(No entries)")
-        return "\n".join(lines)
+        return "No changes found."
 
-    lines.append("Entries:")
-    lines.append("")
-
+    # Format entries as a compact list
     for entry in entries:
-        tags = entry.get("summary_tags", [])
-        tag_str = ", ".join(str(t) for t in tags) if tags else "Other"
+        tags = entry.get("summary_tags")
+        tag_str = ", ".join(str(t) for t in tags) if tags else "Misc"
         summary = str(entry.get("summary", "")).strip()
-
+        
+        # Output: [Tags] Summary
         lines.append(f"[{tag_str}] {summary}")
-
+        
+        # Details as sub-bullets (strip internal IDs if they somehow leaked into details)
         details = entry.get("details", [])
         if isinstance(details, list):
             for detail in details:
-                lines.append(f"  - {detail}")
-
-        lines.append("")
-
-    lines.append("---")
-    lines.append("")
-    requirements = _common_cfg(config).get(
-        "changelog_prompt_requirements",
-        [
-            "Starts with 1-2 sentences describing what this release focuses on",
-            "Groups changes under ### Bug Fixes, ### New Features, ### Improvements, etc. as appropriate",
-            "Uses plain English bullet points that users can understand",
-            "Omits internal IDs, workstream slugs, and technical jargon",
-            "Only includes sections that have actual changes",
-            "Returns only the markdown sections (no extra commentary)",
-        ],
-    )
-    lines.append("Write a human-readable changelog summary that:")
+                # Basic cleaning of detail strings
+                clean_detail = str(detail).strip()
+                if clean_detail:
+                    lines.append(f"  - {clean_detail}")
+    
+    lines.append("\n---\n")
+    
+    # Minimal instructions
+    requirements = _common_cfg(config).get("changelog_prompt_requirements", [])
+    lines.append("Generate a human-readable summary following these rules:")
     for requirement in requirements:
         lines.append(f"- {requirement}")
 
-    return "\n".join(lines)
+    return "\n".join(lines).strip()
 
 
 def _build_intelligent_summary(entries: list[dict], version: str) -> str | None:
@@ -181,7 +172,7 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
         summary = _build_intelligent_summary(entries, version)
     else:
         # Use fallback logic for LLM backends
-        summary, used_backend = run_llm_with_fallback(prompt, config, preferred_backend=backend)
+        summary, used_backend = run_llm_with_fallback(prompt, config, preferred_backend=backend, entries=entries)
         if not summary:
             print(f"  [{version}] Fallback: using intelligent summarizer.")
             summary = _build_intelligent_summary(entries, version)
@@ -215,7 +206,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["claude-cli", "codex", "copilot", "gemini", "intelligent"],
+        choices=["claude-cli", "codex", "copilot", "gemini", "lmstudio", "intelligent"],
         help="Override the configured LLM backend",
     )
 
