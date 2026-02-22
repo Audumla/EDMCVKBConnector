@@ -2,6 +2,13 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.9.2](https://github.com/Audumla/EDMCVKBConnector/compare/v0.9.1...v0.9.2) (2026-02-22)
+
+
+### Bug Fixes
+
+* added ui code for missing components in edmc install ([f8cd52b](https://github.com/Audumla/EDMCVKBConnector/commit/f8cd52bf6b563396350bfe4c900fd6aaf2e80fc2))
+
 ## v0.9.1 — 2026-02-22
 
 ### Overview
