@@ -6,7 +6,7 @@ run directory with Claude planning metadata, Codex execution summary, cost estim
 and a preformatted codex_results.md summary.
 
 Usage (called by Claude after writing a plan file):
-    python scripts/claude_run_plan.py \\
+    python scripts/agent_runners/claude_run_plan.py \\
         --plan-file agent_artifacts/claude/temp/my_plan.md \\
         --claude-model claude-sonnet-4-6 \\
         --task-summary "One-line description of what Claude is orchestrating" \\
@@ -303,7 +303,7 @@ def run_codex_plan(plan_file: Path, thinking_budget: str, extra_args: list[str])
     """
     cmd = [
         sys.executable,
-        str(PROJECT_ROOT / "scripts" / "run_codex_plan.py"),
+        str(PROJECT_ROOT / "scripts" / "agent_runners" / "run_codex_plan.py"),
         "--plan-file", str(plan_file),
     ]
 

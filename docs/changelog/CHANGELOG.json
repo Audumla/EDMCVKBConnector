@@ -302,5 +302,35 @@
       "Updated activity_cmd to point to scripts/changelog/changelog_activity.py",
       "Cleaned up imports and sys.path logic in changelog_activity.py"
     ]
+  },
+  {
+    "id": "CHG-e7c40cc8",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix Gemini CLI hang by switching to stdin for prompts",
+    "details": [
+      "Updated call_gemini_cli to pass prompt via stdin instead of -p argument",
+      "Verified that large multi-line prompts no longer cause the CLI to hang"
+    ]
+  },
+  {
+    "id": "CHG-e7c40cc8-1",
+    "change_group": "script-restructure",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Update script paths in release workflow and documentation after reorganization",
+    "details": [
+      "Fixed GitHub Actions release-please failure by updating script paths to scripts/changelog/ and scripts/release/",
+      "Updated RELEASE.md, DEVELOPMENT.md, and CLAUDE.md with correct script locations",
+      "Ensured consistency across all agent workspace policies and dev guides"
+    ]
   }
 ]

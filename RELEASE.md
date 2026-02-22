@@ -30,14 +30,14 @@ From VSCode:
 
 Or from the command line:
 ```bash
-bash scripts/release.sh
+bash scripts/release/release.sh
 ```
 
 ### Option 2: Step-by-Step
 
 **Step 1: Prepare the changelog**
 - VSCode: `Ctrl+Shift+B` → **"Release: Prepare changelog"**
-- Or: `python scripts/changelog_activity.py --strict`
+- Or: `python scripts/changelog/changelog_activity.py --strict`
 
 This will:
 - Rebuild `CHANGELOG.md` from JSON sources
@@ -140,7 +140,7 @@ gh workflow list
 **Solution**: Check the `docs/changelog/CHANGELOG.json` entries:
 - Ensure entries have proper `tags` values
 - Verify the `summary` is descriptive
-- Run `python scripts/changelog_activity.py --strict` again
+- Run `python scripts/changelog/changelog_activity.py --strict` again
 
 ### Version numbers didn't update after release
 
@@ -157,7 +157,7 @@ gh workflow list
 Prepares the changelog for release.
 
 ```bash
-python scripts/changelog_activity.py [--strict]
+python scripts/changelog/changelog_activity.py [--strict]
 ```
 
 **Options:**
@@ -172,7 +172,7 @@ python scripts/changelog_activity.py [--strict]
 Record a change to the changelog (used by agents).
 
 ```bash
-python scripts/log_change.py \
+python scripts/changelog/log_change.py \
     --agent claude \
     --tags "New Feature" \
     --summary "Brief description" \

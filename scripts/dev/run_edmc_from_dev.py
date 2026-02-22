@@ -10,8 +10,8 @@ This script:
 4) Verifies the plugin is linked into EDMC plugins directory
 
 Usage:
-    python scripts/run_edmc_from_dev.py
-    python scripts/run_edmc_from_dev.py --use-system-config  # Use real EDMC config instead
+    python scripts/dev/run_edmc_from_dev.py
+    python scripts/dev/run_edmc_from_dev.py --use-system-config  # Use real EDMC config instead
 """
 
 from __future__ import annotations
@@ -270,7 +270,7 @@ def main() -> int:
 
     if not edmc_root.exists() or not (edmc_root / ".git").exists():
         print(f"[FAIL] EDMC (DEV) repo not found at: {edmc_root}")
-        print("       Run bootstrap first: python scripts/bootstrap_dev_env.py")
+        print("       Run bootstrap first: python scripts/dev/bootstrap_dev_env.py")
         return 1
     if not entrypoint.exists():
         print(f"[FAIL] EDMC entrypoint not found: {entrypoint}")
@@ -285,7 +285,7 @@ def main() -> int:
     plugin_link = edmc_root / "plugins" / PLUGIN_NAME
     if not check_plugin_linked(edmc_root):
         print(f"[WARN] Plugin not linked in EDMC plugins directory")
-        print(f"       Run bootstrap to link it: python scripts/bootstrap_dev_env.py")
+        print(f"       Run bootstrap to link it: python scripts/dev/bootstrap_dev_env.py")
 
     # Temporarily disable plugin if requested
     plugin_disabled = False

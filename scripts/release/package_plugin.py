@@ -6,7 +6,7 @@ Contents are rooted inside an EDMCVKBConnector/ folder so the user
 can extract directly into EDMC's plugins directory.
 
 Usage:
-    python scripts/package_plugin.py
+    python scripts/release/package_plugin.py
 """
 
 import zipfile

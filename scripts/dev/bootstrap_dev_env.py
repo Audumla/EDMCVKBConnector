@@ -10,9 +10,9 @@ Default EDMC (DEV) location:
     ../EDMarketConnector
 
 Usage:
-    python scripts/bootstrap_dev_env.py
-    python scripts/bootstrap_dev_env.py --run-tests
-    python scripts/bootstrap_dev_env.py --edmc-root /path/to/EDMarketConnector
+    python scripts/dev/bootstrap_dev_env.py
+    python scripts/dev/bootstrap_dev_env.py --run-tests
+    python scripts/dev/bootstrap_dev_env.py --edmc-root /path/to/EDMarketConnector
 """
 
 from __future__ import annotations

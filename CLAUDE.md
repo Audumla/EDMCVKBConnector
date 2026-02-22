@@ -20,7 +20,7 @@ Before declaring the task done, you MUST record what was changed. Do not skip th
 Run this script — it handles all file updates automatically:
 
 ```bash
-python scripts/log_change.py \
+python scripts/changelog/log_change.py \
     --agent claude \
     --group "<WorkstreamSlug>" \
     --tags "<Tag1>" "<Tag2>" \
@@ -83,7 +83,7 @@ When the user's prompt contains the label `/codex`, delegate the task to Codex v
 3. **Run the wrapper script:**
 
    ```bash
-   python scripts/claude_run_plan.py \
+   python scripts/agent_runners/claude_run_plan.py \
        --plan-file agent_artifacts/claude/temp/<short-task-name>.md \
        --claude-model claude-sonnet-4-6 \
        --thinking-budget medium \
@@ -127,13 +127,13 @@ the latest Codex run (or a specific run if they provide one).
 1. **Generate/print formatted output**:
 
    ```bash
-   python scripts/codex_results.py
+   python scripts/agent_runners/codex_results.py
    ```
 
    Optional target run:
 
    ```bash
-   python scripts/codex_results.py --run-id <run_id>
+   python scripts/agent_runners/codex_results.py --run-id <run_id>
    ```
 
    Flags:

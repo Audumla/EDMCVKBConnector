@@ -2,9 +2,9 @@
 codex_results.py - Print a formatted summary for a Codex plan run.
 
 Usage:
-    python scripts/codex_results.py
-    python scripts/codex_results.py --run-id 20260219T111945Z_code-review
-    python scripts/codex_results.py --run-dir agent_artifacts/codex/reports/plan_runs/<run_id>
+    python scripts/agent_runners/codex_results.py
+    python scripts/agent_runners/codex_results.py --run-id 20260219T111945Z_code-review
+    python scripts/agent_runners/codex_results.py --run-dir agent_artifacts/codex/reports/plan_runs/<run_id>
 """
 
 from __future__ import annotations

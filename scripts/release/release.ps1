@@ -8,5 +8,5 @@ Set-Location $PROJECT_ROOT
 $python = Join-Path $PROJECT_ROOT ".venv\Scripts\python.exe"
 if (-not (Test-Path $python)) { $python = "python" }
 
-& $python scripts/release_workflow.py @args
+& $python scripts/release/release_workflow.py @args
 exit $LASTEXITCODE

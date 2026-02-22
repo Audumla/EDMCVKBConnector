@@ -7,7 +7,7 @@ rebuilds CHANGELOG.md from JSON sources.
 
 Usage
 -----
-python scripts/log_change.py \
+python scripts/changelog/log_change.py \
     --agent copilot \
     --group "vkb-link-lifecycle" \
     --tags "New Feature" "Bug Fix" \

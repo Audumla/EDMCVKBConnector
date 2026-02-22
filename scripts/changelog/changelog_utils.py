@@ -386,12 +386,14 @@ def call_gemini_cli(prompt: str, config: dict) -> str | None:
         provider = config.get("gemini", {})
         model = str(provider.get("model", "")).strip()
         
-        args = [*cmd, "-p", prompt, "-y"]
+        # Use stdin for prompt to handle large multi-line inputs reliably
+        args = [*cmd, "-y"]
         if model:
             args.extend(["-m", model])
 
         result = subprocess.run(
             args,
+            input=prompt,
             capture_output=True,
             text=True,
             encoding="utf-8",
