@@ -816,26 +816,28 @@ def stamp_changelog(entries: list[dict], version: str) -> int:
     return count
 
 
-def archive_stamped(current_entries: list[dict]) -> tuple[list[dict], list[dict]]:
-    """Split entries into (remaining_current, stamped_to_archive) and persist archive."""
+def archive_stamped(current_entries: list[dict]) -> tuple[list[dict], list[dict], int]:
+    """Split entries into (remaining_current, appended_to_archive, skipped_duplicates) and persist archive."""
     remaining_current = [e for e in current_entries if e.get("plugin_version") == "unreleased"]
     stamped_to_archive = [e for e in current_entries if e.get("plugin_version") != "unreleased"]
+    skipped_duplicates = 0
+    appended_to_archive: list[dict] = []
 
     if stamped_to_archive:
         existing_archive = load_archive_changelog()
         seen_ids = {str(e.get("id", "")) for e in existing_archive if str(e.get("id", ""))}
-        to_append: list[dict] = []
         for entry in stamped_to_archive:
             cid = str(entry.get("id", ""))
             if cid and cid in seen_ids:
+                skipped_duplicates += 1
                 continue
-            to_append.append(entry)
+            appended_to_archive.append(entry)
             if cid:
                 seen_ids.add(cid)
-        if to_append:
-            save_archive_changelog(existing_archive + to_append)
+        if appended_to_archive:
+            save_archive_changelog(existing_archive + appended_to_archive)
 
-    return remaining_current, stamped_to_archive
+    return remaining_current, appended_to_archive, skipped_duplicates
 
 
 def _build_changelog_summary_markdown(entries: list[dict]) -> str | None:
@@ -1032,13 +1034,17 @@ def main() -> None:
     if args.stamp and filtered:
         stamped_count = stamp_changelog(current_entries, args.stamp)
         if args.archive:
-            remaining, archived = archive_stamped(current_entries)
+            remaining, archived, duplicate_count = archive_stamped(current_entries)
             save_current_changelog(remaining)
             summary_status = ensure_version_summary_cache(archived, args.stamp)
             print(
                 f"Stamped {stamped_count} entries as v{args.stamp}, "
                 f"archived {len(archived)} to CHANGELOG.archive.json"
             )
+            if duplicate_count:
+                print(
+                    f"Skipped {duplicate_count} duplicate changelog ID(s) already present in CHANGELOG.archive.json"
+                )
             if summary_status == "promoted":
                 print(f"Promoted cached unreleased summary to version v{args.stamp}")
             elif summary_status == "generated":

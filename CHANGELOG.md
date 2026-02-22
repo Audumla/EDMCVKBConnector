@@ -4,8 +4,15 @@
 
 ## v0.8.3 — 2026-02-22
 
-_Condensed 4 entries across 4 workstreams._
-_Primary areas: Bug Fix, Build / Packaging_
+### Overview
+
+This release includes 4 changelog updates across 4 grouped workstreams, focused on Bug Fix, Build / Packaging.
+
+### Bug Fixes
+- Fixed issues in release process and changelog tooling.
+
+### Build and Packaging
+- Improved build and packaging for release process.
 
 ---
 

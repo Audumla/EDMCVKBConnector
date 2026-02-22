@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "CHG-ff8e113f",
+    "change_group": "release-summary-hash-alignment",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Use deduplicated archived entries when computing stamped summary keys so release changelog sections resolve correctly",
+    "details": [
+      "Updated scripts/generate_release_notes.py archive_stamped() to return the actual entries appended to archive plus duplicate-skip count.",
+      "Updated stamp/archive flow to build version summary cache from deduplicated appended entries, preventing hash mismatches with build_changelog rendering.",
+      "Regenerated v0.8.3 summary cache key and rebuilt CHANGELOG.md so v0.8.3 renders the structured summary instead of condensed fallback."
+    ]
+  }
+]
