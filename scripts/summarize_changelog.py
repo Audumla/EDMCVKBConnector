@@ -91,9 +91,19 @@ def load_summaries() -> dict:
         return {}
     try:
         with open(CHANGELOG_SUMMARIES_JSON, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise RuntimeError(
+                f"{CHANGELOG_SUMMARIES_JSON} must be a JSON object keyed by '<version>:<hash>'."
+            )
+        return data
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed to parse {CHANGELOG_SUMMARIES_JSON}: {exc}. "
+            "Fix the file before running summarization to avoid cache loss."
+        ) from exc
 
 
 def save_summaries(summaries: dict) -> None:
@@ -491,6 +501,13 @@ def main() -> int:
 
     args = parser.parse_args()
 
+    # Validate summary cache before any writes so malformed JSON never gets silently replaced.
+    try:
+        load_summaries()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
     # Load data
     current_entries = load_entries(CHANGELOG_JSON)
     archive_entries = load_entries(CHANGELOG_ARCHIVE_JSON)
@@ -544,10 +561,19 @@ def main() -> int:
             success_count += 1
 
     # Keep cache clean for processed versions when force-regenerating.
-    if args.force and resolved_hashes:
+    # Also always prune stale unreleased cache keys on unreleased/default runs.
+    unreleased_mode = args.unreleased or (not args.version and not args.all)
+    versions_to_prune: set[str] = set()
+    if args.force:
+        versions_to_prune.update(resolved_hashes.keys())
+    if unreleased_mode and "unreleased" in resolved_hashes:
+        versions_to_prune.add("unreleased")
+
+    if versions_to_prune:
         cache = load_summaries()
         updated = False
-        for version, vhash in resolved_hashes.items():
+        for version in versions_to_prune:
+            vhash = resolved_hashes.get(version, "")
             keep_key = f"{version}:{vhash}" if vhash else None
             for key in list(cache.keys()):
                 if not key.startswith(f"{version}:"):
