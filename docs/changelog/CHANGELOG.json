@@ -285,5 +285,20 @@
       "Updated changelog_activity.py to produce dist/CHANGELOG.preview.md before generating dist/RELEASE_NOTES.preview.md.",
       "Documented the new preview artifact workflow in scripts/README.md."
     ]
+  },
+  {
+    "id": "CHG-b5155c6e",
+    "change_group": "vscode-python-env-lock",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Pin VS Code terminal PATH to workspace .venv Python",
+    "details": [
+      "Updated .vscode/settings.json to prepend .venv\\Scripts to terminal Path on Windows.",
+      "Kept python.defaultInterpreterPath pointing to /.venv/Scripts/python.exe for interpreter selection.",
+      "Validated settings JSON syntax after update."
+    ]
   }
 ]
