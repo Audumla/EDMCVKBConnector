@@ -1,262 +1,67 @@
 [
   {
-    "id": "CHG-55c6ba67",
-    "change_group": "migrate-existing-changelog-ids",
+    "id": "CHG-52face3a",
+    "change_group": "release-changelog-rollover",
     "plugin_version": "unreleased",
-    "date": "2026-02-21",
+    "date": "2026-02-22",
     "summary_tags": [
+      "Bug Fix",
       "Code Refactoring",
       "Build / Packaging"
     ],
-    "summary": "Migrate all existing changelog IDs to simpler commit-hash format",
+    "summary": "Make release rollover preserve version summaries and reliably reset unreleased changelog state",
     "details": [
-      "Created migrate_changelog_ids.py script to convert timestamp-based IDs to CHG-<commit-hash>",
-      "Converted CHANGELOG.archive.json entries to CHG-arc-NNN format for clarity",
-      "Eliminated 50+ character IDs in favor of 8-12 character IDs",
-      "All IDs now globally unique and merge-safe across branches",
-      "Rebuilt CHANGELOG.md with migrated IDs, no duplicate ID conflicts"
+      "Updated build_changelog.py to select summaries by exact version/unreleased content hash instead of first matching prefix",
+      "Updated generate_release_notes.py to promote matching unreleased summary cache to the stamped release key and clear stale unreleased summary keys during --stamp --archive",
+      "Updated release-please workflow commit step to include docs/changelog/CHANGELOG.summaries.json alongside CHANGELOG.json, CHANGELOG.archive.json, and CHANGELOG.md"
     ]
   },
   {
-    "id": "CHG-55c6ba67-1",
-    "change_group": "vkb-link-recovery",
+    "id": "CHG-52face3a-1",
+    "change_group": "release-history-backfill",
     "plugin_version": "unreleased",
-    "date": "2026-02-21",
+    "date": "2026-02-22",
     "summary_tags": [
-      "Configuration Cleanup",
-      "Code Refactoring",
-      "Bug Fix"
+      "Documentation Update",
+      "Configuration Cleanup"
     ],
-    "summary": "Enforced restart-after-confirmed-stop and removed obsolete VKB retry/cooldown timers",
+    "summary": "Backfill missing v0.7.0 and v0.8.0 changelog history and align unreleased entries with post-release state",
     "details": [
-      "VKBLinkManager restart path now verifies no VKB-Link process remains before launching a new process and uses a short default restart delay (0.25s)",
-      "Removed plugin config defaults and fallback keys for initial/fallback socket retry intervals plus vkb_link_recovery_cooldown",
-      "Simplified VKBClient API by removing unused retry timer parameters and updated affected tests to match explicit process-driven reconnect behavior"
+      "Moved 16 release-workflow and VKB-link entries from docs/changelog/CHANGELOG.json into archive as v0.8.0 while keeping only post-release work unreleased",
+      "Added a v0.7.0 archive backfill marker so CHANGELOG.md now includes the missing release in version history",
+      "Rebuilt CHANGELOG.md and normalized summary cache keys so released history renders correctly and unreleased reflects one active entry"
     ]
   },
   {
-    "id": "CHG-55c6ba67-2",
-    "change_group": "clarify-reorganize-configuration-files",
+    "id": "CHG-52face3a-2",
+    "change_group": "changelog-summary-key-normalization",
     "plugin_version": "unreleased",
-    "date": "2026-02-21",
+    "date": "2026-02-22",
     "summary_tags": [
-      "Configuration Cleanup",
-      "Code Refactoring"
+      "Bug Fix",
+      "Configuration Cleanup"
     ],
-    "summary": "Clarify and reorganize configuration files for better discoverability",
+    "summary": "Normalize archive summary cache keys to hash-based format and remove legacy fallback rendering",
     "details": [
-      "Renamed config_defaults.json to changelog-config.json for clarity",
-      "Clarified config sections: changelog_summarizer -> changelog_summarization",
-      "Added _comment fields to config_defaults.json for self-documentation",
-      "Updated all scripts and docs to reference new changelog-config.json",
-      "Removed ambiguous field names: max_tokens -> claude_max_tokens, removed unused codex_model from summarization config"
+      "Removed legacy prefix fallback from scripts/build_changelog.py so summary lookup now strictly uses version/hash keys",
+      "Rewrote docs/changelog/CHANGELOG.summaries.json to exact hash keys for v0.4.0, v0.5.0, v0.5.1, v0.7.0, and v0.8.0",
+      "Rebuilt CHANGELOG.md and verified archived versions render full summary sections (Overview + change bullets) instead of condensed fallback lines"
     ]
   },
   {
-    "id": "CHG-55c6ba67-3",
-    "change_group": "vkb-link-recovery",
+    "id": "CHG-52face3a-3",
+    "change_group": "changelog-summary-rebuild",
     "plugin_version": "unreleased",
-    "date": "2026-02-21",
-    "summary_tags": [
-      "Configuration Cleanup",
-      "Code Refactoring"
-    ],
-    "summary": "Made process monitor interval configurable and unified timer keys to seconds with fewer UI timer knobs",
-    "details": [
-      "Added vkb_link_process_monitor_interval_seconds and switched link polling to vkb_link_poll_interval_seconds with legacy ms fallback support",
-      "Removed separate UI feedback timer config and derive feedback tick from vkb_ui_poll_interval_seconds to reduce timer count",
-      "Updated defaults/fallbacks and config tests to match the new seconds-based timer schema"
-    ]
-  },
-  {
-    "id": "CHG-55c6ba67-4",
-    "change_group": "move-changelog-files",
-    "plugin_version": "unreleased",
-    "date": "2026-02-21",
-    "summary_tags": [
-      "Code Refactoring"
-    ],
-    "summary": "Move changelog files to docs/changelog/ subdirectory",
-    "details": [
-      "Organized CHANGELOG.json, CHANGELOG.archive.json, CHANGELOG.summaries.json, and changelog-config.json into docs/changelog/"
-    ]
-  },
-  {
-    "id": "CHG-0c018dfd",
-    "change_group": "improve-release-notes-formatting",
-    "plugin_version": "unreleased",
-    "date": "2026-02-21",
+    "date": "2026-02-22",
     "summary_tags": [
       "Documentation Update",
       "Code Refactoring"
     ],
-    "summary": "Improve release notes formatting by removing meta-commentary and shortening group IDs",
+    "summary": "Rebuilt all changelog summaries from archive/current source entries using deterministic grouped summarization",
     "details": [
-      "Removed verbose meta-commentary like 'Condensed X entries into Y grouped changes'",
-      "Removed '(condensed from N updates)' suffixes from bullet points",
-      "Shortened group IDs in Change Group Index table to fit column width easily",
-      "Simplified summary display to focus on actual changes rather than grouping metadata"
-    ]
-  },
-  {
-    "id": "CHG-3dbb20de",
-    "change_group": "increase-group-id-length",
-    "plugin_version": "unreleased",
-    "date": "2026-02-21",
-    "summary_tags": [
-      "Code Refactoring"
-    ],
-    "summary": "Increase group ID length limit to preserve meaning",
-    "details": [
-      "Increased _slugify default from 48 to 70 characters",
-      "Increased _normalise_group from 64 to 75 characters",
-      "Updated release notes display to handle 50-char IDs",
-      "Allows complete, meaningful group names in change entries"
-    ]
-  },
-  {
-    "id": "CHG-c71b0c59",
-    "change_group": "refactor-group-naming",
-    "plugin_version": "unreleased",
-    "date": "2026-02-21",
-    "summary_tags": [
-      "Code Refactoring"
-    ],
-    "summary": "Refactor group naming to extract concise topic-focused names",
-    "details": [
-      "Created _extract_group_topic() to generate short group names from summaries",
-      "Extracts 2-4 key words while filtering common stopwords",
-      "Updated existing CHANGELOG.json entries to use new shorter names",
-      "Group names now 20-38 chars instead of 48+ chars, no truncation needed",
-      "Improved readability of release notes and change group index"
-    ]
-  },
-  {
-    "id": "CHG-fc428a14",
-    "change_group": "vkb-link-separation",
-    "plugin_version": "unreleased",
-    "date": "2026-02-21",
-    "summary_tags": [
-      "Code Refactoring",
-      "Configuration Cleanup"
-    ],
-    "summary": "Centralized VKB-Link process monitoring and listener-probe logic in VKBLinkManager and switched callers to manager delegation",
-    "details": [
-      "Added VKBLinkManager APIs for listener readiness probing and process health monitoring with crash callback support",
-      "Removed in-handler VKB-Link monitor/probe internals from EventHandler and delegated connect/recovery/endpoint flows to manager methods",
-      "Updated prefs panel and VKB-Link tests to call manager APIs, plus adjusted integration test config stubs for manager-backed behavior"
-    ]
-  },
-  {
-    "id": "CHG-fc428a14-1",
-    "change_group": "vkb-link-separation",
-    "plugin_version": "unreleased",
-    "date": "2026-02-21",
-    "summary_tags": [
-      "Code Refactoring",
-      "Test Update"
-    ],
-    "summary": "Completed VKB-Link delegation cleanup by moving INI endpoint parsing to manager and updating integration tests",
-    "details": [
-      "Added VKBLinkManager.read_ini_endpoint so prefs UI no longer parses VKB-Link INI directly",
-      "Adjusted test_event_handler_vkb_link mocks for manager-driven probe/monitor APIs",
-      "Updated test_vkb_server_integration EventHandler scenario to use a manager stub aligned with delegated manager responsibilities"
-    ]
-  },
-  {
-    "id": "CHG-1f5c0aba",
-    "change_group": "changelogsummarization",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "New Feature",
-      "Configuration Cleanup"
-    ],
-    "summary": "Add claude-cli backend so summarization works via VS Code Claude extension without an API key",
-    "details": [
-      "Added call_claude_cli() to summarize_changelog.py that calls the claude CLI with -p flag",
-      "Wired claude-cli into summarize_version() dispatch alongside existing claude and codex backends",
-      "Added claude-cli to --backend argparse choices",
-      "Updated changelog-config.json default backend from claude to claude-cli"
-    ]
-  },
-  {
-    "id": "CHG-1f5c0aba-1",
-    "change_group": "changelogsummarization",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Bug Fix"
-    ],
-    "summary": "Stop release script on summarization errors instead of silently falling back",
-    "details": [
-      "Changed changelog_activity.py to return a non-zero exit code when summarization fails",
-      "Release script now aborts on Step 1 failure; use --skip-summarize to bypass intentionally"
-    ]
-  },
-  {
-    "id": "CHG-1f5c0aba-2",
-    "change_group": "release-workflow-configurable-backends",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "New Feature",
-      "Build / Packaging",
-      "Bug Fix"
-    ],
-    "summary": "Add configurable VS Code release workflow with selectable summarizer backend and bump strategy",
-    "details": [
-      "Added scripts/release_workflow.py to run changelog preview and optionally trigger release-please with bump=auto|patch|minor|major",
-      "Extended changelog_activity.py and summarize_changelog.py to support backend override and robust Claude CLI execution in VS Code terminals",
-      "Updated release wrapper scripts, VS Code tasks, and release-please workflow input/path wiring for release_as dispatch and docs/changelog file commits"
-    ]
-  },
-  {
-    "id": "CHG-1f5c0aba-3",
-    "change_group": "release-workflow-configurable-backends",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Bug Fix",
-      "Build / Packaging"
-    ],
-    "summary": "Use release-please manifest as authoritative source when calculating forced bump versions",
-    "details": [
-      "Updated release_workflow.py to read current version from .release-please-manifest.json before pyproject.toml fallback",
-      "Keeps --bump patch/minor/major aligned with release-please state even if local files drift",
-      "Validated with dry-run output showing expected release_as values"
-    ]
-  },
-  {
-    "id": "CHG-1f5c0aba-4",
-    "change_group": "release-workflow-configurable-backends",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Bug Fix",
-      "Build / Packaging"
-    ],
-    "summary": "Fix codex backend summarization by auto-discovering VS Code codex.exe and using codex exec interface",
-    "details": [
-      "Updated summarize_changelog.py to resolve codex CLI from PATH or VS Code extension bundles when PATH is missing",
-      "Switched Codex summarization call from deprecated codex run --plan flow to codex exec with stdin prompt and output capture",
-      "Validated end-to-end changelog_activity.py --strict --summarize-backend codex now generates summaries and preview successfully"
-    ]
-  },
-  {
-    "id": "CHG-3d087c77",
-    "change_group": "release-workflow-configurable-backends",
-    "plugin_version": "unreleased",
-    "date": "2026-02-22",
-    "summary_tags": [
-      "Bug Fix",
-      "Build / Packaging"
-    ],
-    "summary": "Prevent conflicting release_as dispatch when an open release-please PR already targets a different version",
-    "details": [
-      "Updated release_workflow.py to detect open release-please PR version via gh pr list",
-      "When --bump requests a different version than the open release PR, workflow now fails early with explicit guidance",
-      "Avoids confusing no-op release-please runs where PR remains unchanged despite a requested bump"
+      "Added an intelligent deterministic backend in summarize_changelog.py that groups related changes and emits concise release summaries without repeated similar entries",
+      "Forced regeneration of all version summaries and synchronized hash computation so CHANGELOG.summaries.json keys match build_changelog.py exactly",
+      "Rebuilt CHANGELOG.md so archived versions now render full Overview/section summaries instead of condensed fallback lines"
     ]
   }
 ]

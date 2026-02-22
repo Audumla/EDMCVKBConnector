@@ -84,7 +84,7 @@ def group_entries_by_version(entries: list[dict]) -> dict[str, list[dict]]:
 
 def compute_version_hash(entries: list[dict]) -> str:
     """Compute a hash of entry IDs to detect changes."""
-    ids = sorted(str(e.get("id", "")) for e in entries)
+    ids = sorted(str(e.get("id", "")) for e in entries if str(e.get("id", "")))
     content = "\n".join(ids)
     return hashlib.sha256(content.encode()).hexdigest()[:12]
 
@@ -127,6 +127,62 @@ def format_entries_for_prompt(entries: list[dict], version: str) -> str:
     )
 
     return "\n".join(lines)
+
+
+def _build_intelligent_summary(entries: list[dict], version: str) -> str | None:
+    """Build deterministic grouped summary without external LLM/API calls."""
+    if not entries:
+        return None
+
+    try:
+        from generate_release_notes import TAG_ORDER, build_change_groups, group_by_tag, _intelligent_tag_summary
+    except Exception as e:
+        print(f"ERROR: Failed loading intelligent summarizer helpers: {e}", file=sys.stderr)
+        return None
+
+    groups = build_change_groups(entries)
+    buckets = group_by_tag(groups)
+    if not buckets:
+        return None
+
+    tag_order = [t for t in TAG_ORDER if t in buckets] + [t for t in sorted(buckets) if t not in TAG_ORDER]
+    top_focus = ", ".join(tag_order[:3]) if tag_order else "multiple areas"
+
+    lines = [
+        "### Overview",
+        "",
+        (
+            f"This release includes {len(entries)} changelog updates across "
+            f"{len(groups)} grouped workstreams, focused on {top_focus}."
+        ),
+        "",
+    ]
+
+    section_map = {
+        "Bug Fix": "Bug Fixes",
+        "New Feature": "New Features",
+        "Code Refactoring": "Improvements",
+        "Configuration Cleanup": "Improvements",
+        "Build / Packaging": "Build and Packaging",
+        "Documentation Update": "Documentation",
+        "Test Update": "Testing",
+        "Dependency Update": "Dependencies",
+        "UI Improvement": "UI Improvements",
+        "Performance Improvement": "Performance Improvements",
+    }
+
+    for tag in tag_order:
+        title = section_map.get(tag, tag)
+        tag_groups = sorted(
+            buckets[tag],
+            key=lambda g: (g["entry_count"], g["latest_date"], g["headline"]),
+            reverse=True,
+        )
+        lines.append(f"### {title}")
+        lines.append(f"- {_intelligent_tag_summary(tag, tag_groups)}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
 
 
 def call_claude_api(prompt: str, config: dict) -> str | None:
@@ -371,7 +427,9 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
     prompt = format_entries_for_prompt(entries, version)
     backend = config.get("backend", "claude")
 
-    if backend == "codex":
+    if backend == "intelligent":
+        summary = _build_intelligent_summary(entries, version)
+    elif backend == "codex":
         summary = call_codex_api(prompt, config)
     elif backend == "claude-cli":
         summary = call_claude_cli(prompt, config)
@@ -407,7 +465,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["claude", "claude-cli", "codex"],
+        choices=["claude", "claude-cli", "codex", "intelligent"],
         help="Override the configured LLM backend",
     )
 
@@ -458,10 +516,28 @@ def main() -> int:
     sorted_versions = sorted(versions_to_summarize.items(), key=sort_key)
 
     success_count = 0
+    resolved_hashes: dict[str, str] = {}
     for version, entries in sorted_versions:
+        resolved_hashes[version] = compute_version_hash(entries) if entries else ""
         result = summarize_version(version, entries, config, force=args.force)
         if result:
             success_count += 1
+
+    # Keep cache clean for processed versions when force-regenerating.
+    if args.force and resolved_hashes:
+        cache = load_summaries()
+        updated = False
+        for version, vhash in resolved_hashes.items():
+            keep_key = f"{version}:{vhash}" if vhash else None
+            for key in list(cache.keys()):
+                if not key.startswith(f"{version}:"):
+                    continue
+                if keep_key and key == keep_key:
+                    continue
+                del cache[key]
+                updated = True
+        if updated:
+            save_summaries(cache)
 
     print()
     print(f"Successfully generated {success_count}/{len(versions_to_summarize)} summaries")

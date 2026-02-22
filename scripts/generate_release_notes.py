@@ -10,6 +10,7 @@ into grouped workstreams so release bodies do not list every micro-change.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -25,6 +26,7 @@ CHANGELOG_PATH = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.json"
 CHANGELOG_ARCHIVE_PATH = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.archive.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "dist" / "RELEASE_NOTES.md"
 CONFIG_DEFAULTS = PROJECT_ROOT / "docs" / "changelog" / "changelog-config.json"
+CHANGELOG_SUMMARIES_PATH = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.summaries.json"
 
 # Display order for approved summary tags
 TAG_ORDER = [
@@ -146,6 +148,23 @@ def save_archive_changelog(entries: list[dict]) -> None:
         f.write("\n")
 
 
+def _load_summaries() -> dict:
+    if not CHANGELOG_SUMMARIES_PATH.exists():
+        return {}
+    try:
+        with open(CHANGELOG_SUMMARIES_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_summaries(data: dict) -> None:
+    with open(CHANGELOG_SUMMARIES_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
+
 def _version_tuple(v: str) -> tuple[int, ...]:
     parts = []
     for p in str(v).split("."):
@@ -158,6 +177,12 @@ def _version_tuple(v: str) -> tuple[int, ...]:
 
 def _entry_sort_key(entry: dict) -> tuple[str, str]:
     return (str(entry.get("date", "") or ""), str(entry.get("id", "") or ""))
+
+
+def _entries_hash(entries: list[dict]) -> str:
+    ids = sorted(str(e.get("id", "") or "") for e in entries if str(e.get("id", "") or ""))
+    content = "\n".join(ids)
+    return hashlib.sha256(content.encode()).hexdigest()[:12]
 
 
 def filter_entries(
@@ -643,6 +668,34 @@ def archive_stamped(current_entries: list[dict]) -> tuple[list[dict], list[dict]
     return remaining_current, stamped_to_archive
 
 
+def promote_unreleased_summary_to_version(stamped_entries: list[dict], stamped_version: str) -> bool:
+    """Promote exact unreleased summary cache entry to the stamped release version."""
+    if not stamped_entries:
+        return False
+
+    summaries = _load_summaries()
+    if not summaries:
+        return False
+
+    stamped_hash = _entries_hash(stamped_entries)
+    old_key = f"unreleased:{stamped_hash}"
+    new_key = f"{stamped_version}:{stamped_hash}"
+    summary = summaries.get(old_key)
+    if not summary:
+        return False
+
+    summaries[new_key] = summary
+    summaries.pop(old_key, None)
+
+    # Start the next cycle clean: remove stale unreleased summaries.
+    for key in list(summaries.keys()):
+        if key.startswith("unreleased:"):
+            summaries.pop(key, None)
+
+    _save_summaries(summaries)
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate compact release notes from changelog JSON data")
 
@@ -747,10 +800,13 @@ def main() -> None:
         if args.archive:
             remaining, archived = archive_stamped(current_entries)
             save_current_changelog(remaining)
+            promoted = promote_unreleased_summary_to_version(archived, args.stamp)
             print(
                 f"Stamped {stamped_count} entries as v{args.stamp}, "
                 f"archived {len(archived)} to CHANGELOG.archive.json"
             )
+            if promoted:
+                print(f"Promoted cached unreleased summary to version v{args.stamp}")
         else:
             save_current_changelog(current_entries)
             print(f"Stamped {stamped_count} entries in CHANGELOG.json as v{args.stamp}")

@@ -73,6 +73,14 @@ def _entry_sort_key(entry: dict) -> tuple[str, str]:
     return (_entry_date(entry), _entry_id(entry))
 
 
+def _entries_hash(entries: list[dict]) -> str:
+    ids = sorted(_entry_id(e) for e in entries if _entry_id(e))
+    content = "\n".join(ids)
+    import hashlib
+
+    return hashlib.sha256(content.encode()).hexdigest()[:12]
+
+
 def _primary_tag(entry: dict) -> str:
     tags = entry.get("summary_tags")
     if isinstance(tags, list) and tags:
@@ -211,10 +219,8 @@ def build_markdown(
         # Try to use LLM summary
         unreleased_summary = None
         if use_summaries and summaries:
-            for key, value in summaries.items():
-                if key.startswith("unreleased:"):
-                    unreleased_summary = value
-                    break
+            unreleased_key = f"unreleased:{_entries_hash(unreleased)}"
+            unreleased_summary = summaries.get(unreleased_key)
 
         if unreleased_summary:
             lines.append(unreleased_summary)
@@ -252,10 +258,8 @@ def build_markdown(
         # Try to use LLM summary
         version_summary = None
         if use_summaries and summaries:
-            for key, value in summaries.items():
-                if key.startswith(f"{version}:"):
-                    version_summary = value
-                    break
+            version_key = f"{version}:{_entries_hash(entries)}"
+            version_summary = summaries.get(version_key)
 
         if version_summary:
             lines.append(version_summary)
