@@ -2,7 +2,7 @@
 Run local release preparation and optionally trigger release-please.
 
 This script is VS Code task friendly and supports:
-- Configurable changelog summarizer backend (codex / claude-cli)
+- Configurable changelog summarizer backend (codex / claude-cli / copilot / intelligent)
 - Preview-only mode (rebuild changelog + release preview, no GitHub workflow call)
 - Optional forced bump intent (major/minor/patch) by dispatching release_as
 """
@@ -137,7 +137,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--summarize-backend",
-        choices=("claude-cli", "codex"),
+        choices=("claude-cli", "codex", "copilot", "gemini", "intelligent"),
         help="Override summarizer backend for this run.",
     )
     parser.add_argument(

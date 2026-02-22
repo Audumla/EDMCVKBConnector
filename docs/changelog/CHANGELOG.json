@@ -1,1 +1,162 @@
-[]
+[
+  {
+    "id": "CHG-650b79a0",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring"
+    ],
+    "summary": "Add GitHub Copilot as LLM backend option for changelog summarization",
+    "details": [
+      "Added call_copilot_cli() function that invokes gh copilot CLI with prompt",
+      "Updated summarize_version() to support copilot backend alongside claude-cli and codex",
+      "Added copilot configuration section to changelog-config.json with install instructions"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-1",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "UI Improvement"
+    ],
+    "summary": "Add GitHub Copilot to VS Code release task backend picker",
+    "details": [
+      "Updated .vscode/tasks.json releaseBackend input options to include copilot",
+      "Added intelligent backend option to picker for consistency with CLI",
+      "Release workflow tasks now show all 5 summarizer backend choices"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-2",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Add copilot and intelligent backends to release_workflow.py argument parser",
+    "details": [
+      "Updated --summarize-backend choices to accept: claude-cli, codex, copilot, intelligent",
+      "Updated docstring to reflect all supported backends",
+      "Release workflow now supports all 4 changelog summarization backends"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-3",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Add copilot backend to changelog_activity.py argument parser",
+    "details": [
+      "Updated --summarize-backend choices to accept copilot alongside claude-cli, codex, and intelligent",
+      "changelog_activity.py now supports all 4 summarization backends for consistency"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-4",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Fix GitHub Copilot CLI integration to use Windows app and prompt mode",
+    "details": [
+      "Updated call_copilot_cli() to use copilot CLI with -p prompt mode and -s silent mode",
+      "Updated _resolve_copilot_command() to resolve copilot executable instead of gh CLI",
+      "Copilot backend now calls GitHub Copilot CLI directly instead of gh copilot extension"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-5",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Bug Fix"
+    ],
+    "summary": "Default Copilot backend to gpt-4.1 model (included, no token cost)",
+    "details": [
+      "Updated call_copilot_cli() to default model to gpt-4.1 instead of empty",
+      "Updated changelog-config.json copilot section to use gpt-4.1 and updated install instructions",
+      "gpt-4.1 is included with Copilot and has no token usage cost"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-6",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix Copilot CLI input handling to use stdin instead of command-line arguments",
+    "details": [
+      "Changed call_copilot_cli() to pass prompt via stdin for proper multiline/special character handling",
+      "Removed -p flag from command line args, letting Copilot read from stdin",
+      "Copilot backend now works reliably with complex prompts containing newlines and special chars"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-7",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Ensure Copilot output is normalized to standard changelog template format",
+    "details": [
+      "Enhanced _normalize_llm_summary() to add ### Overview section when missing from LLM output",
+      "Copilot now produces identical format to Claude and Codex backends",
+      "All LLM backends now consistently follow: ### Overview + ### [Section] + bullet points"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-8",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring"
+    ],
+    "summary": "Add Google Gemini CLI as new LLM backend option for changelog summarization",
+    "details": [
+      "Added call_gemini_cli() function that invokes gemini CLI with stdin input for prompts",
+      "Updated summarize_version() to route to gemini backend",
+      "Updated all argument parsers and VS Code tasks to include gemini as a backend choice",
+      "Gemini output normalized to match standard template like other backends"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-9",
+    "change_group": "changelog-consistency",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring",
+      "Configuration Cleanup",
+      "Documentation Update"
+    ],
+    "summary": "Unify changelog normalization and establish Gemini agent policies",
+    "details": [
+      "Consolidated LLM output normalization into generate_release_notes.py",
+      "Updated summarize_changelog.py to use shared normalization logic",
+      "Added GEMINI.md with workspace and changelog policies",
+      "Added Gemini to log_change.py and generate_release_notes.py choice lists"
+    ]
+  }
+]

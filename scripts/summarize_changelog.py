@@ -14,8 +14,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections import defaultdict
-from pathlib import Path
+from generate_release_notes import (
+    TAG_ORDER,
+    _intelligent_tag_summary,
+    _normalize_llm_summary,
+    build_change_groups,
+    group_by_tag,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.json"
@@ -176,111 +181,9 @@ def format_entries_for_prompt(entries: list[dict], version: str, config: dict | 
     return "\n".join(lines)
 
 
-def _normalize_llm_summary(summary: str) -> str:
-    """Normalize LLM output (Claude/Codex) to match the standard template.
-
-    Ensures consistent formatting regardless of which backend generates the summary.
-    - Strips explanatory wrappers and metadata commentary
-    - Deduplicates identical section headers
-    - Adds ### Overview section if missing
-    - Normalizes section headers to ### format
-    - Removes duplicate blank lines
-    """
-    if not summary or not summary.strip():
-        return summary
-
-    lines = summary.split('\n')
-
-    # Find the first ### section header that marks actual content start
-    start_idx = 0
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith('###'):
-            start_idx = i
-            break
-
-    # Find the end of actual content (before "**Note:**", "Note:", or final ---)
-    end_idx = len(lines)
-    for i in range(len(lines) - 1, -1, -1):
-        stripped = lines[i].strip()
-        if stripped.startswith('**Note:') or stripped.startswith('Note:'):
-            end_idx = i
-            break
-        elif stripped == '---' and i > start_idx + 5:  # Skip early --- (likely wrapper separators)
-            end_idx = i
-            break
-
-    content_lines = lines[start_idx:end_idx]
-
-    # First pass: identify duplicate headers and mark ranges to remove
-    # Keep the SECOND occurrence (which has the real content), remove the FIRST
-    headers_seen = {}
-    ranges_to_remove = []
-
-    for i, line in enumerate(content_lines):
-        stripped = line.strip()
-        if stripped.startswith('###'):
-            if stripped in headers_seen:
-                # Found duplicate; mark the FIRST occurrence (from its start to the second one)
-                prev_idx = headers_seen[stripped]
-                ranges_to_remove.append((prev_idx, i))
-            headers_seen[stripped] = i
-
-    # Second pass: filter out marked ranges
-    filtered = []
-    for i, line in enumerate(content_lines):
-        skip = False
-        for start, end in ranges_to_remove:
-            if start <= i < end:
-                skip = True
-                break
-        if not skip:
-            filtered.append(line)
-
-    # Third pass: clean up formatting
-    normalized = []
-    has_overview = False
-
-    for i, line in enumerate(filtered):
-        stripped = line.rstrip()
-
-        # Skip pure separator lines (---)
-        if stripped == '---':
-            continue
-
-        # Mark Overview as seen
-        if stripped.startswith('### Overview'):
-            has_overview = True
-
-        # Add the line
-        normalized.append(stripped)
-
-    # Remove trailing empty lines
-    while normalized and not normalized[-1]:
-        normalized.pop()
-
-    # Remove consecutive blank lines (keep max 1)
-    final = []
-    prev_blank = False
-    for line in normalized:
-        is_blank = not line.strip()
-        if is_blank and prev_blank:
-            continue
-        final.append(line)
-        prev_blank = is_blank
-
-    return '\n'.join(final).strip()
-
-
 def _build_intelligent_summary(entries: list[dict], version: str) -> str | None:
     """Build deterministic grouped summary without external LLM/API calls."""
     if not entries:
-        return None
-
-    try:
-        from generate_release_notes import TAG_ORDER, build_change_groups, group_by_tag, _intelligent_tag_summary
-    except Exception as e:
-        print(f"ERROR: Failed loading intelligent summarizer helpers: {e}", file=sys.stderr)
         return None
 
     groups = build_change_groups(entries)
@@ -426,6 +329,24 @@ def _resolve_codex_command() -> list[str]:
     return ["codex"]
 
 
+def _resolve_gemini_command() -> list[str]:
+    """Resolve Google Gemini CLI command."""
+    resolved = shutil.which("gemini") or shutil.which("gemini.exe") or shutil.which("gemini.cmd")
+    if resolved:
+        return [resolved]
+    return ["gemini"]
+
+
+def _resolve_copilot_command() -> list[str]:
+    """Resolve GitHub Copilot CLI command (installed as Windows app)."""
+    candidates = ["copilot", "copilot.exe"]
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return [resolved]
+    return ["copilot"]
+
+
 def call_claude_cli(prompt: str, config: dict) -> str | None:
     """Call the Claude Code CLI for summarization (uses VS Code extension auth, no API key needed)."""
     try:
@@ -465,6 +386,108 @@ def call_claude_cli(prompt: str, config: dict) -> str | None:
         return None
     except Exception as e:
         print(f"ERROR: Failed to call claude CLI: {e}", file=sys.stderr)
+        return None
+
+
+def call_copilot_cli(prompt: str, config: dict) -> str | None:
+    """Call GitHub Copilot CLI for summarization (non-interactive mode).
+
+    Requires: GitHub Copilot CLI installed as Windows app
+    Install from: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli
+
+    Uses: GPT-4.1 model by default (included with Copilot, no token usage)
+    """
+    try:
+        copilot_cmd = _resolve_copilot_command()
+        provider = _provider_cfg(config, "copilot")
+        # Default to gpt-4.1 which is included with Copilot (no token usage)
+        model = str(provider.get("model", "gpt-4.1")).strip() or "gpt-4.1"
+
+        # Build the copilot command with -s for silent mode to output only the response
+        # Use gpt-4.1 model (included with Copilot, no token cost)
+        args = [*copilot_cmd, "-s", "--allow-all", "--model", model]
+
+        # Pass prompt via stdin to handle multiline/special characters properly
+        result = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "copilot"),
+        )
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            print(f"ERROR: GitHub Copilot CLI failed: {stderr}", file=sys.stderr)
+            return None
+
+        output = result.stdout.strip()
+        return output if output else None
+
+    except FileNotFoundError:
+        print(
+            "ERROR: GitHub Copilot CLI not found. Install from: "
+            "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+            file=sys.stderr,
+        )
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to call GitHub Copilot: {e}", file=sys.stderr)
+        return None
+
+
+def call_gemini_cli(prompt: str, config: dict) -> str | None:
+    """Call Google Gemini CLI for summarization (non-interactive mode).
+
+    Requires: Gemini CLI installed and authenticated
+    Install from: https://github.com/google-gemini/cli (or npm install -g @google-gemini/cli)
+
+    Uses: Configured model (defaults to Gemini 2.0, can be customized)
+    """
+    try:
+        gemini_cmd = _resolve_gemini_command()
+        provider = _provider_cfg(config, "gemini")
+        model = str(provider.get("model", "")).strip()
+
+        # Build the gemini command for non-interactive mode
+        # Use -y/--yolo to auto-approve actions (needed for headless/script mode)
+        # Don't use -p flag, instead pass prompt via stdin
+        args = [*gemini_cmd, "-y"]
+
+        # Add model specification if provided
+        if model:
+            args.extend(["-m", model])
+
+        # Pass prompt via stdin to handle multiline/special characters properly
+        result = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "gemini"),
+        )
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            print(f"ERROR: Google Gemini CLI failed: {stderr}", file=sys.stderr)
+            return None
+
+        output = result.stdout.strip()
+        return output if output else None
+
+    except FileNotFoundError:
+        print(
+            "ERROR: Google Gemini CLI not found. Install from: "
+            "https://github.com/google-gemini/cli or run: npm install -g @google-gemini/cli",
+            file=sys.stderr,
+        )
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to call Google Gemini: {e}", file=sys.stderr)
         return None
 
 
@@ -558,8 +581,12 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
         summary = call_codex_api(prompt, config)
     elif backend == "claude-cli":
         summary = call_claude_cli(prompt, config)
+    elif backend == "copilot":
+        summary = call_copilot_cli(prompt, config)
+    elif backend == "gemini":
+        summary = call_gemini_cli(prompt, config)
     else:
-        print(f"ERROR: Unsupported backend '{backend}'. Use one of: claude-cli, codex, intelligent.", file=sys.stderr)
+        print(f"ERROR: Unsupported backend '{backend}'. Use one of: claude-cli, codex, copilot, gemini, intelligent.", file=sys.stderr)
         summary = None
 
     if not summary:
@@ -595,7 +622,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["claude-cli", "codex", "intelligent"],
+        choices=["claude-cli", "codex", "copilot", "gemini", "intelligent"],
         help="Override the configured LLM backend",
     )
 

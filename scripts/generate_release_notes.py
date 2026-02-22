@@ -608,6 +608,24 @@ def _resolve_codex_command() -> list[str]:
     return ["codex"]
 
 
+def _resolve_gemini_command() -> list[str]:
+    """Resolve Google Gemini CLI command."""
+    resolved = shutil.which("gemini") or shutil.which("gemini.exe") or shutil.which("gemini.cmd")
+    if resolved:
+        return [resolved]
+    return ["gemini"]
+
+
+def _resolve_copilot_command() -> list[str]:
+    """Resolve GitHub Copilot CLI command (installed as Windows app)."""
+    candidates = ["copilot", "copilot.exe"]
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if resolved:
+            return [resolved]
+    return ["copilot"]
+
+
 def _call_claude_cli_for_summary(prompt: str, config: dict) -> str | None:
     """Call Claude CLI for release notes summary."""
     try:
@@ -643,6 +661,92 @@ def _call_claude_cli_for_summary(prompt: str, config: dict) -> str | None:
         return None
     except Exception as e:
         print(f"ERROR: Failed to call claude CLI: {e}", file=sys.stderr)
+        return None
+
+
+def _call_copilot_cli_for_summary(prompt: str, config: dict) -> str | None:
+    """Call GitHub Copilot CLI for release notes summary (non-interactive mode).
+
+    Uses: GPT-4.1 model by default (included with Copilot, no token usage)
+    """
+    try:
+        copilot_cmd = _resolve_copilot_command()
+        provider = _provider_cfg(config, "copilot")
+        model = str(provider.get("model", "gpt-4.1")).strip() or "gpt-4.1"
+
+        # Build the copilot command with -s for silent mode to output only the response
+        args = [*copilot_cmd, "-s", "--allow-all", "--model", model]
+
+        # Pass prompt via stdin to handle multiline/special characters properly
+        result = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "copilot"),
+        )
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            print(f"ERROR: GitHub Copilot CLI failed: {stderr}", file=sys.stderr)
+            return None
+
+        output = result.stdout.strip()
+        return output if output else None
+
+    except FileNotFoundError:
+        print(
+            "ERROR: GitHub Copilot CLI not found. Install from: "
+            "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+            file=sys.stderr,
+        )
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to call GitHub Copilot: {e}", file=sys.stderr)
+        return None
+
+
+def _call_gemini_cli_for_summary(prompt: str, config: dict) -> str | None:
+    """Call Google Gemini CLI for release notes summary (non-interactive mode)."""
+    try:
+        gemini_cmd = _resolve_gemini_command()
+        provider = _provider_cfg(config, "gemini")
+        model = str(provider.get("model", "")).strip()
+
+        # Build the gemini command with -p for prompt mode (non-interactive)
+        args = [*gemini_cmd, "-p", prompt, "-y"]
+
+        if model:
+            args.extend(["-m", model])
+
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "gemini"),
+        )
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            print(f"ERROR: Google Gemini CLI failed: {stderr}", file=sys.stderr)
+            return None
+
+        output = result.stdout.strip()
+        return output if output else None
+
+    except FileNotFoundError:
+        print(
+            "ERROR: Google Gemini CLI not found. Install from: "
+            "https://github.com/google-gemini/cli or run: npm install -g @google-gemini/cli",
+            file=sys.stderr,
+        )
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to call Google Gemini: {e}", file=sys.stderr)
         return None
 
 
@@ -709,6 +813,128 @@ def _call_codex_api_for_summary(prompt: str, config: dict) -> str | None:
         return None
 
 
+def _normalize_llm_summary(summary: str) -> str:
+    """Normalize LLM output (Claude/Codex/Gemini/Copilot) to match the standard template.
+
+    Ensures consistent formatting regardless of which backend generates the summary.
+    - Strips explanatory wrappers and metadata commentary
+    - Deduplicates identical section headers
+    - Adds ### Overview section if missing
+    - Normalizes section headers to ### format
+    - Removes duplicate blank lines
+    """
+    if not summary or not summary.strip():
+        return summary
+
+    lines = summary.split('\n')
+
+    # Find the first ### or ## section header that marks actual content start
+    start_idx = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith('###') or stripped.startswith('##'):
+            start_idx = i
+            break
+
+    # Find the end of actual content (before "**Note:**", "Note:", or final ---)
+    end_idx = len(lines)
+    for i in range(len(lines) - 1, -1, -1):
+        stripped = lines[i].strip()
+        if stripped.startswith('**Note:') or stripped.startswith('Note:'):
+            end_idx = i
+            break
+        elif stripped == '---' and i > start_idx + 2:  # Skip early ---
+            end_idx = i
+            break
+
+    content_lines = lines[start_idx:end_idx]
+
+    # First pass: identify duplicate headers and mark ranges to remove
+    # Keep the SECOND occurrence (which has the real content), remove the FIRST
+    headers_seen = {}
+    ranges_to_remove = []
+
+    for i, line in enumerate(content_lines):
+        stripped = line.strip()
+        if stripped.startswith('###') or stripped.startswith('##'):
+            # Normalize to ### for comparison
+            normalized_header = '### ' + stripped.lstrip('#').strip()
+            if normalized_header in headers_seen:
+                prev_idx = headers_seen[normalized_header]
+                ranges_to_remove.append((prev_idx, i))
+            headers_seen[normalized_header] = i
+
+    # Second pass: filter out marked ranges and normalize headers to ###
+    filtered = []
+    for i, line in enumerate(content_lines):
+        skip = False
+        for start, end in ranges_to_remove:
+            if start <= i < end:
+                skip = True
+                break
+        if not skip:
+            stripped = line.rstrip()
+            if stripped.startswith('##') and not stripped.startswith('###'):
+                stripped = '### ' + stripped.lstrip('#').strip()
+            filtered.append(stripped)
+
+    # Third pass: clean up formatting and ensure ### Overview section
+    normalized = []
+    has_overview = False
+    first_section_idx = None
+
+    for i, line in enumerate(filtered):
+        stripped = line.rstrip()
+
+        # Skip pure separator lines (---)
+        if stripped == '---':
+            continue
+
+        # Track first ### section
+        if stripped.startswith('###') and first_section_idx is None:
+            first_section_idx = len(normalized)
+
+        # Mark Overview as seen
+        if stripped.startswith('### Overview'):
+            has_overview = True
+
+        # Add the line
+        normalized.append(stripped)
+
+    # If no Overview section found, create one from the first section content
+    if not has_overview and first_section_idx is not None:
+        # Extract intro text before first section (if any)
+        intro_text = None
+        for i in range(first_section_idx):
+            if normalized[i].strip():
+                intro_text = normalized[i]
+                break
+
+        if intro_text and not intro_text.startswith('###'):
+            normalized.insert(first_section_idx, '')
+            normalized.insert(first_section_idx, intro_text)
+            normalized.insert(first_section_idx, '### Overview')
+        else:
+            normalized.insert(first_section_idx, '')
+            normalized.insert(first_section_idx, 'Summary of changes in this release.')
+            normalized.insert(first_section_idx, '### Overview')
+
+    # Final cleanup
+    while normalized and not normalized[-1]:
+        normalized.pop()
+
+    final = []
+    prev_blank = False
+    for line in normalized:
+        is_blank = not line.strip()
+        if is_blank and prev_blank:
+            continue
+        final.append(line)
+        prev_blank = is_blank
+
+    return '\n'.join(final).strip()
+
+
 def build_markdown(
     version: str,
     entries: list[dict],
@@ -734,6 +960,10 @@ def build_markdown(
             llm_summary = _call_codex_api_for_summary(prompt, config)
         elif backend == "claude-cli":
             llm_summary = _call_claude_cli_for_summary(prompt, config)
+        elif backend == "copilot":
+            llm_summary = _call_copilot_cli_for_summary(prompt, config)
+        elif backend == "gemini":
+            llm_summary = _call_gemini_cli_for_summary(prompt, config)
         else:
             print(
                 f"WARNING: Unsupported llm backend '{backend}' for release notes; "
@@ -743,6 +973,9 @@ def build_markdown(
             llm_summary = None
 
         if llm_summary:
+            # Normalize LLM output
+            llm_summary = _normalize_llm_summary(llm_summary)
+
             lines = [f"# Release Notes - {title_version}", ""]
             date_range = _date_range(entries)
             if date_range:

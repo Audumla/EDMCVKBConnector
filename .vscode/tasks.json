@@ -178,7 +178,10 @@
             "options": [
                 "codex",
                 "claude-cli",
-                "claude"
+                "copilot",
+                "gemini",
+                "claude",
+                "intelligent"
             ]
         },
         {

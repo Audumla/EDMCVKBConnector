@@ -37,9 +37,21 @@
       "_comment_model": "Optional Claude model alias/name passed as --model (examples: sonnet, opus, claude-sonnet-4-6).",
       "model": "sonnet"
     },
+    "copilot": {
+      "_comment": "GitHub Copilot CLI backend settings (backend=copilot). Requires: Copilot CLI Windows app.",
+      "_comment_install": "Install from: https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+      "_comment_model": "Model name passed to copilot CLI. gpt-4.1 is included (no token cost).",
+      "model": "gpt-4.1"
+    },
+    "gemini": {
+      "_comment": "Google Gemini CLI backend settings (backend=gemini). Requires: Gemini CLI installed and authenticated.",
+      "_comment_install": "Install from: https://github.com/google-gemini/cli or run: npm install -g @google-gemini/cli",
+      "_comment_model": "Optional model name (e.g., gemini-2.0-flash, gemini-1.5-pro). Defaults to Gemini's selected model.",
+      "model": ""
+    },
     "intelligent": {
       "_comment": "Deterministic local summarizer (no LLM/API usage)."
     },
-    "_comment_backend": "Backend options: codex | claude-cli | intelligent"
+    "_comment_backend": "Backend options: codex | claude-cli | copilot | gemini | intelligent"
   }
 }
