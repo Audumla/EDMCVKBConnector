@@ -20,6 +20,8 @@ from .ui_components import (
     create_colored_button,
     create_icon_action_button,
 )
+from .plugin_update_manager import PluginUpdateManager
+from .version import __version__ as PLUGIN_VERSION
 
 
 @dataclass(frozen=True)
@@ -99,8 +101,8 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     notebook.add(settings_tab, text="Settings")
     notebook.add(events_tab, text="Events")
 
-    settings_tab.columnconfigure(0, weight=0)  # Don't expand VKB-Link
-    settings_tab.columnconfigure(1, weight=1)  # Expand shift flags box
+    settings_tab.columnconfigure(0, weight=1, uniform="settings-top")
+    settings_tab.columnconfigure(1, weight=1, uniform="settings-top")
 
     def _config_int(key: str, default: int, *, minimum: int = 0) -> int:
         value = _config.get(key) if _config else default
@@ -158,7 +160,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         ) * 1000
     )
     ini_status_tick_ms = max(100, int(status_poll_interval_ms / 3))
-    action_followup_delay_ms = max(ini_status_tick_ms * 4, ini_status_tick_ms)
     host_var = tk.StringVar(value=str(vkb_host))
     port_var = tk.StringVar(value=str(vkb_port))
     if _event_handler:
@@ -214,13 +215,73 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     # Status variable for unsaved changes indicator
     unsaved_status_var = tk.StringVar(value="")
 
-    vkb_link_frame = ttk.LabelFrame(settings_tab, text="VKB-Link", padding=6)
-    vkb_link_frame.grid(row=0, column=0, sticky="w", padx=(4, 6), pady=2)
-    vkb_link_frame.columnconfigure(1, weight=0)
+    plugin_frame = ttk.LabelFrame(settings_tab, text="VKB Connector", padding=8)
+    plugin_frame.grid(row=0, column=0, sticky="nsew", padx=(4, 6), pady=2)
+    plugin_frame.columnconfigure(0, weight=1)
 
-    # Config frame: Host, Port, and Auto-manage on same line, compact and left-aligned
+    plugin_row = ttk.Frame(plugin_frame)
+    plugin_row.grid(row=0, column=0, sticky="ew")
+    plugin_version_var = tk.StringVar(value=f"v{PLUGIN_VERSION}")
+    plugin_update_inflight = [False]
+    plugin_update_btn_width = len("Update EDMC Plugin")
+
+    ttk.Label(plugin_row, text="Current Version:").pack(side=tk.LEFT, padx=(0, 4))
+    ttk.Label(
+        plugin_row,
+        textvariable=plugin_version_var,
+        font=("TkDefaultFont", 9, "bold"),
+    ).pack(side=tk.LEFT, padx=(0, 8))
+    ttk.Frame(plugin_row).pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    def _update_plugin_to_latest() -> None:
+        if plugin_update_inflight[0]:
+            return
+        plugin_update_inflight[0] = True
+        plugin_update_btn.configure(state=tk.DISABLED, text="Checking...")
+
+        def _worker() -> None:
+            plugin_install_dir = Path(_plugin_dir) if _plugin_dir else deps.plugin_root
+            updater = PluginUpdateManager(plugin_install_dir, logger=logger)
+            current_version = plugin_version_var.get().strip().lstrip("v") or PLUGIN_VERSION
+            result = updater.update_to_latest(current_version=current_version)
+
+            def _finish() -> None:
+                from tkinter import messagebox
+
+                plugin_update_inflight[0] = False
+                plugin_update_btn.configure(state=tk.NORMAL, text="Update EDMC Plugin")
+                if result.success and result.updated and result.latest_version:
+                    plugin_version_var.set(f"v{result.latest_version}")
+                if result.success:
+                    messagebox.showinfo("Plugin Update", result.message)
+                else:
+                    messagebox.showerror("Plugin Update", result.message)
+
+            if frame.winfo_exists():
+                frame.after(0, _finish)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    plugin_update_btn = create_colored_button(
+        plugin_row,
+        text="Update EDMC Plugin",
+        command=_update_plugin_to_latest,
+        style="info",
+        padx=8,
+        pady=2,
+        font=("TkDefaultFont", 8, "bold"),
+        width=plugin_update_btn_width,
+        tooltip_text="Check GitHub releases and install a newer plugin version if available",
+    )
+    plugin_update_btn.pack(side=tk.RIGHT)
+
+    vkb_link_frame = ttk.LabelFrame(settings_tab, text="VKB-Link", padding=6)
+    vkb_link_frame.grid(row=1, column=0, columnspan=2, sticky="ew", padx=4, pady=2)
+    vkb_link_frame.columnconfigure(0, weight=1)
+
+    # Config row: Host, Port, Auto-manage, status, and actions on one line.
     config_frame = ttk.Frame(vkb_link_frame)
-    config_frame.grid(row=0, column=0, columnspan=4, sticky="w", padx=(0, 4), pady=2)
+    config_frame.grid(row=0, column=0, sticky="ew", padx=(0, 2), pady=2)
 
     ttk.Label(config_frame, text="Host:").pack(side=tk.LEFT, padx=(4, 2))
     host_entry = ttk.Entry(config_frame, textvariable=host_var, width=12)
@@ -244,30 +305,26 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         text="Auto-manage",
         variable=auto_manage_var,
     ).pack(side=tk.LEFT, padx=(0, 4))
+    ttk.Frame(config_frame).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-    # --- Connection status row ---
+    # --- Connection status ---
     vkb_status_var = tk.StringVar(value="Checking...")
     vkb_ini_path_saved = _config.get("vkb_ini_path", "") if _config else ""
-
-    status_line_frame = ttk.Frame(vkb_link_frame, padding=(0, 2, 0, 0))
-    status_line_frame.grid(row=1, column=0, columnspan=4, sticky="ew", padx=(4, 4))
-
-    status_line_frame.columnconfigure(1, weight=1)
-
     ttk.Label(
-        status_line_frame,
+        config_frame,
         text="Status:",
         font=("TkDefaultFont", 8),
-    ).grid(row=0, column=0, sticky="w", padx=(0, 4), pady=1)
+    ).pack(side=tk.LEFT, padx=(8, 4))
 
     vkb_status_label = tk.Label(
-        status_line_frame,
+        config_frame,
         textvariable=vkb_status_var,
         foreground="gray",
         font=("TkDefaultFont", 8),
         anchor="w",
+        width=32,
     )
-    vkb_status_label.grid(row=0, column=1, sticky="w", pady=1)
+    vkb_status_label.pack(side=tk.LEFT, padx=(0, 8))
 
     status_error_message: Optional[str] = None
     status_error_expires_at = 0.0
@@ -434,9 +491,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     host_var.trace_add("write", _on_host_port_change)
     port_var.trace_add("write", _on_host_port_change)
 
-    vkb_app_buttons = ttk.Frame(vkb_link_frame)
-    vkb_app_buttons.grid(row=2, column=0, columnspan=4, sticky="w", padx=(4, 4), pady=(4, 2))
-
     def _get_vkb_manager():
         if _event_handler and hasattr(_event_handler, "vkb_link_manager"):
             return _event_handler.vkb_link_manager
@@ -467,69 +521,50 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         except Exception:
             return 50995
 
-    def _run_manager_action(
-        action_fn,
-        busy_text: str,
-        followup_busy_text: Optional[str] = None,
-        followup_delay_ms: int = action_followup_delay_ms,
-    ) -> None:
-        manager = _get_vkb_manager()
-        if not manager:
-            _set_status_error("VKB-Link manager unavailable")
+    def _check_updates() -> None:
+        if update_inflight[0]:
             return
-        vkb_status_var.set(busy_text)
-        vkb_status_label.configure(foreground="#3498db")
-        action_done = [False]
-        followup_after_id = [None]
+        update_inflight[0] = True
+        update_btn.configure(state=tk.DISABLED, text="Checking...")
+        host = host_var.get().strip() or "127.0.0.1"
+        port_value = _parse_port_value()
 
-        def _show_followup_busy() -> None:
-            if action_done[0]:
-                return
-            if followup_busy_text:
-                vkb_status_var.set(followup_busy_text)
-                vkb_status_label.configure(foreground="#3498db")
-
-        if followup_busy_text and frame.winfo_exists():
-            followup_after_id[0] = frame.after(followup_delay_ms, _show_followup_busy)
-
-        def _worker():
-            try:
-                result = action_fn(manager)
-            except Exception as e:
+        def _worker() -> None:
+            manager = _get_vkb_manager()
+            if not manager:
                 result = None
-                logger.error(f"VKB-Link action failed: {e}")
+                error_message = "VKB-Link manager unavailable"
+            else:
+                try:
+                    result = manager.update_to_latest(host=host, port=port_value)
+                    error_message = None
+                except Exception as exc:
+                    result = None
+                    error_message = f"VKB-Link update failed: {exc}"
+                    logger.error(f"VKB-Link action failed: {exc}")
 
-            def _apply_result():
-                action_done[0] = True
-                if followup_after_id[0] is not None:
-                    try:
-                        frame.after_cancel(followup_after_id[0])
-                    except Exception:
-                        pass
-                if result is None:
-                    _set_status_error("VKB-Link action failed")
-                else:
-                    if not result.success:
-                        _set_status_error(result.message)
-                    else:
-                        nonlocal status_error_message
-                        status_error_message = None
-                        vkb_status_var.set("")
+            def _finish() -> None:
+                from tkinter import messagebox
+
+                update_inflight[0] = False
+                update_btn.configure(state=tk.NORMAL, text="Update VKB-Link")
                 _refresh_vkb_app_status(check_running=True)
                 _refresh_connection_status()
 
-            frame.after(0, _apply_result)
+                if error_message:
+                    messagebox.showerror("VKB-Link Update", error_message)
+                    return
+                if result and result.success:
+                    messagebox.showinfo("VKB-Link Update", result.message)
+                elif result:
+                    messagebox.showerror("VKB-Link Update", result.message)
+                else:
+                    messagebox.showerror("VKB-Link Update", "VKB-Link update failed")
+
+            if frame.winfo_exists():
+                frame.after(0, _finish)
 
         threading.Thread(target=_worker, daemon=True).start()
-
-    def _check_updates() -> None:
-        host = host_var.get().strip() or "127.0.0.1"
-        port_value = _parse_port_value()
-        _run_manager_action(
-            lambda mgr: mgr.update_to_latest(host=host, port=port_value),
-            "Checking for updates...",
-            followup_busy_text="Restarting VKB-Link...",
-        )
 
     def _locate_vkb_link() -> None:
         from tkinter import filedialog
@@ -554,24 +589,26 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         _refresh_vkb_app_status(check_running=True)
 
     update_btn = create_colored_button(
-        status_line_frame,
-        text="Check Version",
+        config_frame,
+        text="Update VKB-Link",
         command=_check_updates,
         style="info",
         padx=8,
         pady=2,
         font=("TkDefaultFont", 8, "bold"),
+        width=len("Update VKB-Link"),
         tooltip_text="Check for and install a newer VKB-Link release if available",
     )
-    update_btn.grid(row=0, column=2, sticky="e", padx=(6, 0), pady=1)
+    update_inflight = [False]
+    update_btn.pack(side=tk.LEFT, padx=(0, 6))
 
     locate_btn = create_colored_button(
-        vkb_app_buttons,
+        config_frame,
         text="Locate...",
         command=_locate_vkb_link,
         style="default",
         padx=8,
-        pady=4,
+        pady=2,
         font=("TkDefaultFont", 8),
         tooltip_text="Select an existing VKB-Link.exe location",
     )
@@ -760,7 +797,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         )
         cb.grid(row=0, column=4 + i, sticky="w", padx=2, pady=2)
 
-    settings_tab.rowconfigure(1, weight=1)
+    settings_tab.rowconfigure(2, weight=1)
 
     # --- Event Recording section (lives in events_tab, built here for code locality) ---
     recording_frame = ttk.LabelFrame(events_tab, text="Event Recording", padding=6)
@@ -1110,7 +1147,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             title_label.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     rules_frame = ttk.LabelFrame(settings_tab, text="Rules", padding=6)
-    rules_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
+    rules_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=4, pady=(6, 4))
     rules_frame.columnconfigure(0, weight=1)
     rules_frame.rowconfigure(1, weight=1)
 
@@ -1181,7 +1218,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     # Status indicator for unsaved changes in preferences
     ttk.Label(settings_tab, textvariable=unsaved_status_var, foreground="#e74c3c", font=("TkDefaultFont", 9)).grid(
-        row=2, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 0)
+        row=3, column=0, columnspan=2, sticky="w", padx=4, pady=(4, 0)
     )
 
     # Events Tab

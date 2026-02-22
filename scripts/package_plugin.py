@@ -34,6 +34,7 @@ INCLUDE = [
     "src/edmcruleengine/event_recorder.py",
     "src/edmcruleengine/message_formatter.py",
     "src/edmcruleengine/paths.py",
+    "src/edmcruleengine/plugin_update_manager.py",
     "src/edmcruleengine/prefs_panel.py",
     "src/edmcruleengine/rule_editor.py",
     "src/edmcruleengine/rule_loader.py",

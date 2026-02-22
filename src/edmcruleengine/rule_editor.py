@@ -500,7 +500,6 @@ class RuleEditorUI:
             
             self.unsaved_changes = True
             self._save_rules()
-            _centered_info(self.window, "Saved", "Rule saved successfully")
             # Close window after successful save
             self.window.destroy()
     
