@@ -2,6 +2,18 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.9.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.8.5...v0.9.0) (2026-02-22)
+
+
+### Features
+
+* plugin can be updated within edmc ([148fcba](https://github.com/Audumla/EDMCVKBConnector/commit/148fcbaaa73672e179da81f22e1cd43b23dbe3d6))
+
+
+### Bug Fixes
+
+* release notes ([de82d6d](https://github.com/Audumla/EDMCVKBConnector/commit/de82d6d6437da26fa4ce819bc6e117b7b020c405))
+
 ## v0.8.5 — 2026-02-22
 
 ### Overview
