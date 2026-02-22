@@ -2,6 +2,13 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.10.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.9.2...v0.10.0) (2026-02-22)
+
+
+### Features
+
+* restructure folders and add agents for change mangement ([d90cc65](https://github.com/Audumla/EDMCVKBConnector/commit/d90cc65fcd15edeaefd8099a04aaa79d94512af4))
+
 ## v0.9.2 — 2026-02-22
 
 ### Overview
