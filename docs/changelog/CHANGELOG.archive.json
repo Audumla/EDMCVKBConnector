@@ -2807,5 +2807,97 @@
       "Updated RELEASE.md, DEVELOPMENT.md, and CLAUDE.md with correct script locations",
       "Ensured consistency across all agent workspace policies and dev guides"
     ]
+  },
+  {
+    "id": "CHG-aa416cb2",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.2",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature"
+    ],
+    "summary": "Add LMStudio as an optional local LLM backend for changelog summarization",
+    "details": [
+      "Added lmstudio configuration section to changelog-config.json",
+      "Implemented call_lmstudio in changelog_utils.py using urllib.request",
+      "Integrated lmstudio into the fallback orchestration and VS Code tasks"
+    ]
+  },
+  {
+    "id": "CHG-aa416cb2-1",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.2",
+    "date": "2026-02-23",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Ensure consistent LLM output formatting across all backends",
+    "details": [
+      "Updated normalize_llm_summary to standardize bullet points (e.g., converting • to -)",
+      "Refined LMStudio system prompt to match the professional style of other providers",
+      "Verified consistent markdown header and bullet usage regardless of selected backend"
+    ]
+  },
+  {
+    "id": "CHG-aa416cb2-2",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.2",
+    "date": "2026-02-23",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Standardize spacing in LLM-generated changelog summaries",
+    "details": [
+      "Updated normalize_llm_summary to enforce exactly one blank line after '### Overview'",
+      "Ensured bullets immediately follow other section headers without a blank line",
+      "Verified consistent section separation across all AI backends"
+    ]
+  },
+  {
+    "id": "CHG-aa416cb2-3",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.2",
+    "date": "2026-02-23",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Centralize changelog analysis logic and improve overview consistency",
+    "details": [
+      "Moved core grouping and statistical logic to changelog_utils.py",
+      "Updated normalize_llm_summary to use statistical data as a descriptive fallback for missing overviews",
+      "Ensured all LLM-generated summaries maintain the same professional statistical intro as historical releases"
+    ]
+  },
+  {
+    "id": "CHG-aa416cb2-4",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.2",
+    "date": "2026-02-23",
+    "summary_tags": [
+      "Code Refactoring",
+      "Performance Improvement"
+    ],
+    "summary": "Optimize AI prompts for minimal context and instruction overhead",
+    "details": [
+      "Stripped redundant internal IDs and technical jargon from LLM context",
+      "Consolidated prompt instructions into direct, imperative rules",
+      "Reduced token usage while maintaining high-quality summarization output"
+    ]
+  },
+  {
+    "id": "CHG-aa416cb2-5",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.2",
+    "date": "2026-02-23",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Fix NameError in generate_release_notes by completing logic consolidation",
+    "details": [
+      "Imported missing _intelligent_tag_summary, _shorten_group_key, and _version_tuple from changelog_utils",
+      "Verified that all release-notes preview generation steps now complete successfully",
+      "Consolidated shared changelog analysis logic to prevent future undefined symbol errors"
+    ]
   }
 ]
