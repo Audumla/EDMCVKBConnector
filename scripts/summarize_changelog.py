@@ -176,6 +176,102 @@ def format_entries_for_prompt(entries: list[dict], version: str, config: dict | 
     return "\n".join(lines)
 
 
+def _normalize_llm_summary(summary: str) -> str:
+    """Normalize LLM output (Claude/Codex) to match the standard template.
+
+    Ensures consistent formatting regardless of which backend generates the summary.
+    - Strips explanatory wrappers and metadata commentary
+    - Deduplicates identical section headers
+    - Adds ### Overview section if missing
+    - Normalizes section headers to ### format
+    - Removes duplicate blank lines
+    """
+    if not summary or not summary.strip():
+        return summary
+
+    lines = summary.split('\n')
+
+    # Find the first ### section header that marks actual content start
+    start_idx = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith('###'):
+            start_idx = i
+            break
+
+    # Find the end of actual content (before "**Note:**", "Note:", or final ---)
+    end_idx = len(lines)
+    for i in range(len(lines) - 1, -1, -1):
+        stripped = lines[i].strip()
+        if stripped.startswith('**Note:') or stripped.startswith('Note:'):
+            end_idx = i
+            break
+        elif stripped == '---' and i > start_idx + 5:  # Skip early --- (likely wrapper separators)
+            end_idx = i
+            break
+
+    content_lines = lines[start_idx:end_idx]
+
+    # First pass: identify duplicate headers and mark ranges to remove
+    # Keep the SECOND occurrence (which has the real content), remove the FIRST
+    headers_seen = {}
+    ranges_to_remove = []
+
+    for i, line in enumerate(content_lines):
+        stripped = line.strip()
+        if stripped.startswith('###'):
+            if stripped in headers_seen:
+                # Found duplicate; mark the FIRST occurrence (from its start to the second one)
+                prev_idx = headers_seen[stripped]
+                ranges_to_remove.append((prev_idx, i))
+            headers_seen[stripped] = i
+
+    # Second pass: filter out marked ranges
+    filtered = []
+    for i, line in enumerate(content_lines):
+        skip = False
+        for start, end in ranges_to_remove:
+            if start <= i < end:
+                skip = True
+                break
+        if not skip:
+            filtered.append(line)
+
+    # Third pass: clean up formatting
+    normalized = []
+    has_overview = False
+
+    for i, line in enumerate(filtered):
+        stripped = line.rstrip()
+
+        # Skip pure separator lines (---)
+        if stripped == '---':
+            continue
+
+        # Mark Overview as seen
+        if stripped.startswith('### Overview'):
+            has_overview = True
+
+        # Add the line
+        normalized.append(stripped)
+
+    # Remove trailing empty lines
+    while normalized and not normalized[-1]:
+        normalized.pop()
+
+    # Remove consecutive blank lines (keep max 1)
+    final = []
+    prev_blank = False
+    for line in normalized:
+        is_blank = not line.strip()
+        if is_blank and prev_blank:
+            continue
+        final.append(line)
+        prev_blank = is_blank
+
+    return '\n'.join(final).strip()
+
+
 def _build_intelligent_summary(entries: list[dict], version: str) -> str | None:
     """Build deterministic grouped summary without external LLM/API calls."""
     if not entries:
@@ -469,6 +565,10 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
     if not summary:
         print(f"  [{version}] Failed to generate summary", file=sys.stderr)
         return None
+
+    # Normalize LLM output to ensure consistent formatting across backends
+    if backend != "intelligent":
+        summary = _normalize_llm_summary(summary)
 
     # Update cache
     cache[cache_key] = summary

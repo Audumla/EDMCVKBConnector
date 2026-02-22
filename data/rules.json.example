@@ -76,14 +76,14 @@
     "then": [
       {
         "vkb_set_shift": [
-          "Subshift3"
+          "Subshift1"
         ]
       }
     ],
     "else": [
       {
         "vkb_clear_shift": [
-          "Subshift3"
+          "Subshift1"
         ]
       }
     ],

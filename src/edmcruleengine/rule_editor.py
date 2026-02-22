@@ -12,7 +12,11 @@ Provides a visual editor for creating and editing rules using the schema:
 import copy
 import json
 import tkinter as tk
-from tkinter import ttk, messagebox, scrolledtext
+from tkinter import ttk, messagebox
+try:
+    from tkinter import scrolledtext
+except ImportError:
+    from .scrolled_text import ScrolledText as scrolledtext
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 

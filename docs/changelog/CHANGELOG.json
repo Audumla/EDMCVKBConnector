@@ -1,1 +1,34 @@
-[]
+[
+  {
+    "id": "CHG-d9e74c86",
+    "change_group": "rule-editor-compatibility",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "New Feature"
+    ],
+    "summary": "Embed custom ScrolledText widget for EDMC compatibility",
+    "details": [
+      "Added src/edmcruleengine/scrolled_text.py with a drop-in ScrolledText class",
+      "Updated rule_editor.py to use fallback if tkinter.scrolledtext is missing",
+      "Ensures rule editor works in both dev and EDMC environments"
+    ]
+  },
+  {
+    "id": "CHG-d9e74c86-1",
+    "change_group": "llm-summary-output-normalization",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Normalize Claude and Codex changelog summary outputs to consistent template format",
+    "details": [
+      "Added _normalize_llm_summary() function that deduplicates headers and strips explanatory wrappers",
+      "Removes Codex meta-commentary footnotes and separator lines that break template consistency",
+      "Ensures both backends produce identical markdown structure: ### Overview + ### [Sections] format"
+    ]
+  }
+]
