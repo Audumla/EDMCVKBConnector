@@ -2,6 +2,14 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.9.1](https://github.com/Audumla/EDMCVKBConnector/compare/v0.9.0...v0.9.1) (2026-02-22)
+
+
+### Bug Fixes
+
+* release notes ([d604833](https://github.com/Audumla/EDMCVKBConnector/commit/d6048337aa623cfc117859f8494ea38bcd930692))
+* updated vkb link management ([7d7825c](https://github.com/Audumla/EDMCVKBConnector/commit/7d7825cb8a818e0227c5dbd86f7b25b7f08e2206))
+
 ## v0.9.0 — 2026-02-22
 
 ### Overview
