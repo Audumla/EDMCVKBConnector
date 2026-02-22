@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "CHG-fbf4340e",
+    "change_group": "release-changelog-summary-persistence",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Persist stamped changelog summaries and markdown so release-please output no longer overwrites release history formatting",
+    "details": [
+      "Updated release-please workflow commit step to stage CHANGELOG.md and docs/changelog/CHANGELOG.summaries.json alongside changelog JSON sources.",
+      "Regenerated summary cache to add missing 0.8.1 hash key and removed stale unreleased summary cache entries after release rollover.",
+      "Rebuilt CHANGELOG.md so v0.8.1 now renders the structured release summary instead of release-please auto-generated conventional-commit text."
+    ]
+  }
+]
