@@ -2,12 +2,22 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
-## [0.10.1](https://github.com/Audumla/EDMCVKBConnector/compare/v0.10.0...v0.10.1) (2026-02-22)
+## v0.10.1 — 2026-02-22
 
+### Overview
+
+This release includes 21 changelog updates across 5 grouped workstreams, focused on New Feature, Bug Fix, Code Refactoring.
+
+### New Features
+- Added new capabilities for changelog tooling.
 
 ### Bug Fixes
+- Fixed issues in release process.
 
-* release-please patches ([61660d3](https://github.com/Audumla/EDMCVKBConnector/commit/61660d33ff66d2a149d91ea7a13d2597a2b5ecaa))
+### Improvements
+- Refactored changelog tooling and vkb-link lifecycle for maintainability.
+
+---
 
 ## v0.9.2 — 2026-02-22
 

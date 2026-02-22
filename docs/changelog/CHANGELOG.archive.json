@@ -2473,5 +2473,339 @@
       "Removes Codex meta-commentary footnotes and separator lines that break template consistency",
       "Ensures both backends produce identical markdown structure: ### Overview + ### [Sections] format"
     ]
+  },
+  {
+    "id": "CHG-650b79a0",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring"
+    ],
+    "summary": "Add GitHub Copilot as LLM backend option for changelog summarization",
+    "details": [
+      "Added call_copilot_cli() function that invokes gh copilot CLI with prompt",
+      "Updated summarize_version() to support copilot backend alongside claude-cli and codex",
+      "Added copilot configuration section to changelog-config.json with install instructions"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-1",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "UI Improvement"
+    ],
+    "summary": "Add GitHub Copilot to VS Code release task backend picker",
+    "details": [
+      "Updated .vscode/tasks.json releaseBackend input options to include copilot",
+      "Added intelligent backend option to picker for consistency with CLI",
+      "Release workflow tasks now show all 5 summarizer backend choices"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-2",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Add copilot and intelligent backends to release_workflow.py argument parser",
+    "details": [
+      "Updated --summarize-backend choices to accept: claude-cli, codex, copilot, intelligent",
+      "Updated docstring to reflect all supported backends",
+      "Release workflow now supports all 4 changelog summarization backends"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-3",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Add copilot backend to changelog_activity.py argument parser",
+    "details": [
+      "Updated --summarize-backend choices to accept copilot alongside claude-cli, codex, and intelligent",
+      "changelog_activity.py now supports all 4 summarization backends for consistency"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-4",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Fix GitHub Copilot CLI integration to use Windows app and prompt mode",
+    "details": [
+      "Updated call_copilot_cli() to use copilot CLI with -p prompt mode and -s silent mode",
+      "Updated _resolve_copilot_command() to resolve copilot executable instead of gh CLI",
+      "Copilot backend now calls GitHub Copilot CLI directly instead of gh copilot extension"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-5",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Bug Fix"
+    ],
+    "summary": "Default Copilot backend to gpt-4.1 model (included, no token cost)",
+    "details": [
+      "Updated call_copilot_cli() to default model to gpt-4.1 instead of empty",
+      "Updated changelog-config.json copilot section to use gpt-4.1 and updated install instructions",
+      "gpt-4.1 is included with Copilot and has no token usage cost"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-6",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix Copilot CLI input handling to use stdin instead of command-line arguments",
+    "details": [
+      "Changed call_copilot_cli() to pass prompt via stdin for proper multiline/special character handling",
+      "Removed -p flag from command line args, letting Copilot read from stdin",
+      "Copilot backend now works reliably with complex prompts containing newlines and special chars"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-7",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Ensure Copilot output is normalized to standard changelog template format",
+    "details": [
+      "Enhanced _normalize_llm_summary() to add ### Overview section when missing from LLM output",
+      "Copilot now produces identical format to Claude and Codex backends",
+      "All LLM backends now consistently follow: ### Overview + ### [Section] + bullet points"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-8",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring"
+    ],
+    "summary": "Add Google Gemini CLI as new LLM backend option for changelog summarization",
+    "details": [
+      "Added call_gemini_cli() function that invokes gemini CLI with stdin input for prompts",
+      "Updated summarize_version() to route to gemini backend",
+      "Updated all argument parsers and VS Code tasks to include gemini as a backend choice",
+      "Gemini output normalized to match standard template like other backends"
+    ]
+  },
+  {
+    "id": "CHG-650b79a0-9",
+    "change_group": "changelog-consistency",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring",
+      "Configuration Cleanup",
+      "Documentation Update"
+    ],
+    "summary": "Unify changelog normalization and establish Gemini agent policies",
+    "details": [
+      "Consolidated LLM output normalization into generate_release_notes.py",
+      "Updated summarize_changelog.py to use shared normalization logic",
+      "Added GEMINI.md with workspace and changelog policies",
+      "Added Gemini to log_change.py and generate_release_notes.py choice lists"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7",
+    "change_group": "changelog-refactor",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Code Refactoring"
+    ],
+    "summary": "Refactor changelog tools into modular architecture",
+    "details": [
+      "Consolidated logic into scripts/changelog_utils.py",
+      "Implemented LLM backend fallback mechanism",
+      "Standardized configuration loading"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-1",
+    "change_group": "changelog-refactor",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Test Update",
+      "Code Refactoring"
+    ],
+    "summary": "Add comprehensive tests for changelog utilities and refine normalization",
+    "details": [
+      "Created test/test_changelog_utils.py with 7 test cases",
+      "Fixed header deduplication content loss bug",
+      "Improved metadata stripping for robust LLM output cleaning",
+      "Verified sequential fallback mechanism via unit tests"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-2",
+    "change_group": "changelog-refactor",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Add optional live agent tests with output validation",
+    "details": [
+      "Implemented --run-live-agents pytest flag to enable real LLM calls",
+      "Added parameterized test to validate output format from all 4 backends",
+      "Ensured live tests are skipped by default to save tokens",
+      "Updated conftest.py with custom markers and collection logic"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-3",
+    "change_group": "vkb-link-consolidation",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Code Refactoring",
+      "Configuration Cleanup"
+    ],
+    "summary": "Consolidate VKB-Link management logic into VKBLinkManager",
+    "details": [
+      "Removed redundant _update_ini_file from load.py",
+      "Deleted obsolete test/test_ini_updater.py",
+      "Verified all vkb-link management is handled by VKBLinkManager and coordinated via EventHandler"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-4",
+    "change_group": "vkb-link-consolidation",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Test Update"
+    ],
+    "summary": "Add comprehensive consolidation and regression tests for VKB-Link management",
+    "details": [
+      "Added test/test_vkb_link_logic_consolidation.py to verify logic centralization",
+      "Verified EventHandler and load.py delegation to VKBLinkManager",
+      "Ran 64 tests across 4 VKB-related test files, all passed"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-5",
+    "change_group": "script-restructure",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Code Refactoring",
+      "Configuration Cleanup",
+      "Documentation Update"
+    ],
+    "summary": "Reorganize scripts into a logical directory structure",
+    "details": [
+      "Created subdirectories for changelog, release, dev, validation, and agent_runners",
+      "Updated PROJECT_ROOT and sys.path logic in all scripts for correct path resolution",
+      "Refreshed VS Code tasks.json with new script paths",
+      "Updated AGENTS.md, CLAUDE.md, and GEMINI.md with new command usage"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-6",
+    "change_group": "changelog-refactor",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Code Refactoring",
+      "Configuration Cleanup"
+    ],
+    "summary": "Consolidate redundant script logic into changelog_utils",
+    "details": [
+      "Moved versioning (parse, bump, read) and git (dirty check, PR find) logic to changelog_utils.py",
+      "Refactored release_workflow.py to use consolidated helpers",
+      "Refactored migrate_changelog_ids.py to use consolidated helpers and paths",
+      "Eliminated duplicate code across 3 major orchestration scripts"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-7",
+    "change_group": "script-restructure",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Fix and expand VS Code tasks after reorganization",
+    "details": [
+      "Fixed incorrect test runner path (tests/ -> test/)",
+      "Added 'EDMC: Validate Signal Catalog' task",
+      "Added 'EDMC: Verify Catalog Coverage' task",
+      "Verified all script paths in tasks.json are accurate"
+    ]
+  },
+  {
+    "id": "CHG-0b0771d7-8",
+    "change_group": "script-restructure",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix internal script path in release_workflow.py",
+    "details": [
+      "Updated activity_cmd to point to scripts/changelog/changelog_activity.py",
+      "Cleaned up imports and sys.path logic in changelog_activity.py"
+    ]
+  },
+  {
+    "id": "CHG-e7c40cc8",
+    "change_group": "llm-backend-expansion",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Fix Gemini CLI hang by switching to stdin for prompts",
+    "details": [
+      "Updated call_gemini_cli to pass prompt via stdin instead of -p argument",
+      "Verified that large multi-line prompts no longer cause the CLI to hang"
+    ]
+  },
+  {
+    "id": "CHG-e7c40cc8-1",
+    "change_group": "script-restructure",
+    "plugin_version": "0.10.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Update script paths in release workflow and documentation after reorganization",
+    "details": [
+      "Fixed GitHub Actions release-please failure by updating script paths to scripts/changelog/ and scripts/release/",
+      "Updated RELEASE.md, DEVELOPMENT.md, and CLAUDE.md with correct script locations",
+      "Ensured consistency across all agent workspace policies and dev guides"
+    ]
   }
 ]
