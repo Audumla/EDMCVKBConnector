@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [ "$branch" != "main" ]; then
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+log_dir="$repo_root/agent_artifacts/codex/temp"
+mkdir -p "$log_dir"
+
+py="$repo_root/.venv/Scripts/python.exe"
+if [ ! -x "$py" ]; then
+  py="python"
+fi
+
+nohup "$py" "$repo_root/scripts/auto_pull_after_release.py" \
+  --branch main \
+  --remote origin \
+  --poll-seconds 15 \
+  --timeout-seconds 1800 \
+  >>"$log_dir/auto_pull_after_release.log" 2>&1 &
+
+exit 0
+
