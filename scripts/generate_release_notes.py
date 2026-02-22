@@ -838,23 +838,87 @@ def archive_stamped(current_entries: list[dict]) -> tuple[list[dict], list[dict]
     return remaining_current, stamped_to_archive
 
 
-def promote_unreleased_summary_to_version(stamped_entries: list[dict], stamped_version: str) -> bool:
-    """Promote exact unreleased summary cache entry to the stamped release version."""
+def _build_changelog_summary_markdown(entries: list[dict]) -> str | None:
+    """Build deterministic CHANGELOG section markdown for a released version."""
+    if not entries:
+        return None
+
+    groups = build_change_groups(entries)
+    buckets = group_by_tag(groups)
+    if not buckets:
+        return None
+
+    tag_order = [t for t in TAG_ORDER if t in buckets] + [t for t in sorted(buckets) if t not in TAG_ORDER]
+    top_focus = ", ".join(tag_order[:3]) if tag_order else "multiple areas"
+
+    lines = [
+        "### Overview",
+        "",
+        (
+            f"This release includes {len(entries)} changelog updates across "
+            f"{len(groups)} grouped workstreams, focused on {top_focus}."
+        ),
+        "",
+    ]
+
+    section_map = {
+        "Bug Fix": "Bug Fixes",
+        "New Feature": "New Features",
+        "Code Refactoring": "Improvements",
+        "Configuration Cleanup": "Improvements",
+        "Build / Packaging": "Build and Packaging",
+        "Documentation Update": "Documentation",
+        "Test Update": "Testing",
+        "Dependency Update": "Dependencies",
+        "UI Improvement": "UI Improvements",
+        "Performance Improvement": "Performance Improvements",
+    }
+
+    for tag in tag_order:
+        title = section_map.get(tag, tag)
+        tag_groups = sorted(
+            buckets[tag],
+            key=lambda g: (g["entry_count"], g["latest_date"], g["headline"]),
+            reverse=True,
+        )
+        lines.append(f"### {title}")
+        lines.append(f"- {_intelligent_tag_summary(tag, tag_groups)}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def ensure_version_summary_cache(stamped_entries: list[dict], stamped_version: str) -> str:
+    """
+    Ensure a summary cache entry exists for the stamped version.
+
+    Returns one of: "existing", "promoted", "generated", "missing".
+    """
     if not stamped_entries:
-        return False
+        return "missing"
 
     summaries = _load_summaries()
     if not summaries:
-        return False
+        summaries = {}
 
     stamped_hash = _entries_hash(stamped_entries)
-    old_key = f"unreleased:{stamped_hash}"
     new_key = f"{stamped_version}:{stamped_hash}"
-    summary = summaries.get(old_key)
-    if not summary:
-        return False
+    existing = summaries.get(new_key)
+    if isinstance(existing, str) and existing.strip():
+        return "existing"
 
-    summaries[new_key] = summary
+    old_key = f"unreleased:{stamped_hash}"
+    old_summary = summaries.get(old_key)
+    if isinstance(old_summary, str) and old_summary.strip():
+        summaries[new_key] = old_summary
+        result = "promoted"
+    else:
+        generated = _build_changelog_summary_markdown(stamped_entries)
+        if not generated:
+            return "missing"
+        summaries[new_key] = generated
+        result = "generated"
+
     summaries.pop(old_key, None)
 
     # Start the next cycle clean: remove stale unreleased summaries.
@@ -863,7 +927,7 @@ def promote_unreleased_summary_to_version(stamped_entries: list[dict], stamped_v
             summaries.pop(key, None)
 
     _save_summaries(summaries)
-    return True
+    return result
 
 
 def main() -> None:
@@ -970,16 +1034,27 @@ def main() -> None:
         if args.archive:
             remaining, archived = archive_stamped(current_entries)
             save_current_changelog(remaining)
-            promoted = promote_unreleased_summary_to_version(archived, args.stamp)
+            summary_status = ensure_version_summary_cache(archived, args.stamp)
             print(
                 f"Stamped {stamped_count} entries as v{args.stamp}, "
                 f"archived {len(archived)} to CHANGELOG.archive.json"
             )
-            if promoted:
+            if summary_status == "promoted":
                 print(f"Promoted cached unreleased summary to version v{args.stamp}")
+            elif summary_status == "generated":
+                print(f"Generated version summary cache for v{args.stamp}")
+            elif summary_status == "existing":
+                print(f"Kept existing version summary cache for v{args.stamp}")
         else:
             save_current_changelog(current_entries)
+            summary_status = ensure_version_summary_cache(filtered, args.stamp)
             print(f"Stamped {stamped_count} entries in CHANGELOG.json as v{args.stamp}")
+            if summary_status == "promoted":
+                print(f"Promoted cached unreleased summary to version v{args.stamp}")
+            elif summary_status == "generated":
+                print(f"Generated version summary cache for v{args.stamp}")
+            elif summary_status == "existing":
+                print(f"Kept existing version summary cache for v{args.stamp}")
 
 
 if __name__ == "__main__":

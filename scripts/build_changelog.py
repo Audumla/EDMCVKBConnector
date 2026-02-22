@@ -3,6 +3,8 @@ Rebuild CHANGELOG.md from CHANGELOG.json and CHANGELOG.archive.json.
 
 This keeps the markdown changelog readable while JSON files remain the
 source-of-truth for agent writes and release automation.
+
+CHANGELOG.md intentionally renders released history only.
 """
 
 from __future__ import annotations
@@ -186,14 +188,14 @@ def build_markdown(
     archive_entries: list[dict],
     use_summaries: bool = True,
     summaries: dict | None = None,
+    include_unreleased: bool = False,
 ) -> str:
-    """Build markdown changelog, optionally using LLM-generated summaries."""
+    """Build release-history markdown changelog, optionally using LLM-generated summaries."""
     if summaries is None:
         summaries = {}
 
     unreleased = [e for e in current_entries if e.get("plugin_version") == "unreleased"]
     released = [e for e in (archive_entries + current_entries) if e.get("plugin_version") not in ("", None, "unreleased")]
-
     unreleased.sort(key=_entry_sort_key, reverse=True)
 
     released_by_version: dict[str, list[dict]] = defaultdict(list)
@@ -212,43 +214,42 @@ def build_markdown(
     )
     lines.append("")
 
-    # Unreleased section
-    lines.append("## [Unreleased]")
-    lines.append("")
-    if unreleased:
-        # Try to use LLM summary
-        unreleased_summary = None
-        if use_summaries and summaries:
-            unreleased_key = f"unreleased:{_entries_hash(unreleased)}"
-            unreleased_summary = summaries.get(unreleased_key)
-
-        if unreleased_summary:
-            lines.append(unreleased_summary)
-            lines.append("")
-        else:
-            # Fallback to stats view
-            group_stats = _group_stats(unreleased)
-            tag_counts = _entry_count_by_tag(unreleased)
-            lines.append(
-                f"Pending {len(unreleased)} entries across {len(group_stats)} workstreams."
-            )
-            lines.append("")
-            lines.append("| Area | Entries |")
-            lines.append("|------|---------|")
-            for tag, count in tag_counts.items():
-                lines.append(f"| {_safe_text(tag)} | {count} |")
-            lines.append("")
-    else:
-        lines.append("_No unreleased entries._")
+    if include_unreleased:
+        lines.append("## [Unreleased]")
         lines.append("")
+        if unreleased:
+            unreleased_summary = None
+            if use_summaries and summaries:
+                unreleased_key = f"unreleased:{_entries_hash(unreleased)}"
+                unreleased_summary = summaries.get(unreleased_key)
+
+            if unreleased_summary:
+                lines.append(unreleased_summary)
+                lines.append("")
+            else:
+                group_stats = _group_stats(unreleased)
+                tag_counts = _entry_count_by_tag(unreleased)
+                lines.append(
+                    f"Pending {len(unreleased)} entries across {len(group_stats)} workstreams."
+                )
+                lines.append("")
+                lines.append("| Area | Entries |")
+                lines.append("|------|---------|")
+                for tag, count in tag_counts.items():
+                    lines.append(f"| {_safe_text(tag)} | {count} |")
+                lines.append("")
+        else:
+            lines.append("_No unreleased entries._")
+            lines.append("")
 
     # Released versions section
-    for version in versions:
+    for i, version in enumerate(versions):
         entries = released_by_version[version]
         date_range = _date_range(entries)
 
-        lines.append("---")
-        lines.append("")
+        if i > 0 or include_unreleased:
+            lines.append("---")
+            lines.append("")
         version_header = f"## v{version}"
         if date_range:
             version_header += f" — {date_range}"
@@ -275,6 +276,10 @@ def build_markdown(
             lines.append(f"_Primary areas: {top_areas}_")
             lines.append("")
 
+    if not versions:
+        lines.append("_No released entries._")
+        lines.append("")
+
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -283,6 +288,7 @@ def rebuild_changelog_markdown(
     strict_duplicates: bool = False,
     quiet: bool = False,
     use_summaries: bool = True,
+    include_unreleased: bool = False,
 ) -> int:
     current_entries = load_entries(CHANGELOG_JSON)
     archive_entries = load_entries(CHANGELOG_ARCHIVE_JSON)
@@ -306,8 +312,15 @@ def rebuild_changelog_markdown(
             )
 
     summaries = load_summaries() if use_summaries else {}
-    rendered = build_markdown(current_entries, archive_entries, use_summaries=use_summaries, summaries=summaries)
+    rendered = build_markdown(
+        current_entries,
+        archive_entries,
+        use_summaries=use_summaries,
+        summaries=summaries,
+        include_unreleased=include_unreleased,
+    )
     path = output_path or CHANGELOG_MD
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(rendered, encoding="utf-8")
 
     if not quiet:
@@ -315,7 +328,7 @@ def rebuild_changelog_markdown(
         released = sum(1 for e in archive_entries if e.get("plugin_version") != "unreleased")
         print(
             f"Rebuilt {path} "
-            f"(unreleased: {unreleased}, archived: {released}, duplicate_ids: {len(duplicate_ids)})"
+            f"(released entries: {released}, hidden unreleased source entries: {unreleased}, duplicate_ids: {len(duplicate_ids)})"
         )
 
     return 0
@@ -343,6 +356,11 @@ def main() -> int:
         action="store_true",
         help="Don't use LLM-generated summaries (use fallback format instead).",
     )
+    parser.add_argument(
+        "--include-unreleased",
+        action="store_true",
+        help="Include the [Unreleased] section (useful for preview artifacts).",
+    )
     args = parser.parse_args()
 
     return rebuild_changelog_markdown(
@@ -350,6 +368,7 @@ def main() -> int:
         strict_duplicates=args.strict,
         quiet=args.quiet,
         use_summaries=not args.no_summaries,
+        include_unreleased=args.include_unreleased,
     )
 
 

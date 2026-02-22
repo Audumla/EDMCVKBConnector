@@ -222,5 +222,68 @@
       "Added claude_cli.model setting and wired summarize_changelog.py + generate_release_notes.py to pass --model to Claude CLI when configured",
       "Validated claude-cli backend run succeeds with config-driven model selection"
     ]
+  },
+  {
+    "id": "CHG-4348a3f0",
+    "change_group": "changelog-maintenance",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Rebuilt CHANGELOG.md from current changelog JSON sources",
+    "details": [
+      "Ran scripts/build_changelog.py to regenerate the markdown changelog from docs/changelog/CHANGELOG.json and docs/changelog/CHANGELOG.archive.json.",
+      "Verified the generated markdown renders unreleased counts and version sections consistently after rebuild.",
+      "No schema or runtime config changes were made; this task only refreshed rendered changelog output."
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0-1",
+    "change_group": "changelog-rendering-policy",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Render CHANGELOG.md as released-history only and omit unreleased entries",
+    "details": [
+      "Updated scripts/build_changelog.py to stop generating the [Unreleased] section in markdown output.",
+      "Kept unreleased entries as JSON source data while rendering only versioned release sections in CHANGELOG.md.",
+      "Adjusted rebuild status output text to clarify unreleased source entries are hidden from markdown rendering."
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0-2",
+    "change_group": "release-summary-promotion",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Guarantee release stamping writes a version summary cache for changelog rendering",
+    "details": [
+      "Updated generate_release_notes.py to ensure a vX.Y.Z summary cache key is always present during --stamp, promoting unreleased cache when available.",
+      "Added deterministic summary generation fallback for stamped releases when unreleased cache is missing so build_changelog can still render rich release sections.",
+      "Kept stale unreleased summary cache cleanup in the stamp flow and added status messages for promoted/generated/existing summary outcomes."
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0-3",
+    "change_group": "preview-artifacts",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Configuration Cleanup"
+    ],
+    "summary": "Generate a dedicated changelog preview artifact during changelog activity",
+    "details": [
+      "Extended build_changelog.py with an include-unreleased mode so preview rendering can include the [Unreleased] section without changing the default release-history output.",
+      "Updated changelog_activity.py to produce dist/CHANGELOG.preview.md before generating dist/RELEASE_NOTES.preview.md.",
+      "Documented the new preview artifact workflow in scripts/README.md."
+    ]
   }
 ]

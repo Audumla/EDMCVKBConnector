@@ -13,6 +13,7 @@ Maintained scripts in this directory:
 - `claude_run_plan.py`: Claude wrapper around `run_codex_plan.py` that writes `claude_report.json` and a formatted `codex_results.md` summary (tokens, estimated cost, final message).
 - `codex_results.py`: print a clean, user-facing `/codex-results` summary from the latest or specified Codex run.
 - `release_workflow.py`: prepare changelog/release preview and optionally trigger release-please with configurable summarizer backend and bump strategy (`auto`, `patch`, `minor`, `major`); supports `--skip-prepare` for dispatch-only runs after an earlier preview/prep pass.
+- `changelog_activity.py`: run pre-release changelog activity, including release-history rebuild (`CHANGELOG.md`), unreleased changelog preview (`dist/CHANGELOG.preview.md`), and unreleased release-notes preview (`dist/RELEASE_NOTES.preview.md`).
 
 One-off migration and agent-generated maintenance scripts were removed to keep this directory focused on repeatable workflows.
 
