@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 MANIFEST_PATH = PROJECT_ROOT / ".release-please-manifest.json"
 VERSION_RE = re.compile(r'^\s*version\s*=\s*"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE)
+RELEASE_TITLE_RE = re.compile(r"release\s+(?P<version>\d+\.\d+\.\d+)", re.IGNORECASE)
 
 
 def _parse_semver(text: str) -> tuple[int, int, int]:
@@ -67,6 +68,35 @@ def _run_step(cmd: list[str], cwd: Path) -> int:
     print(f"$ {' '.join(cmd)}")
     proc = subprocess.run(cmd, cwd=cwd)
     return int(proc.returncode)
+
+
+def _find_open_release_pr_version(gh_bin: str) -> str | None:
+    """Return open release-please PR version (e.g. 0.8.0), if present."""
+    cmd = [
+        gh_bin,
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--search",
+        "head:release-please--branches--main",
+        "--json",
+        "title",
+    ]
+    proc = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None
+    try:
+        rows = json.loads(proc.stdout or "[]")
+    except Exception:
+        return None
+    if not isinstance(rows, list) or not rows:
+        return None
+    title = str(rows[0].get("title", "")).strip()
+    match = RELEASE_TITLE_RE.search(title)
+    if not match:
+        return None
+    return match.group("version")
 
 
 def main() -> int:
@@ -149,6 +179,21 @@ def main() -> int:
         current = _read_current_version()
         release_as = _bump(current, args.bump)
         print(f"Requested bump '{args.bump}': {current} -> {release_as}")
+
+    open_release_version = _find_open_release_pr_version(args.gh_bin)
+    if open_release_version and release_as and open_release_version != release_as:
+        print(
+            "ERROR: Existing open release PR version conflicts with requested bump: "
+            f"open PR={open_release_version}, requested={release_as}.",
+            file=sys.stderr,
+        )
+        print(
+            "Close/merge the current release-please PR first, then rerun with your desired --bump.",
+            file=sys.stderr,
+        )
+        return 2
+    if open_release_version:
+        print(f"Detected open release-please PR for v{open_release_version}.")
 
     gh_cmd = [args.gh_bin, "workflow", "run", args.workflow]
     if release_as:

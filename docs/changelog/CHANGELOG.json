@@ -242,5 +242,21 @@
       "Switched Codex summarization call from deprecated codex run --plan flow to codex exec with stdin prompt and output capture",
       "Validated end-to-end changelog_activity.py --strict --summarize-backend codex now generates summaries and preview successfully"
     ]
+  },
+  {
+    "id": "CHG-3d087c77",
+    "change_group": "release-workflow-configurable-backends",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Prevent conflicting release_as dispatch when an open release-please PR already targets a different version",
+    "details": [
+      "Updated release_workflow.py to detect open release-please PR version via gh pr list",
+      "When --bump requests a different version than the open release PR, workflow now fails early with explicit guidance",
+      "Avoids confusing no-op release-please runs where PR remains unchanged despite a requested bump"
+    ]
   }
 ]
