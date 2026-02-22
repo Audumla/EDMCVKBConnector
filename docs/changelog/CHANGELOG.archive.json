@@ -1644,5 +1644,307 @@
       "Recorded v0.7.0 in archive so CHANGELOG.md shows the missing release in version history",
       "GitHub release notes for v0.7.0 indicate no changelog entries were present at release time"
     ]
+  },
+  {
+    "id": "CHG-52face3a",
+    "change_group": "release-changelog-rollover",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring",
+      "Build / Packaging"
+    ],
+    "summary": "Make release rollover preserve version summaries and reliably reset unreleased changelog state",
+    "details": [
+      "Updated build_changelog.py to select summaries by exact version/unreleased content hash instead of first matching prefix",
+      "Updated generate_release_notes.py to promote matching unreleased summary cache to the stamped release key and clear stale unreleased summary keys during --stamp --archive",
+      "Updated release-please workflow commit step to include docs/changelog/CHANGELOG.summaries.json alongside CHANGELOG.json, CHANGELOG.archive.json, and CHANGELOG.md"
+    ]
+  },
+  {
+    "id": "CHG-52face3a-1",
+    "change_group": "release-history-backfill",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Documentation Update",
+      "Configuration Cleanup"
+    ],
+    "summary": "Backfill missing v0.7.0 and v0.8.0 changelog history and align unreleased entries with post-release state",
+    "details": [
+      "Moved 16 release-workflow and VKB-link entries from docs/changelog/CHANGELOG.json into archive as v0.8.0 while keeping only post-release work unreleased",
+      "Added a v0.7.0 archive backfill marker so CHANGELOG.md now includes the missing release in version history",
+      "Rebuilt CHANGELOG.md and normalized summary cache keys so released history renders correctly and unreleased reflects one active entry"
+    ]
+  },
+  {
+    "id": "CHG-52face3a-2",
+    "change_group": "changelog-summary-key-normalization",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Normalize archive summary cache keys to hash-based format and remove legacy fallback rendering",
+    "details": [
+      "Removed legacy prefix fallback from scripts/build_changelog.py so summary lookup now strictly uses version/hash keys",
+      "Rewrote docs/changelog/CHANGELOG.summaries.json to exact hash keys for v0.4.0, v0.5.0, v0.5.1, v0.7.0, and v0.8.0",
+      "Rebuilt CHANGELOG.md and verified archived versions render full summary sections (Overview + change bullets) instead of condensed fallback lines"
+    ]
+  },
+  {
+    "id": "CHG-52face3a-3",
+    "change_group": "changelog-summary-rebuild",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Documentation Update",
+      "Code Refactoring"
+    ],
+    "summary": "Rebuilt all changelog summaries from archive/current source entries using deterministic grouped summarization",
+    "details": [
+      "Added an intelligent deterministic backend in summarize_changelog.py that groups related changes and emits concise release summaries without repeated similar entries",
+      "Forced regeneration of all version summaries and synchronized hash computation so CHANGELOG.summaries.json keys match build_changelog.py exactly",
+      "Rebuilt CHANGELOG.md so archived versions now render full Overview/section summaries instead of condensed fallback lines"
+    ]
+  },
+  {
+    "id": "CHG-471f2512",
+    "change_group": "release-workflow-optimization",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Build / Packaging",
+      "Configuration Cleanup"
+    ],
+    "summary": "Add dispatch-only release mode to avoid redundant local changelog prep runs",
+    "details": [
+      "Extended release_workflow.py with --skip-prepare to bypass local summarize/rebuild when preview was already generated",
+      "Added VS Code task 'Release: Trigger release (already prepared)' for low-token, low-latency release dispatch",
+      "Updated scripts README to document dispatch-only workflow and reduce repeated pre-release processing"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-1",
+    "change_group": "vscode-task-hygiene",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "UI Improvement"
+    ],
+    "summary": "Streamline VS Code task picker with favorites and parameterized release workflows",
+    "details": [
+      "Collapsed redundant release tasks into input-driven backend and bump prompts",
+      "Promoted frequent tasks with [fav] labels and set default build/test task groups",
+      "Hidden low-frequency tasks from picker while preserving access for edge workflows"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-2",
+    "change_group": "release-preview-labeling",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Documentation Update"
+    ],
+    "summary": "Label default release preview output as Unreleased instead of the current version number",
+    "details": [
+      "Updated scripts/generate_release_notes.py default preview mode to use display_version='unreleased' when no --stamp/--version/--all is provided",
+      "Adjusted release note title rendering to output 'Release Notes - Unreleased' for unreleased previews while preserving vX.Y.Z format for stamped versions",
+      "Regenerated dist/RELEASE_NOTES.preview.md and verified the heading now reads 'Release Notes - Unreleased'"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-3",
+    "change_group": "config-driven-llm-runtime",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
+    "summary": "Move changelog/release LLM runtime defaults to config and remove script-level model assumptions",
+    "details": [
+      "Updated summarize_changelog.py and generate_release_notes.py to use config-managed backend/model/timeout settings instead of hardcoded model defaults",
+      "Added codex/claude timeout and model runtime keys to docs/changelog/changelog-config.json and set backend default there",
+      "Aligned changelog_activity.py backend override choices with supported config-driven backends including intelligent"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-4",
+    "change_group": "release-cli-only-backends",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Bug Fix"
+    ],
+    "summary": "Switch changelog and release-note LLM flows to CLI-only backends and remove Claude API fallback paths",
+    "details": [
+      "Updated summarize_changelog.py defaults/validation to use claude-cli or codex backends only and removed Claude API backend branch",
+      "Updated generate_release_notes.py LLM mode to support claude-cli directly, default to claude-cli, and avoid Anthropic API dependency",
+      "Restricted release workflow backend override options to claude-cli/codex and increased Claude CLI timeouts to improve reliability for long prompts"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-5",
+    "change_group": "split-changelog-and-delegation-config",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
+    "summary": "Split delegation settings from changelog config and move LLM prompt/runtime controls into changelog config",
+    "details": [
+      "Created docs/automation/delegation-config.json for codex_delegation and updated claude_run_plan.py to read from that file",
+      "Removed codex_delegation from docs/changelog/changelog-config.json and expanded changelog_summarization with backend/model/timeouts plus prompt requirement lists",
+      "Updated summarize_changelog.py and generate_release_notes.py to read prompt requirements and runtime knobs from config while adding UTF-8 subprocess decoding for stable CLI output handling"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-6",
+    "change_group": "llm-backend-config-separation",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
+    "summary": "Split changelog LLM runtime into per-backend config sections and separate delegation config file",
+    "details": [
+      "Refactored docs/changelog/changelog-config.json into changelog_summarization.common plus backend sections (codex, claude_cli, intelligent)",
+      "Updated summarize_changelog.py and generate_release_notes.py to resolve backend model/timeouts and prompt requirements from sectioned config with backward-compatible fallbacks",
+      "Moved orchestration defaults to docs/automation/delegation-config.json and updated claude_run_plan.py to read delegation settings from the new file"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-7",
+    "change_group": "llm-timeout-simplification",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Simplify changelog LLM configuration to a single shared timeout setting",
+    "details": [
+      "Removed backend-specific timeout fields from docs/changelog/changelog-config.json and kept only common.timeout_seconds",
+      "Updated summarize_changelog.py and generate_release_notes.py fallback defaults to match single-timeout config shape",
+      "Validated summarization still runs successfully using shared timeout and current backend settings"
+    ]
+  },
+  {
+    "id": "CHG-471f2512-8",
+    "change_group": "delegation-config-relocation-git-hygiene",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Code Refactoring"
+    ],
+    "summary": "Move delegation config into scripts and stop tracking generated changelog summary artifacts",
+    "details": [
+      "Moved delegation defaults from docs/automation/delegation-config.json to scripts/delegation-config.json and updated claude_run_plan.py + scripts docs references.",
+      "Updated .gitignore to treat generated CHANGELOG.md and docs/changelog/CHANGELOG.summaries.json as local artifacts.",
+      "Updated release-please workflow commit step to stage only changelog JSON source files so ignored generated artifacts are not persisted."
+    ]
+  },
+  {
+    "id": "CHG-471f2512-9",
+    "change_group": "changelog-config-documentation",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Documentation Update"
+    ],
+    "summary": "Document backend/model options in changelog config and add configurable Claude CLI model support",
+    "details": [
+      "Added inline _comment guidance in docs/changelog/changelog-config.json for backend choices, timeout behavior, and model examples",
+      "Added claude_cli.model setting and wired summarize_changelog.py + generate_release_notes.py to pass --model to Claude CLI when configured",
+      "Validated claude-cli backend run succeeds with config-driven model selection"
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0",
+    "change_group": "changelog-maintenance",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Documentation Update"
+    ],
+    "summary": "Rebuilt CHANGELOG.md from current changelog JSON sources",
+    "details": [
+      "Ran scripts/build_changelog.py to regenerate the markdown changelog from docs/changelog/CHANGELOG.json and docs/changelog/CHANGELOG.archive.json.",
+      "Verified the generated markdown renders unreleased counts and version sections consistently after rebuild.",
+      "No schema or runtime config changes were made; this task only refreshed rendered changelog output."
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0-1",
+    "change_group": "changelog-rendering-policy",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Render CHANGELOG.md as released-history only and omit unreleased entries",
+    "details": [
+      "Updated scripts/build_changelog.py to stop generating the [Unreleased] section in markdown output.",
+      "Kept unreleased entries as JSON source data while rendering only versioned release sections in CHANGELOG.md.",
+      "Adjusted rebuild status output text to clarify unreleased source entries are hidden from markdown rendering."
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0-2",
+    "change_group": "release-summary-promotion",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Guarantee release stamping writes a version summary cache for changelog rendering",
+    "details": [
+      "Updated generate_release_notes.py to ensure a vX.Y.Z summary cache key is always present during --stamp, promoting unreleased cache when available.",
+      "Added deterministic summary generation fallback for stamped releases when unreleased cache is missing so build_changelog can still render rich release sections.",
+      "Kept stale unreleased summary cache cleanup in the stamp flow and added status messages for promoted/generated/existing summary outcomes."
+    ]
+  },
+  {
+    "id": "CHG-4348a3f0-3",
+    "change_group": "preview-artifacts",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Configuration Cleanup"
+    ],
+    "summary": "Generate a dedicated changelog preview artifact during changelog activity",
+    "details": [
+      "Extended build_changelog.py with an include-unreleased mode so preview rendering can include the [Unreleased] section without changing the default release-history output.",
+      "Updated changelog_activity.py to produce dist/CHANGELOG.preview.md before generating dist/RELEASE_NOTES.preview.md.",
+      "Documented the new preview artifact workflow in scripts/README.md."
+    ]
+  },
+  {
+    "id": "CHG-b5155c6e",
+    "change_group": "vscode-python-env-lock",
+    "plugin_version": "0.8.1",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Pin VS Code terminal PATH to workspace .venv Python",
+    "details": [
+      "Updated .vscode/settings.json to prepend .venv\\Scripts to terminal Path on Windows.",
+      "Kept python.defaultInterpreterPath pointing to /.venv/Scripts/python.exe for interpreter selection.",
+      "Validated settings JSON syntax after update."
+    ]
   }
 ]
