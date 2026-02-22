@@ -2,6 +2,19 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## v0.8.4 — 2026-02-22
+
+This release fixes how release notes are built so your changelog shows the right details. It prevents sections from collapsing to a shortened summary and makes the output consistent.
+
+### Bug Fixes
+- Fixed an issue that sometimes caused release notes to display a shortened summary; sections now show full, structured details consistently.
+- Corrected the v0.8.3 changelog so it shows the full structured summary instead of a condensed fallback.
+
+### Build & Packaging
+- Updated release tooling to ignore duplicate archived entries when generating release notes, improving the reliability of changelog builds.
+
+---
+
 ## v0.8.3 — 2026-02-22
 
 ### Overview
