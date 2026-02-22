@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -432,10 +433,16 @@ def load_config() -> dict:
     """Load changelog summarizer config from config_changelog-config.json."""
     if not CONFIG_DEFAULTS.exists():
         return {
-            "backend": "claude",
-            "claude_model": "claude-haiku-4-5-20251001",
-            "max_tokens": 1500,
-            "codex_model": "gpt-5-mini",
+            "enabled": True,
+            "backend": "intelligent",
+            "common": {
+                "timeout_seconds": 300,
+            },
+            "codex": {
+                "model": "",
+            },
+            "claude_cli": {},
+            "intelligent": {},
         }
     try:
         with open(CONFIG_DEFAULTS, encoding="utf-8") as f:
@@ -446,8 +453,34 @@ def load_config() -> dict:
         return {}
 
 
-def _format_entries_for_llm(entries: list[dict], version: str) -> str:
+def _backend_key(name: str) -> str:
+    return str(name or "").replace("-", "_").strip() or "intelligent"
+
+
+def _common_cfg(config: dict) -> dict:
+    common = config.get("common")
+    if isinstance(common, dict):
+        return common
+    return config
+
+
+def _provider_cfg(config: dict, backend: str) -> dict:
+    provider = config.get(_backend_key(backend))
+    if isinstance(provider, dict):
+        return provider
+    return config
+
+
+def _runtime_timeout(config: dict, backend: str) -> int:
+    provider = _provider_cfg(config, backend)
+    common = _common_cfg(config)
+    return int(provider.get("timeout_seconds", common.get("timeout_seconds", 300)))
+
+
+def _format_entries_for_llm(entries: list[dict], version: str, config: dict | None = None) -> str:
     """Format changelog entries into a prompt for the LLM."""
+    if config is None:
+        config = {}
     lines = [f"# Generate release notes for version {version}", ""]
 
     if not entries:
@@ -473,68 +506,196 @@ def _format_entries_for_llm(entries: list[dict], version: str) -> str:
 
     lines.append("---")
     lines.append("")
-    lines.append(
-        "Write concise release notes that:\n"
-        "- Group changes logically by category (Bug Fixes, New Features, Improvements)\n"
-        "- Use plain English that end users understand\n"
-        "- Omit internal IDs and workstream slugs\n"
-        "- Start each section with a clear heading\n"
-        "- Include only the most important/impactful changes\n"
-        "- Return only the markdown content (no extra commentary)"
+    requirements = _common_cfg(config).get(
+        "release_notes_prompt_requirements",
+        [
+            "Group changes logically by category (Bug Fixes, New Features, Improvements)",
+            "Use plain English that end users understand",
+            "Omit internal IDs and workstream slugs",
+            "Start each section with a clear heading",
+            "Include only the most important/impactful changes",
+            "Return only the markdown content (no extra commentary)",
+        ],
     )
+    lines.append("Write concise release notes that:")
+    for requirement in requirements:
+        lines.append(f"- {requirement}")
 
     return "\n".join(lines)
 
 
-def _call_claude_api_for_summary(prompt: str, config: dict) -> str | None:
-    """Call Claude API for release notes summary."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
+def _find_git_bash() -> str | None:
+    """Find git bash executable for Claude Code on Windows."""
+    if val := os.environ.get("CLAUDE_CODE_GIT_BASH_PATH"):
+        return val
+    bash = shutil.which("bash")
+    if bash:
+        try:
+            result = subprocess.run(
+                ["cygpath", "-w", bash], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return bash
+    for candidate in [
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+    ]:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _resolve_claude_cli_command() -> list[str]:
+    """Resolve an executable command for Claude CLI across Windows wrappers."""
+    candidates = ["claude"]
+    if sys.platform == "win32":
+        candidates.extend(["claude.cmd", "claude.exe", "claude.bat", "claude.ps1"])
+
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if not resolved:
+            continue
+        if resolved.lower().endswith(".ps1"):
+            return ["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", resolved]
+        return [resolved]
+
+    return ["claude"]
+
+
+def _normalize_windowsish_path(path_value: str) -> str:
+    if not path_value or not path_value.startswith("/") or len(path_value) < 3:
+        return path_value
+    if len(path_value) >= 3 and path_value[1].isalpha() and path_value[2] == "/":
+        drive = path_value[1].upper()
+        rest = path_value[3:].replace("/", "\\")
+        return f"{drive}:\\{rest}"
+    return path_value
+
+
+def _discover_vscode_codex() -> str | None:
+    candidates: list[Path] = []
+    roots: list[Path] = []
+    for env_key in ("USERPROFILE", "HOME"):
+        raw = os.environ.get(env_key)
+        if not raw:
+            continue
+        roots.append(Path(_normalize_windowsish_path(raw)))
+
+    for root in roots:
+        for vscode_dir in (".vscode", ".vscode-insiders"):
+            ext_dir = root / vscode_dir / "extensions"
+            if not ext_dir.exists():
+                continue
+            candidates.extend(ext_dir.glob("openai.chatgpt-*/bin/windows-x86_64/codex.exe"))
+
+    if not candidates:
         return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return str(candidates[0])
 
+
+def _resolve_codex_command() -> list[str]:
+    resolved = shutil.which("codex") or shutil.which("codex.exe")
+    if resolved:
+        return [resolved]
+    if sys.platform == "win32":
+        discovered = _discover_vscode_codex()
+        if discovered:
+            return [discovered]
+    return ["codex"]
+
+
+def _call_claude_cli_for_summary(prompt: str, config: dict) -> str | None:
+    """Call Claude CLI for release notes summary."""
     try:
-        from anthropic import Anthropic
-    except ImportError:
-        print("ERROR: anthropic package not installed. Run: pip install anthropic", file=sys.stderr)
-        return None
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+        if sys.platform == "win32" and "CLAUDE_CODE_GIT_BASH_PATH" not in env:
+            bash_path = _find_git_bash()
+            if bash_path:
+                env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
 
-    try:
-        client = Anthropic(api_key=api_key)
-        model = config.get("claude_model", "claude-haiku-4-5-20251001")
-        max_tokens = config.get("max_tokens", 1500)
-
-        response = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
+        claude_cmd = _resolve_claude_cli_command()
+        provider = _provider_cfg(config, "claude-cli")
+        model = str(provider.get("model", "")).strip()
+        args = [*claude_cmd]
+        if model:
+            args.extend(["--model", model])
+        args.extend(["-p", prompt])
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "claude-cli"),
+            env=env,
         )
-
-        return response.content[0].text if response.content else None
+        if result.returncode != 0:
+            print(f"ERROR: claude CLI failed: {result.stderr.strip()}", file=sys.stderr)
+            return None
+        output = result.stdout.strip()
+        return output if output else None
+    except FileNotFoundError:
+        print("ERROR: claude CLI not found. Ensure Claude Code is installed and on PATH.", file=sys.stderr)
+        return None
     except Exception as e:
-        print(f"ERROR: Failed to call Claude API: {e}", file=sys.stderr)
+        print(f"ERROR: Failed to call claude CLI: {e}", file=sys.stderr)
         return None
 
 
 def _call_codex_api_for_summary(prompt: str, config: dict) -> str | None:
     """Call Codex CLI for release notes summary."""
     try:
+        codex_cmd = _resolve_codex_command()
         with tempfile.TemporaryDirectory() as tmpdir:
             plan_file = Path(tmpdir) / "plan.md"
+            output_file = Path(tmpdir) / "output.md"
             plan_file.write_text(prompt, encoding="utf-8")
 
+            model = str(_provider_cfg(config, "codex").get("model", config.get("codex_model", ""))).strip()
+            exec_cmd = [
+                *codex_cmd,
+                "--sandbox",
+                "read-only",
+                "--ask-for-approval",
+                "never",
+                "exec",
+                "--cd",
+                str(PROJECT_ROOT),
+                "--output-last-message",
+                str(output_file),
+            ]
+            if model:
+                exec_cmd.extend(["--model", model])
+            exec_cmd.append("-")
+
             result = subprocess.run(
-                ["codex", "run", "--plan", str(plan_file), "--output-dir", tmpdir],
+                exec_cmd,
+                input=prompt,
                 capture_output=True,
                 text=True,
-                timeout=300,
+                encoding="utf-8",
+                errors="replace",
+                timeout=_runtime_timeout(config, "codex"),
             )
+
+            if result.returncode != 0 and ("unrecognized" in (result.stderr or "").lower() or "unknown" in (result.stderr or "").lower()):
+                result = subprocess.run(
+                    [*codex_cmd, "run", "--plan", str(plan_file), "--output-dir", tmpdir],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=_runtime_timeout(config, "codex"),
+                )
 
             if result.returncode != 0:
                 print(f"ERROR: Codex failed: {result.stderr}", file=sys.stderr)
                 return None
 
-            output_file = Path(tmpdir) / "output.md"
             if output_file.exists():
                 return output_file.read_text(encoding="utf-8")
 
@@ -555,8 +716,10 @@ def build_markdown(
     summary_mode: str = "intelligent",
     config: dict | None = None,
 ) -> str:
+    title_version = "Unreleased" if str(version).lower() == "unreleased" else f"v{version}"
+
     if not entries:
-        return f"# Release Notes - v{version}\n\nNo changelog entries found.\n"
+        return f"# Release Notes - {title_version}\n\nNo changelog entries found.\n"
 
     # Use LLM-based summarization if requested
     if summary_mode == "llm":
@@ -564,16 +727,23 @@ def build_markdown(
             config = load_config()
 
         print(f"Generating LLM-based release notes for v{version}...")
-        prompt = _format_entries_for_llm(entries, version)
-        backend = config.get("backend", "claude")
+        prompt = _format_entries_for_llm(entries, version, config)
+        backend = config.get("backend", "intelligent")
 
         if backend == "codex":
             llm_summary = _call_codex_api_for_summary(prompt, config)
+        elif backend == "claude-cli":
+            llm_summary = _call_claude_cli_for_summary(prompt, config)
         else:
-            llm_summary = _call_claude_api_for_summary(prompt, config)
+            print(
+                f"WARNING: Unsupported llm backend '{backend}' for release notes; "
+                "falling back to intelligent mode.",
+                file=sys.stderr,
+            )
+            llm_summary = None
 
         if llm_summary:
-            lines = [f"# Release Notes - v{version}", ""]
+            lines = [f"# Release Notes - {title_version}", ""]
             date_range = _date_range(entries)
             if date_range:
                 lines.append(f"_{date_range}_")
@@ -588,7 +758,7 @@ def build_markdown(
     groups = build_change_groups(entries)
     buckets = group_by_tag(groups)
 
-    lines = [f"# Release Notes - v{version}"]
+    lines = [f"# Release Notes - {title_version}"]
 
     date_range = _date_range(entries)
     if date_range:
@@ -767,7 +937,7 @@ def main() -> None:
         filtered = filter_entries(all_entries, args.version, args.since, False, False)
     else:
         # Default: preview unreleased entries
-        display_version = get_current_version()
+        display_version = "unreleased"
         filtered = filter_entries(current_entries, None, None, False, unreleased_only=True)
         if not filtered:
             print(

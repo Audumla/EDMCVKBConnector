@@ -2,6 +2,69 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "[fav] EDMC: Run Tests",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "tests/run_all_tests.py"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "Run the full test suite"
+        },
+        {
+            "label": "[fav] Release: Prepare preview",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release_workflow.py",
+                "--strict",
+                "--preview-only",
+                "--summarize-backend",
+                "${input:releaseBackend}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Rebuild CHANGELOG.md and release preview (choose summarizer backend)"
+        },
+        {
+            "label": "[fav] Release: Full workflow",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release_workflow.py",
+                "--strict",
+                "--summarize-backend",
+                "${input:releaseBackend}",
+                "--bump",
+                "${input:releaseBump}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Prepare changelog preview, then trigger release-please (choose backend + bump)"
+        },
+        {
+            "label": "[fav] EDMC: Run EDMC (DEV - Isolated Config)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/run_edmc_from_dev.py"
+            ],
+            "problemMatcher": [],
+            "detail": "Run EDMC from dev repository with isolated config (won't touch installed EDMC settings)"
+        },
+        {
             "label": "EDMC: Bootstrap Dev Environment",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
@@ -20,17 +83,8 @@
                 "--run-tests"
             ],
             "problemMatcher": [],
-            "detail": "Bootstrap environment and run all tests"
-        },
-        {
-            "label": "EDMC: Run EDMC (DEV - Isolated Config)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/run_edmc_from_dev.py"
-            ],
-            "problemMatcher": [],
-            "detail": "Run EDMC from dev repository with isolated config (won't touch your installed EDMC settings)"
+            "hide": true,
+            "detail": "Bootstrap environment and run all tests (less common; hidden from picker)"
         },
         {
             "label": "EDMC: Run EDMC (DEV - System Config)",
@@ -41,6 +95,7 @@
                 "--use-system-config"
             ],
             "problemMatcher": [],
+            "hide": true,
             "detail": "Run EDMC from dev repository using your actual EDMC configuration"
         },
         {
@@ -50,6 +105,10 @@
             "args": [
                 "scripts/package_plugin.py"
             ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "problemMatcher": [],
             "detail": "Create distributable ZIP file in dist/ directory"
         },
@@ -74,15 +133,14 @@
             "detail": "Launch the signal catalog editor UI"
         },
         {
-            "label": "Release: Prepare preview (Codex backend)",
+            "label": "Release: Trigger release (already prepared)",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
                 "scripts/release_workflow.py",
-                "--strict",
-                "--preview-only",
-                "--summarize-backend",
-                "codex"
+                "--skip-prepare",
+                "--bump",
+                "${input:releaseBump}"
             ],
             "problemMatcher": [],
             "presentation": {
@@ -90,29 +148,10 @@
                 "panel": "shared",
                 "focus": true
             },
-            "detail": "Rebuild CHANGELOG.md and release preview using Codex summarization"
+            "detail": "Trigger release-please only (skip local summarize/rebuild)"
         },
         {
-            "label": "Release: Prepare preview (Claude CLI backend)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release_workflow.py",
-                "--strict",
-                "--preview-only",
-                "--summarize-backend",
-                "claude-cli"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Rebuild CHANGELOG.md and release preview using Claude CLI summarization"
-        },
-        {
-            "label": "Release: Trigger release-please workflow",
+            "label": "Release: Trigger release-please workflow (raw)",
             "type": "shell",
             "command": "gh",
             "args": [
@@ -121,92 +160,38 @@
                 "release-please.yml"
             ],
             "problemMatcher": [],
+            "hide": true,
             "presentation": {
                 "reveal": "always",
                 "panel": "shared",
                 "focus": true
             },
-            "detail": "Trigger the release-please GitHub Actions workflow (creates/updates release PR)"
+            "detail": "Direct workflow trigger with no local safety checks"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "releaseBackend",
+            "type": "pickString",
+            "description": "Summarizer backend",
+            "default": "codex",
+            "options": [
+                "codex",
+                "claude-cli",
+                "claude"
+            ]
         },
         {
-            "label": "Release: Full workflow (auto bump, Codex backend)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release_workflow.py",
-                "--strict",
-                "--summarize-backend",
-                "codex",
-                "--bump",
-                "auto"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Prepare changelog preview, then trigger release-please with automatic bump selection"
-        },
-        {
-            "label": "Release: Full workflow (patch bump, Codex backend)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release_workflow.py",
-                "--strict",
-                "--summarize-backend",
-                "codex",
-                "--bump",
-                "patch"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Prepare changelog preview, then trigger release-please forcing next patch version"
-        },
-        {
-            "label": "Release: Full workflow (minor bump, Codex backend)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release_workflow.py",
-                "--strict",
-                "--summarize-backend",
-                "codex",
-                "--bump",
-                "minor"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Prepare changelog preview, then trigger release-please forcing next minor version"
-        },
-        {
-            "label": "Release: Full workflow (major bump, Codex backend)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release_workflow.py",
-                "--strict",
-                "--summarize-backend",
-                "codex",
-                "--bump",
+            "id": "releaseBump",
+            "type": "pickString",
+            "description": "Release bump strategy",
+            "default": "auto",
+            "options": [
+                "auto",
+                "patch",
+                "minor",
                 "major"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Prepare changelog preview, then trigger release-please forcing next major version"
+            ]
         }
     ]
 }

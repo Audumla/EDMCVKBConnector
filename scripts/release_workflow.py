@@ -2,7 +2,7 @@
 Run local release preparation and optionally trigger release-please.
 
 This script is VS Code task friendly and supports:
-- Configurable changelog summarizer backend (codex / claude-cli / claude API)
+- Configurable changelog summarizer backend (codex / claude-cli)
 - Preview-only mode (rebuild changelog + release preview, no GitHub workflow call)
 - Optional forced bump intent (major/minor/patch) by dispatching release_as
 """
@@ -113,7 +113,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--summarize-backend",
-        choices=("claude", "claude-cli", "codex"),
+        choices=("claude-cli", "codex"),
         help="Override summarizer backend for this run.",
     )
     parser.add_argument(
@@ -125,6 +125,11 @@ def main() -> int:
         "--preview-only",
         action="store_true",
         help="Only run local changelog activity; do not trigger release-please workflow.",
+    )
+    parser.add_argument(
+        "--skip-prepare",
+        action="store_true",
+        help="Skip local changelog prep (assumes preview/changelog was already generated).",
     )
     parser.add_argument(
         "--bump",
@@ -162,13 +167,16 @@ def main() -> int:
     if args.summarize_backend:
         activity_cmd.extend(["--summarize-backend", args.summarize_backend])
 
-    if args.dry_run:
-        print(f"$ {' '.join(activity_cmd)}")
+    if args.skip_prepare:
+        print("[1/2] Skipping local changelog activity (--skip-prepare).")
     else:
-        print("[1/2] Running changelog activity...")
-        rc = _run_step(activity_cmd, PROJECT_ROOT)
-        if rc != 0:
-            return rc
+        if args.dry_run:
+            print(f"$ {' '.join(activity_cmd)}")
+        else:
+            print("[1/2] Running changelog activity...")
+            rc = _run_step(activity_cmd, PROJECT_ROOT)
+            if rc != 0:
+                return rc
 
     if args.preview_only:
         print("Preview generation complete.")

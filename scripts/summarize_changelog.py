@@ -2,8 +2,8 @@
 Generate intelligent LLM-based changelog summaries.
 
 This script reads CHANGELOG.json + CHANGELOG.archive.json, groups entries by
-version, and uses Claude or Codex to generate readable, human-friendly summaries
-for each release. Summaries are cached in CHANGELOG.summaries.json.
+version, and uses Claude CLI or Codex CLI to generate readable, human-friendly
+summaries for each release. Summaries are cached in CHANGELOG.summaries.json.
 """
 
 import argparse
@@ -28,10 +28,16 @@ def load_config() -> dict:
     """Load changelog summarizer config from changelog-config.json."""
     if not CONFIG_DEFAULTS.exists():
         return {
-            "backend": "claude",
-            "claude_model": "claude-haiku-4-5-20251001",
-            "claude_max_tokens": 1500,
-            "codex_model": "gpt-5-mini",
+            "enabled": True,
+            "backend": "intelligent",
+            "common": {
+                "timeout_seconds": 300,
+            },
+            "codex": {
+                "model": "",
+            },
+            "claude_cli": {},
+            "intelligent": {},
         }
     try:
         with open(CONFIG_DEFAULTS, encoding="utf-8") as f:
@@ -40,6 +46,30 @@ def load_config() -> dict:
     except Exception as e:
         print(f"WARNING: Failed to load config: {e}", file=sys.stderr)
         return {}
+
+
+def _backend_key(name: str) -> str:
+    return str(name or "").replace("-", "_").strip() or "intelligent"
+
+
+def _common_cfg(config: dict) -> dict:
+    common = config.get("common")
+    if isinstance(common, dict):
+        return common
+    return config
+
+
+def _provider_cfg(config: dict, backend: str) -> dict:
+    provider = config.get(_backend_key(backend))
+    if isinstance(provider, dict):
+        return provider
+    return config
+
+
+def _runtime_timeout(config: dict, backend: str) -> int:
+    provider = _provider_cfg(config, backend)
+    common = _common_cfg(config)
+    return int(provider.get("timeout_seconds", common.get("timeout_seconds", 300)))
 
 
 def load_entries(path: Path) -> list[dict]:
@@ -89,8 +119,10 @@ def compute_version_hash(entries: list[dict]) -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:12]
 
 
-def format_entries_for_prompt(entries: list[dict], version: str) -> str:
+def format_entries_for_prompt(entries: list[dict], version: str, config: dict | None = None) -> str:
     """Format changelog entries into a prompt for the LLM."""
+    if config is None:
+        config = {}
     lines = [f"# Summarize changelog entries for version {version}", ""]
 
     if not entries:
@@ -116,15 +148,20 @@ def format_entries_for_prompt(entries: list[dict], version: str) -> str:
 
     lines.append("---")
     lines.append("")
-    lines.append(
-        "Write a human-readable changelog summary that:\n"
-        "- Starts with 1-2 sentences describing what this release focuses on\n"
-        "- Groups changes under ### Bug Fixes, ### New Features, ### Improvements, etc. as appropriate\n"
-        "- Uses plain English bullet points that users can understand\n"
-        "- Omits internal IDs, workstream slugs, and technical jargon\n"
-        "- Only includes sections that have actual changes\n"
-        "- Returns only the markdown sections (no extra commentary)"
+    requirements = _common_cfg(config).get(
+        "changelog_prompt_requirements",
+        [
+            "Starts with 1-2 sentences describing what this release focuses on",
+            "Groups changes under ### Bug Fixes, ### New Features, ### Improvements, etc. as appropriate",
+            "Uses plain English bullet points that users can understand",
+            "Omits internal IDs, workstream slugs, and technical jargon",
+            "Only includes sections that have actual changes",
+            "Returns only the markdown sections (no extra commentary)",
+        ],
     )
+    lines.append("Write a human-readable changelog summary that:")
+    for requirement in requirements:
+        lines.append(f"- {requirement}")
 
     return "\n".join(lines)
 
@@ -183,36 +220,6 @@ def _build_intelligent_summary(entries: list[dict], version: str) -> str | None:
         lines.append("")
 
     return "\n".join(lines).strip()
-
-
-def call_claude_api(prompt: str, config: dict) -> str | None:
-    """Call Claude API for summarization."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("ERROR: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
-        return None
-
-    try:
-        from anthropic import Anthropic
-    except ImportError:
-        print("ERROR: anthropic package not installed. Run: pip install anthropic", file=sys.stderr)
-        return None
-
-    try:
-        client = Anthropic(api_key=api_key)
-        model = config.get("claude_model", "claude-haiku-4-5-20251001")
-        max_tokens = config.get("claude_max_tokens", config.get("max_tokens", 1500))
-
-        response = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        return response.content[0].text if response.content else None
-    except Exception as e:
-        print(f"ERROR: Failed to call Claude API: {e}", file=sys.stderr)
-        return None
 
 
 def _find_git_bash() -> str | None:
@@ -324,11 +331,19 @@ def call_claude_cli(prompt: str, config: dict) -> str | None:
             if bash_path:
                 env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
         claude_cmd = _resolve_claude_cli_command()
+        provider = _provider_cfg(config, "claude-cli")
+        model = str(provider.get("model", "")).strip()
+        args = [*claude_cmd]
+        if model:
+            args.extend(["--model", model])
+        args.extend(["-p", prompt])
         result = subprocess.run(
-            [*claude_cmd, "-p", prompt],
+            args,
             capture_output=True,
             text=True,
-            timeout=120,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "claude-cli"),
             env=env,
         )
 
@@ -356,7 +371,7 @@ def call_codex_api(prompt: str, config: dict) -> str | None:
             output_file = Path(tmpdir) / "output.md"
             plan_file.write_text(prompt, encoding="utf-8")
 
-            model = str(config.get("codex_model", "")).strip()
+            model = str(_provider_cfg(config, "codex").get("model", config.get("codex_model", ""))).strip()
             exec_cmd = [
                 *codex_cmd,
                 "--sandbox",
@@ -378,7 +393,9 @@ def call_codex_api(prompt: str, config: dict) -> str | None:
                 input=prompt,
                 capture_output=True,
                 text=True,
-                timeout=300,
+                encoding="utf-8",
+                errors="replace",
+                timeout=_runtime_timeout(config, "codex"),
             )
 
             # Backward compatibility for older codex CLI builds.
@@ -387,7 +404,9 @@ def call_codex_api(prompt: str, config: dict) -> str | None:
                     [*codex_cmd, "run", "--plan", str(plan_file), "--output-dir", tmpdir],
                     capture_output=True,
                     text=True,
-                    timeout=300,
+                    encoding="utf-8",
+                    errors="replace",
+                    timeout=_runtime_timeout(config, "codex"),
                 )
 
             if result.returncode != 0:
@@ -424,8 +443,8 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
 
     print(f"  [{version}] Calling LLM...")
 
-    prompt = format_entries_for_prompt(entries, version)
-    backend = config.get("backend", "claude")
+    prompt = format_entries_for_prompt(entries, version, config)
+    backend = config.get("backend", "intelligent")
 
     if backend == "intelligent":
         summary = _build_intelligent_summary(entries, version)
@@ -433,8 +452,9 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
         summary = call_codex_api(prompt, config)
     elif backend == "claude-cli":
         summary = call_claude_cli(prompt, config)
-    else:  # default to claude (API key)
-        summary = call_claude_api(prompt, config)
+    else:
+        print(f"ERROR: Unsupported backend '{backend}'. Use one of: claude-cli, codex, intelligent.", file=sys.stderr)
+        summary = None
 
     if not summary:
         print(f"  [{version}] Failed to generate summary", file=sys.stderr)
@@ -465,7 +485,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["claude", "claude-cli", "codex", "intelligent"],
+        choices=["claude-cli", "codex", "intelligent"],
         help="Override the configured LLM backend",
     )
 
@@ -499,7 +519,7 @@ def main() -> int:
         print("No entries to summarize.")
         return 0
 
-    print(f"Summarizing {len(versions_to_summarize)} version(s) using backend: {config.get('backend', 'claude')}")
+    print(f"Summarizing {len(versions_to_summarize)} version(s) using backend: {config.get('backend', 'intelligent')}")
     print()
 
     # Sort versions for predictable processing (unreleased first, then by version desc)

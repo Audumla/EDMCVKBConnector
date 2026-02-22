@@ -81,3 +81,7 @@ agent_artifacts/claude/
 agent_artifacts/codex/
 agent_artifacts/copilot/
 
+# Generated changelog/release artifacts — local only, not committed
+CHANGELOG.md
+docs/changelog/CHANGELOG.summaries.json
+
