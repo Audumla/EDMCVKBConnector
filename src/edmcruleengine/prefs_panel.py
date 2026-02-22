@@ -22,6 +22,7 @@ from .ui_components import (
 )
 from .plugin_update_manager import PluginUpdateManager
 from .version import __version__ as PLUGIN_VERSION
+from .bool_utils import as_bool
 
 
 @dataclass(frozen=True)
@@ -292,19 +293,21 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     port_entry.pack(side=tk.LEFT, padx=(0, 12))
 
     auto_manage_var = tk.BooleanVar(
-        value=bool(_config.get("vkb_link_auto_manage", True)) if _config else True
+        value=as_bool(_config.get("vkb_link_auto_manage", True), True) if _config else True
     )
+    managed_mode_unavailable_status = [None]
 
     def _on_auto_manage_changed(*_args):
         if _config:
             _config.set("vkb_link_auto_manage", auto_manage_var.get())
 
     auto_manage_var.trace_add("write", _on_auto_manage_changed)
-    ttk.Checkbutton(
+    auto_manage_check = ttk.Checkbutton(
         config_frame,
         text="Auto-manage",
         variable=auto_manage_var,
-    ).pack(side=tk.LEFT, padx=(0, 4))
+    )
+    auto_manage_check.pack(side=tk.LEFT, padx=(0, 4))
     ttk.Frame(config_frame).pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     # --- Connection status ---
@@ -322,7 +325,8 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         foreground="gray",
         font=("TkDefaultFont", 8),
         anchor="w",
-        width=32,
+        justify=tk.LEFT,
+        wraplength=360,
     )
     vkb_status_label.pack(side=tk.LEFT, padx=(0, 8))
 
@@ -352,7 +356,8 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     ini_status_color_index = [0]
     ini_pending_colors = ("#f39c12", "#d68910")
     ini_action_inflight = [False]  # Guard against concurrent endpoint-change operations
-    safety_restart_inflight = [False]  # Guard against concurrent safety-start operations
+    safety_restart_inflight = [False]  # Guard against concurrent background process probes
+    process_running_state = [None]  # Last known VKB-Link process running state
 
     def _cancel_ini_status_dots() -> None:
         if ini_status_dots_after_id[0] is not None:
@@ -485,6 +490,14 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     def _on_host_port_change(*_args):
         """Handle host or port value changes."""
+        if managed_mode_unavailable_status[0]:
+            ini_status_override[0] = None
+            _refresh_connection_status()
+            return
+        if not auto_manage_var.get():
+            ini_status_override[0] = None
+            _refresh_connection_status()
+            return
         _schedule_ini_update()
 
     # Replace the old _on_endpoint_changed with the new timer-based logic
@@ -507,9 +520,22 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             if config_ini and config_ini != vkb_ini_path_saved:
                 vkb_ini_path_saved = config_ini
         status = manager.get_status(check_running=check_running)
+        _set_managed_mode_available(
+            bool(getattr(status, "managed_available", True)),
+            getattr(status, "managed_unavailable_reason", None),
+        )
         exe_path = Path(status.exe_path) if status.exe_path else None
         if exe_path and not exe_path.exists():
             exe_path = None
+        managed_available = bool(getattr(status, "managed_available", True))
+        managed_reason = (
+            (getattr(status, "managed_unavailable_reason", None) or "").strip()
+            or "VKB needs to be downloaded and run manually"
+        )
+        if not managed_available and not exe_path:
+            managed_mode_unavailable_status[0] = f"{managed_reason} (use Locate...)"
+        else:
+            managed_mode_unavailable_status[0] = None
         if exe_path:
             _set_locate_button_visible(False)
         else:
@@ -600,7 +626,12 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         tooltip_text="Check for and install a newer VKB-Link release if available",
     )
     update_inflight = [False]
-    update_btn.pack(side=tk.LEFT, padx=(0, 6))
+
+    def _set_update_button_visible(visible: bool) -> None:
+        if visible and not update_btn.winfo_ismapped():
+            update_btn.pack(side=tk.LEFT, padx=(0, 6))
+        elif not visible and update_btn.winfo_ismapped():
+            update_btn.pack_forget()
 
     locate_btn = create_colored_button(
         config_frame,
@@ -618,6 +649,14 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             locate_btn.pack(side=tk.LEFT, padx=(0, 6))
         elif not visible and locate_btn.winfo_ismapped():
             locate_btn.pack_forget()
+
+    def _set_managed_mode_available(available: bool, reason: Optional[str] = None) -> None:
+        auto_manage_check.configure(state=tk.NORMAL)
+        if available:
+            _set_update_button_visible(True)
+            return
+
+        _set_update_button_visible(False)
 
     def _ini_matches_prefs() -> Optional[bool]:
         if not vkb_ini_path_saved:
@@ -674,11 +713,29 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             connected_state = False
             if _event_handler:
                 try:
-                    connected_state = _event_handler.vkb_client.connected
+                    vkb_client = _event_handler.vkb_client
+                    connected_state = bool(
+                        vkb_client.connected and getattr(vkb_client, "socket", None) is not None
+                    )
                     if not connected_state:
-                        is_reconnecting = _event_handler.vkb_client.is_reconnecting()
+                        is_reconnecting = vkb_client.is_reconnecting()
                 except Exception:
                     connected_state = False
+
+        process_running = process_running_state[0]
+        if process_running is False:
+            connected_state = False
+            is_reconnecting = False
+
+        if (
+            managed_mode_unavailable_status[0]
+            and process_running is not True
+            and not connected_state
+            and not is_reconnecting
+        ):
+            vkb_status_var.set(managed_mode_unavailable_status[0])
+            vkb_status_label.configure(foreground="#f39c12")
+            return
 
         # Get version from manager
         version = "?"
@@ -688,12 +745,18 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             if status.version:
                 version = status.version
 
-        if connected_state:
+        if process_running is False:
+            status_text = "Disconnected (VKB-Link not running)"
+            foreground = "#e74c3c"
+        elif connected_state:
             status_text = f"VKB-Link (v{version}) - Established"
             foreground = "#27ae60"
         elif is_reconnecting:
             status_text = "Reconnecting..."
             foreground = "#3498db"
+        elif process_running is True:
+            status_text = f"VKB-Link (v{version}) running - connection not established"
+            foreground = "#f39c12"
         else:
             status_text = "Disconnected"
             foreground = "#e74c3c"
@@ -714,19 +777,13 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         """
         if not frame.winfo_exists():
             return
-        _refresh_connection_status()
         # check_running=False keeps the main thread free of subprocess calls
         _refresh_vkb_app_status(check_running=False)
+        _refresh_connection_status()
 
-        # Safety mechanism: if auto-manage is enabled and no action is already in
-        # progress, spin up a background thread to check whether VKB-Link is
-        # running and start it if not.
-        if (
-            auto_manage_var.get()
-            and _event_handler
-            and not ini_action_inflight[0]
-            and not safety_restart_inflight[0]
-        ):
+        # Always probe process state in the background so status reflects process
+        # availability even when auto-manage is disabled.
+        if _event_handler and not safety_restart_inflight[0]:
             host = host_var.get().strip() or "127.0.0.1"
             port_str = port_var.get().strip()
             try:
@@ -734,35 +791,85 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             except (ValueError, TypeError):
                 port = 50995
 
-            def _safety_check():
-                manager = _get_vkb_manager()
-                if not manager:
-                    return
-                status = manager.get_status(check_running=True)
-                if not (status.exe_path and status.running is False):
-                    return
-
-                # VKB-Link is configured but not running — start it
+            def _probe_process_state():
                 try:
-                    logger.info("VKB-Link polling: process not running; starting it")
-                    result = manager.ensure_running(host=host, port=port, reason="polling_safety")
-                    if result.success:
-                        logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
-                        if result.action_taken in ("started", "restarted"):
-                            manager.wait_for_listener_ready(host, port)
-                            _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
-                            _event_handler.vkb_client.connect()
-                    else:
-                        logger.warning(f"VKB-Link polling: auto-start failed ({result.message})")
-                except Exception as e:
-                    logger.error(f"VKB-Link polling: auto-start exception: {e}")
+                    manager = _get_vkb_manager()
+                    if not manager:
+                        process_running_state[0] = None
+                        return
+                    status = manager.get_status(check_running=True)
+                    process_running_state[0] = status.running
+                    vkb_client = getattr(_event_handler, "vkb_client", None)
+                    client_connected = bool(
+                        vkb_client
+                        and getattr(vkb_client, "connected", False)
+                        and getattr(vkb_client, "socket", None) is not None
+                    )
+                    client_reconnecting = bool(
+                        vkb_client and hasattr(vkb_client, "is_reconnecting") and vkb_client.is_reconnecting()
+                    )
+                    if status.running is False and vkb_client and (client_connected or client_reconnecting):
+                        try:
+                            logger.info(
+                                "VKB-Link polling: process not running; forcing socket disconnect"
+                            )
+                            vkb_client.disconnect()
+                        except Exception as e:
+                            logger.debug(
+                                "VKB-Link polling: failed to disconnect stale socket after process stop: %s",
+                                e,
+                            )
+                        client_connected = False
+                        client_reconnecting = False
+
+                    # If user launched VKB-Link manually (with or without a known
+                    # exe path), follow the standard connect workflow.
+                    if status.running is True:
+                        if client_connected or client_reconnecting or ini_action_inflight[0]:
+                            return
+                        try:
+                            logger.info("VKB-Link polling: process detected; running standard connect workflow")
+                            connected = _event_handler.connect()
+                            if connected:
+                                logger.info("VKB-Link polling: connect succeeded after manual process detection")
+                            else:
+                                logger.warning("VKB-Link polling: connect failed after manual process detection")
+                        except Exception as e:
+                            logger.error(f"VKB-Link polling: connect exception after process detection: {e}")
+                        return
+
+                    # Auto-start only when auto-manage is enabled and a path exists.
+                    if not auto_manage_var.get() or ini_action_inflight[0]:
+                        return
+                    if not (status.exe_path and status.running is False):
+                        return
+
+                    try:
+                        logger.info("VKB-Link polling: process not running; starting it")
+                        result = manager.ensure_running(host=host, port=port, reason="polling_safety")
+                        if result.success:
+                            logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
+                            if result.action_taken in ("started", "restarted"):
+                                manager.wait_for_listener_ready(host, port)
+                                _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
+                                _event_handler.vkb_client.connect()
+                        else:
+                            logger.warning(f"VKB-Link polling: auto-start failed ({result.message})")
+                    except Exception as e:
+                        logger.error(f"VKB-Link polling: auto-start exception: {e}")
                 finally:
+                    if frame.winfo_exists():
+                        frame.after(0, _refresh_connection_status)
                     safety_restart_inflight[0] = False
 
             safety_restart_inflight[0] = True
-            threading.Thread(target=_safety_check, daemon=True).start()
+            threading.Thread(target=_probe_process_state, daemon=True).start()
 
         frame.after(status_poll_interval_ms, _poll_vkb_status)
+
+    # Prime control visibility/state before first paint to avoid transient button flicker.
+    _refresh_vkb_app_status(check_running=False)
+    _refresh_connection_status()
 
     # Start polling immediately, then continue on the configured interval.
     frame.after(0, _poll_vkb_status)
@@ -1230,7 +1337,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     # --- Track unregistered events checkbox ---
     track_unregistered_var = tk.BooleanVar(
-        value=bool(_config.get("track_unregistered_events", False)) if _config else False
+        value=as_bool(_config.get("track_unregistered_events", False), False) if _config else False
     )
     if _event_handler:
         _event_handler.track_unregistered_events = track_unregistered_var.get()

@@ -5,6 +5,8 @@ VKB-Link lifecycle management (process control, INI sync, download/update).
 from __future__ import annotations
 
 import base64
+import csv
+import io
 import json
 import re
 import shutil
@@ -21,11 +23,17 @@ from typing import Callable, Optional
 from urllib.request import Request, urlopen
 
 from . import plugin_logger
+from .bool_utils import as_bool
+
+try:
+    from . import pure_python_aes as _pure_python_aes
+except Exception:
+    _pure_python_aes = None
 
 logger = plugin_logger(__name__)
 
 VKB_LINK_EXE_NAMES = ("VKB-Link.exe",)
-VKB_LINK_INI_NAMES = ("VKB-Link.ini")
+VKB_LINK_INI_NAMES = ("VKB-Link.ini", "VKBLink.ini")
 VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 
 MEGA_API_URL = "https://g.api.mega.co.nz/cs"
@@ -37,6 +45,12 @@ MEGA_API_HEADERS = {
     "Origin": "https://mega.nz",
     "Referer": "https://mega.nz/",
 }
+
+_CRYPTO_MISSING_WARNED = False
+_CRYPTO_INSTALL_ATTEMPTED = False
+_CRYPTO_AUTO_INSTALL_FAILED = False
+_CRYPTO_INSTALL_LOCK = threading.Lock()
+VKB_LINK_MANUAL_MODE_STATUS = "VKB needs to be downloaded and run manually"
 
 
 @dataclass(frozen=True)
@@ -52,6 +66,8 @@ class VKBLinkStatus:
     version: Optional[str]
     running: Optional[bool]
     managed: bool
+    managed_available: bool = True
+    managed_unavailable_reason: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -107,7 +123,9 @@ def _format_status(status: "VKBLinkStatus") -> str:
         "version="
         f"{status.version or 'unknown'} "
         "managed="
-        f"{status.managed}"
+        f"{status.managed} "
+        "managed_available="
+        f"{status.managed_available}"
     )
 
 
@@ -115,38 +133,203 @@ def _format_status(status: "VKBLinkStatus") -> str:
 # MEGA public-folder helpers
 # ---------------------------------------------------------------------------
 
-def _ensure_cryptography() -> bool:
-    """Return True if the cryptography library is available.
+def _warn_cryptography_unavailable_once() -> None:
+    global _CRYPTO_MISSING_WARNED
+    if _CRYPTO_MISSING_WARNED:
+        return
+    logger.warning(
+        "No AES backend (cryptography or bundled fallback) is available; "
+        "automatic MEGA download/update is disabled. "
+        f"{VKB_LINK_MANUAL_MODE_STATUS}"
+    )
+    _CRYPTO_MISSING_WARNED = True
 
-    If not installed, silently attempts ``pip install cryptography`` using the
-    running Python interpreter so no user action is required.
-    """
+
+def _load_cryptography_primitives():
     try:
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: F401
-        return True
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        return Cipher, algorithms, modes
     except ImportError:
-        pass
-    logger.info("'cryptography' library not found; attempting silent pip install...")
-    try:
-        import importlib
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--quiet", "cryptography"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode == 0:
-            importlib.invalidate_caches()
-            from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: F401
-            logger.info("'cryptography' installed successfully")
+        return None
+
+
+def _has_pure_python_aes_backend() -> bool:
+    if _pure_python_aes is None:
+        return False
+    required = ("aes_ecb_decrypt", "aes_cbc_decrypt", "aes_ctr_xor")
+    return all(callable(getattr(_pure_python_aes, name, None)) for name in required)
+
+
+def _resolve_cryptography_install_command() -> Optional[list[str]]:
+    """Resolve a safe pip install command for the active runtime, if possible."""
+    seen: set[str] = set()
+    candidates: list[str] = []
+    for attr in ("executable", "_base_executable"):
+        value = getattr(sys, attr, None)
+        if not value:
+            continue
+        value = str(value)
+        if value in seen:
+            continue
+        seen.add(value)
+        candidates.append(value)
+
+    for executable in candidates:
+        name = Path(executable).name.lower()
+        stem = Path(executable).stem.lower()
+        # Only run pip via a Python interpreter. EDMC's frozen launcher
+        # executable cannot handle "-m pip".
+        if stem.startswith("python") or name.startswith("python"):
+            return [
+                executable,
+                "-m",
+                "pip",
+                "install",
+                "--disable-pip-version-check",
+                "--quiet",
+                "cryptography",
+            ]
+    return None
+
+
+def _ensure_cryptography(*, auto_install: bool = False) -> bool:
+    """Return True when an AES backend is available for MEGA decrypt operations.
+
+    Preferred backend is cryptography. If unavailable, bundled pure-Python AES
+    is used. When auto_install is enabled and no backend is available, this
+    performs one background pip install attempt per process.
+    """
+    global _CRYPTO_INSTALL_ATTEMPTED, _CRYPTO_AUTO_INSTALL_FAILED
+    if _load_cryptography_primitives() is not None:
+        _CRYPTO_AUTO_INSTALL_FAILED = False
+        return True
+    if _has_pure_python_aes_backend():
+        _CRYPTO_AUTO_INSTALL_FAILED = False
+        return True
+
+    if not auto_install:
+        _warn_cryptography_unavailable_once()
+        return False
+
+    with _CRYPTO_INSTALL_LOCK:
+        if _load_cryptography_primitives() is not None:
+            _CRYPTO_AUTO_INSTALL_FAILED = False
             return True
-        logger.warning(
-            f"pip install cryptography failed (rc={result.returncode}): "
-            f"{result.stderr[:300]}"
-        )
-    except Exception as e:
-        logger.warning(f"Could not install 'cryptography': {e}")
+        if _has_pure_python_aes_backend():
+            _CRYPTO_AUTO_INSTALL_FAILED = False
+            return True
+
+        if not _CRYPTO_INSTALL_ATTEMPTED:
+            _CRYPTO_INSTALL_ATTEMPTED = True
+            install_cmd = _resolve_cryptography_install_command()
+            if not install_cmd:
+                logger.info(
+                    "Skipping background 'cryptography' install: no Python interpreter "
+                    "executable is available in this runtime"
+                )
+                _CRYPTO_AUTO_INSTALL_FAILED = True
+            else:
+                logger.info(
+                    "Attempting background install of 'cryptography' for managed VKB-Link support"
+                )
+                try:
+                    result = _run_subprocess(
+                        install_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=120,
+                        _label="cryptography install",
+                        _log_start=True,
+                        _log_success=True,
+                    )
+                    if result.returncode == 0:
+                        if _load_cryptography_primitives() is not None:
+                            _CRYPTO_AUTO_INSTALL_FAILED = False
+                            logger.info("Background install of 'cryptography' succeeded")
+                            return True
+                    detail = (
+                        (result.stderr or "").strip()
+                        or (result.stdout or "").strip()
+                        or f"return code {result.returncode}"
+                    )
+                    logger.warning(f"Background install of 'cryptography' failed: {detail}")
+                except Exception as e:
+                    logger.warning(f"Background install of 'cryptography' failed: {e}")
+                _CRYPTO_AUTO_INSTALL_FAILED = True
+
+    _warn_cryptography_unavailable_once()
     return False
+
+
+def _windows_subprocess_kwargs() -> dict[str, object]:
+    """Return kwargs that keep Windows subprocess calls fully backgrounded."""
+    if sys.platform != "win32":
+        return {}
+    kwargs: dict[str, object] = {}
+    create_no_window = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if create_no_window:
+        kwargs["creationflags"] = create_no_window
+    startupinfo_cls = getattr(subprocess, "STARTUPINFO", None)
+    if startupinfo_cls:
+        startupinfo = startupinfo_cls()
+        startf_use_showwindow = int(getattr(subprocess, "STARTF_USESHOWWINDOW", 0))
+        if startf_use_showwindow:
+            startupinfo.dwFlags |= startf_use_showwindow
+        startupinfo.wShowWindow = int(getattr(subprocess, "SW_HIDE", 0))
+        kwargs["startupinfo"] = startupinfo
+    return kwargs
+
+
+def _run_subprocess(*args, **kwargs):
+    label = kwargs.pop("_label", "")
+    log_start = bool(kwargs.pop("_log_start", False))
+    log_success = bool(kwargs.pop("_log_success", False))
+    command = args[0] if args else kwargs.get("args")
+    merged_kwargs = dict(kwargs)
+    for key, value in _windows_subprocess_kwargs().items():
+        merged_kwargs.setdefault(key, value)
+    prefix = f"{label}: " if label else ""
+    if log_start:
+        logger.debug(f"{prefix}subprocess run: {command!r}")
+    try:
+        result = subprocess.run(*args, **merged_kwargs)
+        if log_success:
+            logger.debug(
+                f"{prefix}subprocess run completed rc={getattr(result, 'returncode', 'unknown')}: {command!r}"
+            )
+        return result
+    except Exception as e:
+        logger.warning(f"{prefix}subprocess run failed for {command!r}: {e}")
+        raise
+
+
+def _popen_subprocess(*args, **kwargs):
+    label = kwargs.pop("_label", "")
+    log_start = bool(kwargs.pop("_log_start", False))
+    log_success = bool(kwargs.pop("_log_success", False))
+    command = args[0] if args else kwargs.get("args")
+    merged_kwargs = dict(kwargs)
+    if sys.platform == "win32":
+        win_kwargs = _windows_subprocess_kwargs()
+        no_window_flag = int(win_kwargs.get("creationflags", 0))
+        if no_window_flag:
+            existing_flags = int(merged_kwargs.get("creationflags", 0) or 0)
+            merged_kwargs["creationflags"] = existing_flags | no_window_flag
+        if "startupinfo" in win_kwargs:
+            merged_kwargs.setdefault("startupinfo", win_kwargs["startupinfo"])
+    prefix = f"{label}: " if label else ""
+    if log_start:
+        logger.debug(f"{prefix}subprocess popen: {command!r}")
+    try:
+        process = subprocess.Popen(*args, **merged_kwargs)
+        if log_success:
+            logger.debug(
+                f"{prefix}subprocess popen started pid={getattr(process, 'pid', 'unknown')}: {command!r}"
+            )
+        return process
+    except Exception as e:
+        logger.warning(f"{prefix}subprocess popen failed for {command!r}: {e}")
+        raise
 
 
 def _mega_b64(s: str) -> bytes:
@@ -165,20 +348,42 @@ def _mega_decode_folder_key(b64_key: str) -> bytes:
 
 
 def _mega_aes_ecb_dec(key16: bytes, block16: bytes) -> bytes:
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    c = Cipher(algorithms.AES(key16), modes.ECB())
-    d = c.decryptor()
-    return d.update(block16) + d.finalize()
+    crypto = _load_cryptography_primitives()
+    if crypto is not None:
+        Cipher, algorithms, modes = crypto
+        c = Cipher(algorithms.AES(key16), modes.ECB())
+        d = c.decryptor()
+        return d.update(block16) + d.finalize()
+    if _has_pure_python_aes_backend():
+        return _pure_python_aes.aes_ecb_decrypt(key16, block16)
+    raise RuntimeError("No AES backend available for ECB decrypt")
 
 
 def _mega_aes_cbc_dec(key16: bytes, data: bytes) -> bytes:
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     iv = b"\x00" * 16
     pad = (-len(data)) % 16
     data = data + b"\x00" * pad
-    c = Cipher(algorithms.AES(key16), modes.CBC(iv))
-    d = c.decryptor()
-    return d.update(data) + d.finalize()
+    crypto = _load_cryptography_primitives()
+    if crypto is not None:
+        Cipher, algorithms, modes = crypto
+        c = Cipher(algorithms.AES(key16), modes.CBC(iv))
+        d = c.decryptor()
+        return d.update(data) + d.finalize()
+    if _has_pure_python_aes_backend():
+        return _pure_python_aes.aes_cbc_decrypt(key16, data, iv)
+    raise RuntimeError("No AES backend available for CBC decrypt")
+
+
+def _mega_aes_ctr_xor(key16: bytes, nonce16: bytes, data: bytes) -> bytes:
+    crypto = _load_cryptography_primitives()
+    if crypto is not None:
+        Cipher, algorithms, modes = crypto
+        cipher = Cipher(algorithms.AES(key16), modes.CTR(nonce16))
+        dec = cipher.decryptor()
+        return dec.update(data) + dec.finalize()
+    if _has_pure_python_aes_backend():
+        return _pure_python_aes.aes_ctr_xor(key16, data, nonce16)
+    raise RuntimeError("No AES backend available for CTR decrypt")
 
 
 def _mega_decrypt_node_key(enc_key_b64: str, folder_key: bytes) -> Optional[bytes]:
@@ -292,6 +497,10 @@ class VKBLinkManager:
         self._process_monitor_thread: Optional[threading.Thread] = None
         self._process_monitor_stop = threading.Event()
         self._last_known_process_running = False
+        self._last_observed_process_running: Optional[bool] = None
+        self._last_running_detected_monotonic = 0.0
+        self._windows_tasklist_fallback_warned = False
+        self._managed_mode_unavailable_warned = False
 
     def _cfg_int(self, key: str, default: int, *, minimum: int = 0) -> int:
         value = default
@@ -351,10 +560,25 @@ class VKBLinkManager:
             return minimum_seconds
         return parsed
 
+    def _is_cryptography_auto_install_enabled(self) -> bool:
+        if not self.config:
+            return False
+        return as_bool(self.config.get("vkb_link_auto_install_cryptography", False), False)
+
+    def _managed_mode_availability(self) -> tuple[bool, Optional[str]]:
+        if _ensure_cryptography(auto_install=self._is_cryptography_auto_install_enabled()):
+            self._managed_mode_unavailable_warned = False
+            return True, None
+
+        if not self._managed_mode_unavailable_warned:
+            logger.warning(f"Managed VKB-Link unavailable: {VKB_LINK_MANUAL_MODE_STATUS}")
+            self._managed_mode_unavailable_warned = True
+        return False, VKB_LINK_MANUAL_MODE_STATUS
+
     def should_probe_listener_before_connect(self) -> bool:
         if not self.config:
             return False
-        return bool(self.config.get("vkb_link_probe_listener_before_connect", False))
+        return as_bool(self.config.get("vkb_link_probe_listener_before_connect", False), False)
 
     def read_ini_endpoint(self, ini_path: Path | str) -> Optional[tuple[str, int]]:
         import configparser
@@ -429,7 +653,10 @@ class VKBLinkManager:
                 minimum_seconds=0.1,
             )
             try:
-                auto_manage = bool(self.config and self.config.get("vkb_link_auto_manage", True))
+                auto_manage = as_bool(
+                    self.config.get("vkb_link_auto_manage", True) if self.config else True,
+                    True,
+                )
                 if auto_manage:
                     is_running = self.is_running()
                     if self._last_known_process_running and not is_running:
@@ -447,16 +674,20 @@ class VKBLinkManager:
         exe_path = (self.config.get("vkb_link_exe_path", "") or "").strip() if self.config else ""
         install_dir = (self.config.get("vkb_link_install_dir", "") or "").strip() if self.config else ""
         version = (self.config.get("vkb_link_version", "") or "").strip() if self.config else ""
-        managed = bool(self.config.get("vkb_link_managed", False)) if self.config else False
+        managed = as_bool(self.config.get("vkb_link_managed", False), False) if self.config else False
+        managed_available, managed_reason = self._managed_mode_availability()
         running = None
         if check_running:
             running = self.is_running()
+            self._record_running_observation(running)
         return VKBLinkStatus(
             exe_path=exe_path or None,
             install_dir=install_dir or None,
             version=version or None,
             running=running,
             managed=managed,
+            managed_available=managed_available,
+            managed_unavailable_reason=managed_reason,
         )
 
     def ensure_running(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
@@ -515,11 +746,22 @@ class VKBLinkManager:
 
         exe_path = self._resolve_known_exe_path()
         if not exe_path:
-            auto_manage = bool(self.config.get("vkb_link_auto_manage", True)) if self.config else True
+            auto_manage = as_bool(
+                self.config.get("vkb_link_auto_manage", True) if self.config else True,
+                True,
+            )
             if not auto_manage:
                 return VKBLinkActionResult(
                     False,
                     "VKB-Link is not running and executable path is unknown",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            managed_available, managed_reason = self._managed_mode_availability()
+            if not managed_available:
+                return VKBLinkActionResult(
+                    False,
+                    managed_reason or VKB_LINK_MANUAL_MODE_STATUS,
                     status=self.get_status(check_running=True),
                     action_taken="none",
                 )
@@ -595,6 +837,14 @@ class VKBLinkManager:
 
     def _update_to_latest_locked(self, *, host: str, port: int) -> VKBLinkActionResult:
         logger.info(f"VKB-Link: checking for updates (host={host} port={port})")
+        managed_available, managed_reason = self._managed_mode_availability()
+        if not managed_available:
+            return VKBLinkActionResult(
+                False,
+                managed_reason or VKB_LINK_MANUAL_MODE_STATUS,
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
         release = self._fetch_latest_release()
         if not release:
             return VKBLinkActionResult(False, "Unable to check for VKB-Link updates", action_taken="none")
@@ -723,6 +973,14 @@ class VKBLinkManager:
 
             exe_path = self._resolve_known_exe_path()
             if not exe_path:
+                managed_available, managed_reason = self._managed_mode_availability()
+                if not managed_available:
+                    return VKBLinkActionResult(
+                        False,
+                        managed_reason or VKB_LINK_MANUAL_MODE_STATUS,
+                        status=self.get_status(check_running=True),
+                        action_taken="none",
+                    )
                 release = self._fetch_latest_release()
                 if not release:
                     return VKBLinkActionResult(
@@ -977,7 +1235,6 @@ class VKBLinkManager:
                 try:
                     # Try to minimize VKB-Link window using taskkill /FI with window style
                     # More robust approach: use pygetwindow if available, otherwise use subprocess
-                    import subprocess
                     # Find VKB-Link window and minimize it
                     # Using PowerShell to minimize window is more portable
                     ps_command = (
@@ -1346,14 +1603,21 @@ class VKBLinkManager:
         """Wait for configurable post-start settle delay, if a recent start occurred."""
         self._wait_after_running_ack()
 
+    def _record_running_observation(self, is_running: bool) -> None:
+        """Track process transition to running for consistent connect warmup."""
+        if is_running and self._last_observed_process_running is not True:
+            self._last_running_detected_monotonic = time.monotonic()
+        self._last_observed_process_running = is_running
+
     def _wait_after_running_ack(self) -> None:
         """Apply configurable settle delay after process start acknowledgement."""
         settle_seconds = self._cfg_float("vkb_link_warmup_delay_seconds", 5.0, minimum=0.0)
         if settle_seconds <= 0:
             return
-        if self._last_start_monotonic <= 0:
+        reference_start = max(self._last_start_monotonic, self._last_running_detected_monotonic)
+        if reference_start <= 0:
             return
-        elapsed = time.monotonic() - self._last_start_monotonic
+        elapsed = time.monotonic() - reference_start
         remaining = settle_seconds - elapsed
         if remaining > 0:
             logger.info(f"VKB-Link process settle delay: waiting {remaining:.1f}s")
@@ -1369,104 +1633,127 @@ class VKBLinkManager:
         return processes[0] if processes else None
 
     def _find_running_processes_windows(self) -> list[VKBLinkProcessInfo]:
+        native_results = self._find_running_processes_windows_native()
+        if native_results is not None:
+            return native_results
+
+        if not self._windows_tasklist_fallback_warned:
+            logger.info(
+                "VKB-Link process checks are using tasklist fallback because native Windows "
+                "process enumeration is unavailable"
+            )
+            self._windows_tasklist_fallback_warned = True
+
         results: list[VKBLinkProcessInfo] = []
-        seen: set[tuple[Optional[int], Optional[str]]] = set()
-
-        def _append_result(pid: Optional[int], path: Optional[str]) -> None:
-            normalized_path = (path or "").strip() or None
-            key = (pid, normalized_path.lower() if normalized_path else None)
-            if key in seen:
-                return
-            seen.add(key)
-            results.append(VKBLinkProcessInfo(pid=pid, exe_path=normalized_path))
-
+        seen_pids: set[int] = set()
         operation_timeout = self._cfg_float(
             "vkb_link_operation_timeout_seconds",
             10.0,
             minimum=1.0,
         )
-        # Attempt PowerShell first for PID+Path
+
+        # Simpler and safer on Windows: parse tasklist output for PID only.
         try:
-            cmd = [
-                "powershell",
-                "-NoProfile",
-                "-Command",
-                "Get-Process -Name 'VKB-Link' -ErrorAction SilentlyContinue | "
-                "Select-Object Id,Path | ConvertTo-Json -Compress",
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
-            output = result.stdout.strip()
-            if output:
-                data = json.loads(output)
-                if isinstance(data, dict):
-                    data = [data]
-                if isinstance(data, list):
-                    for entry in data:
-                        pid = entry.get("Id")
-                        path = entry.get("Path")
-                        parsed_pid = int(pid) if pid else None
-                        _append_result(parsed_pid, path)
+            cmd = ["tasklist", "/FI", "IMAGENAME eq VKB-Link.exe", "/FO", "CSV", "/NH"]
+            result = _run_subprocess(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=operation_timeout,
+                _label="tasklist_fallback",
+            )
+            output = (result.stdout or "").strip()
+            if not output:
+                return results
+            if "No tasks are running" in output:
+                return results
+
+            reader = csv.reader(io.StringIO(output))
+            for row in reader:
+                if len(row) < 2:
+                    continue
+                image_name = (row[0] or "").strip()
+                if image_name.lower() != "vkb-link.exe":
+                    continue
+                pid_text = (row[1] or "").replace(",", "").strip()
+                if not pid_text.isdigit():
+                    continue
+                pid = int(pid_text)
+                if pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
+                results.append(VKBLinkProcessInfo(pid=pid, exe_path=None))
         except Exception:
             pass
 
-        # Fallback to WMIC only when PowerShell didn't yield actionable PIDs.
-        if not any(entry.pid is not None for entry in results):
-            try:
-                cmd = [
-                    "wmic",
-                    "process",
-                    "where",
-                    "name='VKB-Link.exe'",
-                    "get",
-                    "ExecutablePath,ProcessId",
-                    "/FORMAT:LIST",
-                ]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
-                if result.stdout:
-                    blocks = re.split(r"(?:\r?\n){2,}", result.stdout)
-                    for block in blocks:
-                        if not block.strip():
-                            continue
-                        path: Optional[str] = None
-                        pid: Optional[str] = None
-                        for raw_line in block.splitlines():
-                            line = raw_line.strip().strip("\r")
-                            if not line:
-                                continue
-                            if line.lower().startswith("executablepath="):
-                                path = line.split("=", 1)[1].strip() or None
-                            elif line.lower().startswith("processid="):
-                                pid = line.split("=", 1)[1].strip() or None
-                        if pid:
-                            _append_result(int(pid), path)
-                        elif path and not results:
-                            # Keep a path-only entry only as a last resort.
-                            _append_result(None, path)
-            except Exception:
-                pass
-
-        # Fallback to tasklist to detect running process
-        if not results:
-            try:
-                cmd = ["tasklist", "/FI", "IMAGENAME eq VKB-Link.exe", "/FO", "CSV"]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
-                if "VKB-Link.exe" in (result.stdout or ""):
-                    _append_result(None, None)
-            except Exception:
-                pass
-
-        # Normalize partial duplicates: when we have PID-based entries, prefer only those.
-        pid_results = [entry for entry in results if entry.pid is not None]
-        if pid_results:
-            unique_by_pid: dict[int, VKBLinkProcessInfo] = {}
-            for entry in pid_results:
-                if entry.pid not in unique_by_pid:
-                    unique_by_pid[entry.pid] = entry
-                elif (not unique_by_pid[entry.pid].exe_path) and entry.exe_path:
-                    unique_by_pid[entry.pid] = entry
-            return list(unique_by_pid.values())
-
         return results
+
+    def _find_running_processes_windows_native(self) -> Optional[list[VKBLinkProcessInfo]]:
+        """Return process list via WinAPI snapshot, or None if unavailable."""
+        if sys.platform != "win32":
+            return None
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            TH32CS_SNAPPROCESS = 0x00000002
+            INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+            MAX_PATH = 260
+
+            class PROCESSENTRY32W(ctypes.Structure):
+                _fields_ = [
+                    ("dwSize", wintypes.DWORD),
+                    ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD),
+                    ("szExeFile", wintypes.WCHAR * MAX_PATH),
+                ]
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+            create_snapshot = kernel32.CreateToolhelp32Snapshot
+            create_snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+            create_snapshot.restype = wintypes.HANDLE
+
+            process_first = kernel32.Process32FirstW
+            process_first.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+            process_first.restype = wintypes.BOOL
+
+            process_next = kernel32.Process32NextW
+            process_next.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+            process_next.restype = wintypes.BOOL
+
+            close_handle = kernel32.CloseHandle
+            close_handle.argtypes = [wintypes.HANDLE]
+            close_handle.restype = wintypes.BOOL
+
+            snapshot = create_snapshot(TH32CS_SNAPPROCESS, 0)
+            if snapshot == INVALID_HANDLE_VALUE:
+                return None
+
+            try:
+                entry = PROCESSENTRY32W()
+                entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+                if not process_first(snapshot, ctypes.byref(entry)):
+                    return []
+
+                results: list[VKBLinkProcessInfo] = []
+                target = "vkb-link.exe"
+                while True:
+                    exe_name = str(entry.szExeFile or "").lower()
+                    if exe_name == target:
+                        results.append(VKBLinkProcessInfo(pid=int(entry.th32ProcessID), exe_path=None))
+                    if not process_next(snapshot, ctypes.byref(entry)):
+                        break
+                return results
+            finally:
+                close_handle(snapshot)
+        except Exception:
+            return None
 
     def _find_running_processes_posix(self) -> list[VKBLinkProcessInfo]:
         results: list[VKBLinkProcessInfo] = []
@@ -1477,7 +1764,7 @@ class VKBLinkManager:
         )
         try:
             cmd = ["pgrep", "-f", "VKB-Link.exe"]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=operation_timeout)
+            result = _run_subprocess(cmd, capture_output=True, text=True, timeout=operation_timeout)
             if result.returncode == 0 and result.stdout.strip():
                 for pid_text in result.stdout.strip().splitlines():
                     pid_text = pid_text.strip()
@@ -1565,7 +1852,7 @@ class VKBLinkManager:
                 force_cmd = ["taskkill", "/IM", "VKB-Link.exe", "/T", "/F"]
             try:
                 logger.info(f"Stopping VKB-Link process with command: {' '.join(graceful_cmd)}")
-                result = subprocess.run(
+                result = _run_subprocess(
                     graceful_cmd,
                     capture_output=True,
                     text=True,
@@ -1587,7 +1874,7 @@ class VKBLinkManager:
                         return True
 
                 logger.info(f"Stopping VKB-Link process with command: {' '.join(force_cmd)}")
-                force_result = subprocess.run(
+                force_result = _run_subprocess(
                     force_cmd,
                     capture_output=True,
                     text=True,
@@ -1611,7 +1898,7 @@ class VKBLinkManager:
                 graceful_cmd = ["pkill", "-f", "VKB-Link"]
                 force_cmd = ["pkill", "-9", "-f", "VKB-Link"]
                 logger.info(f"Stopping VKB-Link process with command: {' '.join(graceful_cmd)}")
-                result = subprocess.run(
+                result = _run_subprocess(
                     graceful_cmd,
                     capture_output=True,
                     text=True,
@@ -1633,7 +1920,7 @@ class VKBLinkManager:
                         return True
 
                 logger.info(f"Stopping VKB-Link process with command: {' '.join(force_cmd)}")
-                force_result = subprocess.run(
+                force_result = _run_subprocess(
                     force_cmd,
                     capture_output=True,
                     text=True,
@@ -1701,7 +1988,7 @@ class VKBLinkManager:
             else:
                 popen_kwargs["start_new_session"] = True
 
-            process = subprocess.Popen([str(exe)], **popen_kwargs)
+            process = _popen_subprocess([str(exe)], **popen_kwargs)
             self._last_start_monotonic = time.monotonic()
             logger.info("VKB-Link launch mode: detached")
             logger.info(f"Started VKB-Link process pid={process.pid}")
@@ -1712,7 +1999,7 @@ class VKBLinkManager:
 
     def _fetch_latest_release(self) -> Optional[VKBLinkRelease]:
         # MEGA public folder is the only supported source.
-        if _ensure_cryptography():
+        if _ensure_cryptography(auto_install=self._is_cryptography_auto_install_enabled()):
             try:
                 logger.info(
                     f"Fetching VKB-Link releases from MEGA folder {MEGA_FOLDER_NODE}"
@@ -1731,7 +2018,7 @@ class VKBLinkManager:
             except Exception as e:
                 logger.warning(f"MEGA folder listing failed: {e}")
         else:
-            logger.warning("'cryptography' unavailable; cannot query MEGA source")
+            logger.warning("AES backend unavailable; cannot query MEGA source")
         return None
 
     def _install_release(self, release: VKBLinkRelease) -> Optional[str]:
@@ -1840,10 +2127,9 @@ class VKBLinkManager:
         if not release.mega_node_handle or not release.mega_raw_key:
             logger.error("_mega_download: missing node handle or raw key")
             return False
-        if not _ensure_cryptography():
-            logger.error("'cryptography' library unavailable; cannot decrypt MEGA download")
+        if not _ensure_cryptography(auto_install=self._is_cryptography_auto_install_enabled()):
+            logger.error("AES backend unavailable; cannot decrypt MEGA download")
             return False
-        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
         try:
             logger.info(
                 f"Requesting MEGA download URL for handle={release.mega_node_handle}"
@@ -1867,9 +2153,7 @@ class VKBLinkManager:
 
             file_key = _mega_attr_key(release.mega_raw_key, is_file=True)
             nonce = _mega_ctr_nonce(release.mega_raw_key)
-            cipher = Cipher(algorithms.AES(file_key), modes.CTR(nonce))
-            dec = cipher.decryptor()
-            decrypted = dec.update(encrypted) + dec.finalize()
+            decrypted = _mega_aes_ctr_xor(file_key, nonce, encrypted)
 
             archive_path.write_bytes(decrypted)
             logger.info(

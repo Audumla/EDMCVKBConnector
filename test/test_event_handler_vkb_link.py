@@ -193,6 +193,24 @@ def test_connect_aborts_when_not_running_and_auto_manage_disabled(tmp_path, monk
     handler.vkb_client.connect.assert_not_called()
 
 
+def test_connect_aborts_when_not_running_and_auto_manage_disabled_even_with_known_exe(tmp_path, monkeypatch):
+    handler, cfg = _make_handler(tmp_path, monkeypatch, vkb_link_auto_manage=False)
+    cfg.set("vkb_host", "127.0.0.1")
+    cfg.set("vkb_port", 60024)
+
+    manager = Mock()
+    manager.get_status.return_value = Mock(running=False, exe_path=r"G:\Games\vkb\VKB-Link.exe")
+    manager.ensure_running = Mock(return_value=Mock(success=True, message="started"))
+    handler.vkb_link_manager = manager
+
+    handler.vkb_client.connect = Mock(return_value=True)
+    handler.vkb_client.set_on_connected = Mock()
+
+    assert handler.connect() is False
+    manager.ensure_running.assert_not_called()
+    handler.vkb_client.connect.assert_not_called()
+
+
 def test_recovery_waits_for_post_start_settle_before_listener_probe(tmp_path, monkeypatch):
     handler, cfg = _make_handler(
         tmp_path,

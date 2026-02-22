@@ -77,6 +77,82 @@ def test_version_helpers():
     assert not vkbm._is_version_newer("1.2.0", "1.2.0")
 
 
+def test_resolve_cryptography_install_command_requires_python_runtime(monkeypatch):
+    monkeypatch.setattr(vkbm.sys, "executable", r"C:\Program Files (x86)\EDMarketConnector\EDMarketConnector.exe")
+    monkeypatch.setattr(vkbm.sys, "_base_executable", r"C:\Program Files (x86)\EDMarketConnector\EDMarketConnector.exe")
+
+    cmd = vkbm._resolve_cryptography_install_command()
+
+    assert cmd is None
+
+
+def test_resolve_cryptography_install_command_uses_python_executable(monkeypatch):
+    monkeypatch.setattr(vkbm.sys, "executable", r"C:\Python313\python.exe")
+    monkeypatch.setattr(vkbm.sys, "_base_executable", r"C:\Python313\python.exe")
+
+    cmd = vkbm._resolve_cryptography_install_command()
+
+    assert cmd is not None
+    assert cmd[0].lower().endswith("python.exe")
+    assert cmd[1:] == ["-m", "pip", "install", "--disable-pip-version-check", "--quiet", "cryptography"]
+
+
+def test_cryptography_auto_install_default_is_disabled(tmp_path):
+    manager, _ = _make_manager(tmp_path)
+
+    assert manager._is_cryptography_auto_install_enabled() is False
+
+
+def test_ensure_cryptography_uses_pure_python_backend_without_warning(monkeypatch):
+    warn_mock = Mock()
+    monkeypatch.setattr(vkbm, "_load_cryptography_primitives", lambda: None)
+    monkeypatch.setattr(vkbm, "_has_pure_python_aes_backend", lambda: True)
+    monkeypatch.setattr(vkbm, "_warn_cryptography_unavailable_once", warn_mock)
+
+    assert vkbm._ensure_cryptography(auto_install=False) is True
+    warn_mock.assert_not_called()
+
+
+def test_mega_aes_helpers_fall_back_to_pure_python_backend(monkeypatch):
+    calls = {}
+
+    class FakeAES:
+        @staticmethod
+        def aes_ecb_decrypt(key, block):
+            calls["ecb"] = (key, block)
+            return b"E" * 16
+
+        @staticmethod
+        def aes_cbc_decrypt(key, data, iv):
+            calls["cbc"] = (key, data, iv)
+            return b"C" * len(data)
+
+        @staticmethod
+        def aes_ctr_xor(key, data, nonce):
+            calls["ctr"] = (key, data, nonce)
+            return b"T" * len(data)
+
+    key = b"\x11" * 16
+    block = b"\x22" * 16
+    data = b"\x33" * 20
+    nonce = b"\x44" * 16
+
+    monkeypatch.setattr(vkbm, "_load_cryptography_primitives", lambda: None)
+    monkeypatch.setattr(vkbm, "_pure_python_aes", FakeAES)
+
+    assert vkbm._mega_aes_ecb_dec(key, block) == b"E" * 16
+    cbc_output = vkbm._mega_aes_cbc_dec(key, data)
+    assert cbc_output == b"C" * 32
+    assert vkbm._mega_aes_ctr_xor(key, nonce, data) == b"T" * 20
+
+    assert calls["ecb"] == (key, block)
+    cbc_call = calls["cbc"]
+    assert cbc_call[0] == key
+    assert cbc_call[1] == data + b"\x00" * 12
+    assert cbc_call[2] == b"\x00" * 16
+    assert calls["ctr"] == (key, data, nonce)
+
+
 def test_resolve_known_exe_path_uses_install_dir_when_stored_exe_is_stale(tmp_path):
     install_dir = tmp_path / "VKB-Link v2.3.4"
     exe_path = _touch(install_dir / "VKB-Link.exe")
@@ -360,7 +436,7 @@ def test_ensure_running_download_uses_default_ini_path_when_none_found(tmp_path,
 
     result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
     assert result.success
-    expected_ini = exe.parent / "VKBLink.ini"
+    expected_ini = exe.parent / vkbm.VKB_LINK_INI_NAMES[0]
     write_ini_mock.assert_called_once_with(expected_ini, "127.0.0.1", 50995)
     assert cfg.get("vkb_ini_path") == str(expected_ini)
 
@@ -387,7 +463,7 @@ def test_ensure_running_download_ignores_stale_saved_ini_and_targets_exe_dir(tmp
 
     result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
     assert result.success
-    expected_ini = exe.parent / "VKBLink.ini"
+    expected_ini = exe.parent / vkbm.VKB_LINK_INI_NAMES[0]
     write_ini_mock.assert_called_once_with(expected_ini, "127.0.0.1", 50995)
     assert cfg.get("vkb_ini_path") == str(expected_ini)
 
@@ -574,12 +650,58 @@ def test_apply_managed_endpoint_change_stops_updates_and_restarts(tmp_path, monk
     write_ini_mock.assert_called_once_with(ini, "127.0.0.1", 62000)
 
 
+def test_get_status_reports_managed_unavailable_when_cryptography_is_unavailable(tmp_path, monkeypatch):
+    manager, cfg = _make_manager(tmp_path, vkb_link_auto_manage=True)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
+
+    status = manager.get_status(check_running=False)
+    assert not status.managed_available
+    assert status.managed_unavailable_reason == vkbm.VKB_LINK_MANUAL_MODE_STATUS
+    assert cfg.get("vkb_link_auto_manage") is True
+
+
+def test_ensure_running_returns_manual_mode_message_when_managed_is_unavailable(tmp_path, monkeypatch):
+    manager, cfg = _make_manager(tmp_path, vkb_link_auto_manage=True)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
+    start_mock = Mock(return_value=True)
+    monkeypatch.setattr(manager, "_start_process", start_mock)
+    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
+
+    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    assert not result.success
+    assert result.message == vkbm.VKB_LINK_MANUAL_MODE_STATUS
+    assert cfg.get("vkb_link_auto_manage") is True
+    start_mock.assert_not_called()
+
+
+def test_ensure_running_starts_known_exe_when_cryptography_is_unavailable(tmp_path, monkeypatch):
+    exe = _touch(tmp_path / "known" / "VKB-Link.exe")
+    ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
+    manager, _ = _make_manager(tmp_path, vkb_link_auto_manage=True)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
+    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
+    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
+    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
+    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=123, exe_path=str(exe)))
+    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
+    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
+    write_ini_mock = Mock()
+    monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
+    monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
+
+    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    assert result.success
+    assert result.action_taken == "started"
+    write_ini_mock.assert_called_once_with(ini, "127.0.0.1", 50995)
+
+
 def test_fetch_latest_release_prefers_mega_and_picks_highest_version(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
     r1 = VKBLinkRelease(version="1.2.0", url="mega://a", filename="a.zip")
     r2 = VKBLinkRelease(version="1.10.0", url="mega://b", filename="b.zip")
 
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda: True)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: True)
     monkeypatch.setattr(vkbm, "_mega_decode_folder_key", lambda _k: b"\x00" * 16)
     monkeypatch.setattr(vkbm, "_mega_list_folder", lambda _node, _key: [r1, r2])
 
@@ -591,13 +713,13 @@ def test_fetch_latest_release_prefers_mega_and_picks_highest_version(tmp_path, m
 
 def test_fetch_latest_release_returns_none_when_mega_is_unavailable(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda: False)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
     assert manager._fetch_latest_release() is None
 
 
 def test_fetch_latest_release_returns_none_when_mega_listing_fails(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda: True)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: True)
     monkeypatch.setattr(vkbm, "_mega_decode_folder_key", lambda _k: b"\x00" * 16)
     monkeypatch.setattr(vkbm, "_mega_list_folder", lambda _node, _key: [])
     assert manager._fetch_latest_release() is None
@@ -611,7 +733,7 @@ def test_mega_download_fails_when_required_release_key_material_is_missing(tmp_p
     assert not archive_path.exists()
 
 
-def test_mega_download_fails_when_cryptography_is_unavailable(tmp_path, monkeypatch):
+def test_mega_download_fails_when_no_aes_backend_is_available(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
     archive_path = tmp_path / "x.zip"
     release = VKBLinkRelease(
@@ -621,7 +743,7 @@ def test_mega_download_fails_when_cryptography_is_unavailable(tmp_path, monkeypa
         mega_node_handle="abc123",
         mega_raw_key=b"\x00" * 32,
     )
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda: False)
+    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
     assert not manager._mega_download(release, archive_path)
     assert not archive_path.exists()
 
@@ -643,7 +765,7 @@ def test_stop_process_windows_uses_pid_when_available(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific process parsing.")
-def test_find_running_processes_windows_prefers_unique_pid_entries(tmp_path, monkeypatch):
+def test_find_running_processes_windows_parses_tasklist_csv(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
 
     def _result(stdout: str = "", returncode: int = 0):
@@ -653,23 +775,18 @@ def test_find_running_processes_windows_prefers_unique_pid_entries(tmp_path, mon
         r.returncode = returncode
         return r
 
-    def run_side_effect(cmd, *args, **kwargs):
-        joined = " ".join(cmd).lower()
-        if "get-process -name 'vkb-link'" in joined:
-            return _result('[{"Id":66972,"Path":"G:\\\\Games\\\\vkb\\\\VKB-Link.exe"}]')
-        if cmd[:2] == ["wmic", "process"]:
-            # Deliberately malformed WMIC-style output that can split into path-only and pid-only blocks.
-            return _result("ExecutablePath=G:\\Games\\vkb\\VKB-Link.exe\n\nProcessId=66972\n")
-        if cmd and cmd[0].lower() == "tasklist":
-            return _result("")
-        return _result("")
-
-    monkeypatch.setattr(vkbm.subprocess, "run", Mock(side_effect=run_side_effect))
+    tasklist_csv = (
+        '"VKB-Link.exe","66972","Console","1","12,404 K"\n'
+        '"VKB-Link.exe","66972","Console","1","12,404 K"\n'
+        '"notepad.exe","1234","Console","1","3,200 K"\n'
+    )
+    monkeypatch.setattr(manager, "_find_running_processes_windows_native", lambda: None)
+    monkeypatch.setattr(vkbm.subprocess, "run", Mock(return_value=_result(tasklist_csv)))
 
     processes = manager._find_running_processes_windows()
     assert len(processes) == 1
     assert processes[0].pid == 66972
-    assert processes[0].exe_path == "G:\\Games\\vkb\\VKB-Link.exe"
+    assert processes[0].exe_path is None
 
 
 def test_ensure_not_minimized_temporarily_disables_minimized_setting(tmp_path: Path):
@@ -815,3 +932,19 @@ start minimized =1
     final_ini_content = ini_path.read_text(encoding='utf-8')
     assert "start minimized" in final_ini_content.lower(), "INI should have start minimized setting"
     assert "=1" in final_ini_content, "INI should have been restored to start minimized =1"
+
+
+def test_wait_for_post_start_settle_waits_after_external_process_detection(tmp_path, monkeypatch):
+    manager, _ = _make_manager(tmp_path, vkb_link_warmup_delay_seconds=5)
+    sleep_mock = Mock()
+    monotonic_values = iter((100.0, 101.0))
+
+    monkeypatch.setattr(manager, "is_running", lambda: True)
+    monkeypatch.setattr(vkbm.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(vkbm.time, "sleep", sleep_mock)
+
+    manager.get_status(check_running=True)
+    manager.wait_for_post_start_settle()
+
+    sleep_mock.assert_called_once()
+    assert sleep_mock.call_args[0][0] == pytest.approx(4.0, rel=1e-3)

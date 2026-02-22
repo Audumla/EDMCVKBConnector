@@ -4,22 +4,15 @@
 
 ## v0.9.0 — 2026-02-22
 
-This release focuses on a clearer, more consistent Settings experience and a built‑in updater for the EDMC plugin. It also polishes VKB‑Link update feedback and tidies the release process.
+### Overview
 
-### New Features
-- Added a built‑in EDMC plugin updater that downloads and installs the latest release from GitHub via the new Update EDMC Plugin button.
+This release includes 6 changelog updates across 3 grouped workstreams, focused on UI Improvement, Configuration Cleanup.
+
+### UI Improvements
+- Improved UI workflows for ui and preferences and rule engine.
 
 ### Improvements
-- Reorganized the Settings tab: VKB Connector and Static Shift share the top row; VKB‑Link now spans the full width below.
-- Streamlined VKB‑Link controls into a single line and moved its status and update action to the right of Auto‑manage; kept Locate inline.
-- Clarified labels: the Plugin frame is now VKB Connector and the version label reads Current Version.
-- Right‑aligned the Update EDMC Plugin button while keeping version text on the left; the button label stays consistent after checks.
-- VKB‑Link updates now use button text feedback (e.g., Checking… → Update VKB‑Link) and show success/error popups; connection/app status refreshes after completion.
-- Fixed widths for both update buttons so temporary label changes (like Checking…) don’t resize the layout.
-- Removed the “Rule saved successfully” popup after editing a rule; saving still persists changes and closes the editor.
-
-### Build / Packaging
-- Cleaned up the changelog to remove duplicates, ensuring release notes generate reliably.
+- Cleaned up configuration for changelog tooling.
 
 ---
 

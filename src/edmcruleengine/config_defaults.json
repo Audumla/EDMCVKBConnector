@@ -15,6 +15,7 @@
   "vkb_link_version": "",
   "vkb_link_managed": false,
   "vkb_link_auto_manage": true,
+  "vkb_link_auto_install_cryptography": false,
   "vkb_link_restart_on_failure": true,
   "vkb_link_launch_mode": "legacy",
   "vkb_link_warmup_delay_seconds": 2,

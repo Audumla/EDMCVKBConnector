@@ -44,6 +44,7 @@ except Exception:
 # Plugin metadata (single-source version from package module)
 from edmcruleengine.version import __version__ as VERSION
 from edmcruleengine.paths import PLUGIN_DATA_DIR
+from edmcruleengine.bool_utils import as_bool
 
 # Logger setup per EDMC plugin requirements
 # The plugin_name MUST be the plugin folder name.
@@ -346,14 +347,22 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
                     logger.warning("Startup: VKB-Link manager unavailable")
                     return
                 status = manager.get_status(check_running=True)
+                auto_manage = as_bool(
+                    _config.get("vkb_link_auto_manage", True) if _config else True,
+                    True,
+                )
                 logger.info(
                     "Startup: VKB-Link status: "
                     f"running={status.running} exe_path={status.exe_path or 'none'} "
                     f"install_dir={status.install_dir or 'none'} "
-                    f"version={status.version or 'unknown'} managed={status.managed}"
+                    f"version={status.version or 'unknown'} managed={status.managed} "
+                    f"auto_manage={auto_manage}"
                 )
                 if status.running:
                     logger.info("Startup: VKB-Link already running; no start required")
+                    return
+                if not auto_manage:
+                    logger.info("Startup: auto-manage disabled; VKB-Link start skipped")
                     return
                 logger.info("Startup: VKB-Link not running; starting now")
                 result = manager.ensure_running(host=vkb_host, port=vkb_port, reason="startup")

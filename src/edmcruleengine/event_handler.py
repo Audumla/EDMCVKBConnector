@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from . import plugin_logger
+from .bool_utils import as_bool
 from .config import Config
 from .rule_loader import load_rules_file, RuleLoadError
 from .rules_engine import RuleEngine, MatchResult
@@ -281,9 +282,12 @@ class EventHandler:
             # Connection workflow requires VL process running first.
             if self.vkb_link_manager:
                 status = self.vkb_link_manager.get_status(check_running=True)
-                auto_manage = bool(self.config.get("vkb_link_auto_manage", True)) if self.config else True
+                auto_manage = as_bool(
+                    self.config.get("vkb_link_auto_manage", True) if self.config else True,
+                    True,
+                )
                 if status.running is False:
-                    if not auto_manage and not status.exe_path:
+                    if not auto_manage:
                         logger.warning(
                             "VKB-Link connect aborted: process is not running and auto-manage is disabled"
                         )
@@ -604,7 +608,7 @@ class EventHandler:
         """Attempt to recover VKB-Link process/INI when connection fails."""
         if not self.config or not self.vkb_link_manager:
             return
-        if not bool(self.config.get("vkb_link_auto_manage", True)):
+        if not as_bool(self.config.get("vkb_link_auto_manage", True), True):
             return
         process_recovery_reasons = {"process_crash_detected", "process_crashed"}
         if reason not in process_recovery_reasons:

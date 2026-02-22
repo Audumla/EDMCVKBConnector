@@ -43,6 +43,7 @@ _FALLBACK_DEFAULTS = {
     "vkb_link_version": "",
     "vkb_link_managed": False,
     "vkb_link_auto_manage": True,
+    "vkb_link_auto_install_cryptography": False,
     "vkb_link_restart_on_failure": True,
     "vkb_link_launch_mode": "legacy",
     # VKB-Link lifecycle timings.

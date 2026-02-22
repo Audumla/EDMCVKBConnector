@@ -910,16 +910,17 @@ def ensure_version_summary_cache(stamped_entries: list[dict], stamped_version: s
         return "existing"
 
     old_key = f"unreleased:{stamped_hash}"
-    old_summary = summaries.get(old_key)
-    if isinstance(old_summary, str) and old_summary.strip():
-        summaries[new_key] = old_summary
-        result = "promoted"
-    else:
-        generated = _build_changelog_summary_markdown(stamped_entries)
-        if not generated:
-            return "missing"
+    generated = _build_changelog_summary_markdown(stamped_entries)
+    if generated:
+        # Always prefer normalized deterministic release-format summaries.
         summaries[new_key] = generated
         result = "generated"
+    else:
+        old_summary = summaries.get(old_key)
+        if not (isinstance(old_summary, str) and old_summary.strip()):
+            return "missing"
+        summaries[new_key] = old_summary
+        result = "promoted"
 
     summaries.pop(old_key, None)
 
