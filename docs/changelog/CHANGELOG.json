@@ -14,5 +14,21 @@
       "Updated stamp/archive flow to build version summary cache from deduplicated appended entries, preventing hash mismatches with build_changelog rendering.",
       "Regenerated v0.8.3 summary cache key and rebuilt CHANGELOG.md so v0.8.3 renders the structured summary instead of condensed fallback."
     ]
+  },
+  {
+    "id": "CHG-c9577a5f",
+    "change_group": "vscode-git-refresh-settings",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "UI Improvement"
+    ],
+    "summary": "Enable automatic Git fetch and prune in VS Code workspace settings",
+    "details": [
+      "Added git.autofetch=true so VS Code refreshes remote refs without manual fetches.",
+      "Added git.pruneOnFetch=true so deleted remote branches are removed from local tracking refs.",
+      "Helps the PR/branch UI reflect post-merge release workflow updates faster and with less stale branch noise."
+    ]
   }
 ]

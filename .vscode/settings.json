@@ -16,5 +16,7 @@
             "test"
         ]
     },
+    "git.autofetch": true,
+    "git.pruneOnFetch": true,
     "chatgpt.openOnStartup": true
 }
