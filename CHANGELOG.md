@@ -2,15 +2,12 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
-## [0.8.3](https://github.com/Audumla/EDMCVKBConnector/compare/v0.8.2...v0.8.3) (2026-02-22)
+## v0.8.3 — 2026-02-22
 
+_Condensed 4 entries across 4 workstreams._
+_Primary areas: Bug Fix, Build / Packaging_
 
-### Bug Fixes
-
-* release notes ([f28f954](https://github.com/Audumla/EDMCVKBConnector/commit/f28f954b8b2e14ea611375df141049785a193f26))
-* release notes ([b95a62d](https://github.com/Audumla/EDMCVKBConnector/commit/b95a62d023b6f5a3c18a0d58e35f28ba15eee328))
-* release notes updated ([7df1d2b](https://github.com/Audumla/EDMCVKBConnector/commit/7df1d2bdb72214ccebd27488f094d4f961079d42))
-* update release notes ([9b1fdd8](https://github.com/Audumla/EDMCVKBConnector/commit/9b1fdd86bc7295d5c44182ad703233dc4463b6a7))
+---
 
 ## v0.8.2 — 2026-02-22
 

@@ -1962,5 +1962,69 @@
       "Regenerated summary cache to add missing 0.8.1 hash key and removed stale unreleased summary cache entries after release rollover.",
       "Rebuilt CHANGELOG.md so v0.8.1 now renders the structured release summary instead of release-please auto-generated conventional-commit text."
     ]
+  },
+  {
+    "id": "CHG-b95a62d0",
+    "change_group": "release-workflow-safety-guard",
+    "plugin_version": "0.8.3",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Block release-workflow dispatch when local tracked files are dirty after prepare to prevent stale local changelog state",
+    "details": [
+      "Added tracked-worktree detection in scripts/release_workflow.py and abort dispatch with a file list when local changes are present.",
+      "Added --allow-dirty-dispatch override for intentional edge cases where dispatch should proceed despite local tracked edits.",
+      "Updated scripts/README.md to document the new safety gate and override flag for release_workflow.py."
+    ]
+  },
+  {
+    "id": "CHG-b95a62d0-1",
+    "change_group": "release-workflow-auto-trigger",
+    "plugin_version": "0.8.3",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Build / Packaging",
+      "Configuration Cleanup"
+    ],
+    "summary": "Auto-run release-please on pushes to main to remove manual post-merge dispatch step",
+    "details": [
+      "Updated .github/workflows/release-please.yml to trigger on push to main in addition to workflow_dispatch.",
+      "Keeps workflow_dispatch input support for manual overrides while making normal release PR and post-merge release creation automatic.",
+      "Simplifies release flow by eliminating the need to manually trigger the workflow after merging a release PR."
+    ]
+  },
+  {
+    "id": "CHG-b5ebded7",
+    "change_group": "changelog-summary-cache-parse-guard",
+    "plugin_version": "0.8.3",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Prevent summarize preview runs from silently wiping cached release summaries when summaries JSON is malformed",
+    "details": [
+      "Updated scripts/summarize_changelog.py to validate docs/changelog/CHANGELOG.summaries.json as a JSON object and fail with a clear error if parsing fails.",
+      "Added pre-run cache validation in summarize_changelog.py main flow so malformed summary cache stops the run before any write occurs.",
+      "Regenerated docs/changelog/CHANGELOG.summaries.json with --all --force intelligent summarization to restore released version keys plus current unreleased summary."
+    ]
+  },
+  {
+    "id": "CHG-b5ebded7-1",
+    "change_group": "unreleased-summary-pruning",
+    "plugin_version": "0.8.3",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Prune stale unreleased summary cache entries during preview summarization while preserving released version summaries",
+    "details": [
+      "Updated scripts/summarize_changelog.py to always prune stale unreleased:* keys on unreleased/default runs so only the current hash remains.",
+      "Kept existing force-mode pruning behavior for all processed versions and reused the same cache cleanup path.",
+      "Verified summarize_changelog.py --unreleased now leaves exactly one unreleased summary key and retains all released version summary keys."
+    ]
   }
 ]
