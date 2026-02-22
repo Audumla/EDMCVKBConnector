@@ -20,7 +20,7 @@ Before declaring the task done, you MUST record what was changed. Do not skip th
 Run this script — it handles all file updates automatically:
 
 ```bash
-python scripts/log_change.py \
+python scripts/changelog/log_change.py \
     --agent codex \
     --group "<WorkstreamSlug>" \
     --tags "<Tag1>" "<Tag2>" \
@@ -37,7 +37,7 @@ The script generates a globally unique `CHG-*` id (branch-safe for merges), appe
 Before pushing for release creation, run:
 
 ```bash
-python scripts/changelog_activity.py --strict
+python scripts/changelog/changelog_activity.py --strict
 ```
 
 This rebuilds `CHANGELOG.md` and writes compact unreleased release-note preview to `dist/RELEASE_NOTES.preview.md`.

@@ -16,111 +16,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Ensure we can import from scripts/changelog
+sys.path.insert(0, str(Path(__file__).parent.parent / "changelog"))
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
-MANIFEST_PATH = PROJECT_ROOT / ".release-please-manifest.json"
-VERSION_RE = re.compile(r'^\s*version\s*=\s*"(?P<version>\d+\.\d+\.\d+)"\s*$', re.MULTILINE)
-RELEASE_TITLE_RE = re.compile(r"release\s+(?P<version>\d+\.\d+\.\d+)", re.IGNORECASE)
-
-
-def _parse_semver(text: str) -> tuple[int, int, int]:
-    parts = text.strip().split(".")
-    if len(parts) != 3:
-        raise ValueError(f"Invalid semantic version: {text!r}")
-    return int(parts[0]), int(parts[1]), int(parts[2])
-
-
-def _bump(version: str, part: str) -> str:
-    major, minor, patch = _parse_semver(version)
-    if part == "major":
-        major += 1
-        minor = 0
-        patch = 0
-    elif part == "minor":
-        minor += 1
-        patch = 0
-    elif part == "patch":
-        patch += 1
-    else:
-        raise ValueError(f"Unsupported bump part: {part}")
-    return f"{major}.{minor}.{patch}"
-
-
-def _read_current_version() -> str:
-    if MANIFEST_PATH.exists():
-        try:
-            manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-            root_version = manifest.get(".")
-            if isinstance(root_version, str) and re.fullmatch(r"\d+\.\d+\.\d+", root_version):
-                return root_version
-        except Exception:
-            pass
-
-    text = PYPROJECT_PATH.read_text(encoding="utf-8")
-    match = VERSION_RE.search(text)
-    if not match:
-        raise RuntimeError(f"Could not find semantic version in {PYPROJECT_PATH}")
-    return match.group("version")
+from changelog_utils import (
+    PROJECT_ROOT,
+    bump_version,
+    find_open_release_pr_version,
+    get_git_dirty_files,
+    read_current_version,
+)
 
 
 def _run_step(cmd: list[str], cwd: Path) -> int:
     print(f"$ {' '.join(cmd)}")
     proc = subprocess.run(cmd, cwd=cwd)
     return int(proc.returncode)
-
-
-def _tracked_dirty_files() -> list[str]:
-    """Return tracked files with local modifications (ignores untracked files)."""
-    proc = subprocess.run(
-        ["git", "status", "--porcelain", "--untracked-files=no"],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError("Failed to inspect git working tree status.")
-
-    files: list[str] = []
-    for raw in (proc.stdout or "").splitlines():
-        line = raw.rstrip()
-        if not line:
-            continue
-        # porcelain format: XY<space>path
-        if len(line) >= 4:
-            files.append(line[3:])
-        else:
-            files.append(line)
-    return files
-
-
-def _find_open_release_pr_version(gh_bin: str) -> str | None:
-    """Return open release-please PR version (e.g. 0.8.0), if present."""
-    cmd = [
-        gh_bin,
-        "pr",
-        "list",
-        "--state",
-        "open",
-        "--search",
-        "head:release-please--branches--main",
-        "--json",
-        "title",
-    ]
-    proc = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True)
-    if proc.returncode != 0:
-        return None
-    try:
-        rows = json.loads(proc.stdout or "[]")
-    except Exception:
-        return None
-    if not isinstance(rows, list) or not rows:
-        return None
-    title = str(rows[0].get("title", "")).strip()
-    match = RELEASE_TITLE_RE.search(title)
-    if not match:
-        return None
-    return match.group("version")
 
 
 def main() -> int:
@@ -188,7 +99,7 @@ def main() -> int:
 
     activity_cmd = [
         sys.executable,
-        str(PROJECT_ROOT / "scripts" / "changelog_activity.py"),
+        str(PROJECT_ROOT / "scripts" / "changelog" / "changelog_activity.py"),
         "--preview-output",
         str(Path(args.preview_output)),
     ]
@@ -215,7 +126,7 @@ def main() -> int:
         return 0
 
     if not args.skip_prepare and not args.allow_dirty_dispatch:
-        dirty_files = _tracked_dirty_files()
+        dirty_files = get_git_dirty_files()
         if dirty_files:
             print(
                 "ERROR: Local tracked files changed during release preparation. "
@@ -237,11 +148,11 @@ def main() -> int:
 
     release_as = None
     if args.bump != "auto":
-        current = _read_current_version()
-        release_as = _bump(current, args.bump)
+        current = read_current_version()
+        release_as = bump_version(current, args.bump)
         print(f"Requested bump '{args.bump}': {current} -> {release_as}")
 
-    open_release_version = _find_open_release_pr_version(args.gh_bin)
+    open_release_version = find_open_release_pr_version(args.gh_bin)
     if open_release_version and release_as and open_release_version != release_as:
         print(
             "ERROR: Existing open release PR version conflicts with requested bump: "

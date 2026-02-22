@@ -179,52 +179,6 @@ def _resolve_rules_file_path() -> str:
     return os.path.join(os.getcwd(), "rules.json")
 
 
-def _update_ini_file(ini_path: str, host: str, port: str) -> bool:
-    """
-    Update VKB-Link INI file with TCP configuration.
-    
-    Creates or updates the [TCP] section with:
-    - Adress={host}  (note: typo is deliberate per VKB-Link requirements)
-    - Port={port}
-    
-    Args:
-        ini_path: Path to the INI file
-        host: VKB-Link host address
-        port: VKB-Link port number
-        
-    Returns:
-        True if successful, False otherwise
-    """
-    try:
-        import configparser
-        
-        # Read existing INI file or create new one
-        config = configparser.ConfigParser()
-        config.optionxform = str  # Preserve case
-        
-        if os.path.exists(ini_path):
-            config.read(ini_path, encoding='utf-8')
-        
-        # Ensure [TCP] section exists
-        if not config.has_section('TCP'):
-            config.add_section('TCP')
-        
-        # Set values (note: "Adress" typo is deliberate per VKB-Link spec)
-        config.set('TCP', 'Adress', host)
-        config.set('TCP', 'Port', port)
-        
-        # Write back to file
-        with open(ini_path, 'w', encoding='utf-8') as f:
-            config.write(f)
-        
-        logger.info(f"Updated VKB-Link INI file: {ini_path} with host={host}, port={port}")
-        return True
-        
-    except Exception as e:
-        logger.error(f"Failed to update INI file {ini_path}: {e}", exc_info=True)
-        return False
-
-
 def _load_rules_file_for_ui() -> tuple[list[dict], bool, str]:
     """
     Load rule objects for UI editing.

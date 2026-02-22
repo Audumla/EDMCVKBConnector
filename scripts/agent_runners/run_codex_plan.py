@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "reports" / "plan_runs"
 DEFAULT_WORKTREE_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "temp" / "worktrees"
 DEFAULT_CODEX_MODEL = "gpt-5.3-codex"

@@ -17,7 +17,7 @@ from pathlib import Path
 from claude_run_plan import build_formatted_results, build_report, utc_now
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "reports" / "plan_runs"
 
 

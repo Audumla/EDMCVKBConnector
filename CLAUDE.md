@@ -37,7 +37,7 @@ The script generates a short, globally unique `CHG-<commit-hash>` ID (merge-safe
 Before pushing for release creation, run:
 
 ```bash
-python scripts/changelog_activity.py --strict
+python scripts/changelog/changelog_activity.py --strict
 ```
 
 This rebuilds `CHANGELOG.md` and writes compact unreleased release-note preview to `dist/RELEASE_NOTES.preview.md`.

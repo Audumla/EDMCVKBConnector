@@ -14,9 +14,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Ensure we can import from the same directory
+sys.path.insert(0, str(Path(__file__).parent))
+
 from build_changelog import rebuild_changelog_markdown
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_RELEASE_NOTES_PREVIEW = PROJECT_ROOT / "dist" / "RELEASE_NOTES.preview.md"
 DEFAULT_CHANGELOG_PREVIEW = PROJECT_ROOT / "dist" / "CHANGELOG.preview.md"
 
@@ -60,7 +63,7 @@ def main() -> int:
         print("Step 1: Generating LLM-based changelog summaries...")
         cmd = [
             sys.executable,
-            str(PROJECT_ROOT / "scripts" / "summarize_changelog.py"),
+            str(PROJECT_ROOT / "scripts" / "changelog" / "summarize_changelog.py"),
             "--unreleased",
         ]
         if args.summarize_backend:
@@ -96,7 +99,7 @@ def main() -> int:
     print("\nStep 4: Generating release-notes preview...")
     cmd = [
         sys.executable,
-        str(PROJECT_ROOT / "scripts" / "generate_release_notes.py"),
+        str(PROJECT_ROOT / "scripts" / "changelog" / "generate_release_notes.py"),
         "--output",
         str(Path(args.preview_output)),
     ]

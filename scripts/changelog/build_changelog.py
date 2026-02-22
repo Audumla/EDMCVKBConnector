@@ -13,38 +13,27 @@ import argparse
 import json
 import re
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
 from collections import defaultdict
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CHANGELOG_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.json"
-CHANGELOG_ARCHIVE_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.archive.json"
-CHANGELOG_MD = PROJECT_ROOT / "CHANGELOG.md"
-CHANGELOG_SUMMARIES_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.summaries.json"
+from changelog_utils import (
+    CHANGELOG_ARCHIVE_JSON,
+    CHANGELOG_JSON,
+    CHANGELOG_MD,
+    CHANGELOG_SUMMARIES_JSON,
+    load_json_list,
+    load_summaries,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 LEGACY_NUMERIC_ID = re.compile(r"^CHG-\d+$")
 
 
 def load_entries(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-    if not isinstance(data, list):
-        raise ValueError(f"{path} must contain a JSON array.")
-    return [e for e in data if isinstance(e, dict)]
-
-
-def load_summaries() -> dict:
-    """Load cached LLM summaries if available."""
-    if not CHANGELOG_SUMMARIES_JSON.exists():
-        return {}
-    try:
-        with open(CHANGELOG_SUMMARIES_JSON, encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    return load_json_list(path)
 
 
 def _safe_text(value: object) -> str:

@@ -12,7 +12,7 @@ Usage:
 import zipfile
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DIST_DIR = PROJECT_ROOT / "dist"
 PLUGIN_NAME = "EDMCVKBConnector"
 DEPLOY_PACKAGE_DIR = "edmcruleengine"

@@ -101,7 +101,7 @@ def main():
     
     # Load catalog
     try:
-        plugin_dir = Path(__file__).parent.parent
+        plugin_dir = Path(__file__).parent.parent.parent
         catalog = SignalsCatalog.from_plugin_dir(str(plugin_dir))
     except Exception as e:
         print(f"[ERROR] Failed to load catalog: {e}")

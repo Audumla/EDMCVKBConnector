@@ -12,22 +12,32 @@ into grouped workstreams so release bodies do not list every micro-change.
 import argparse
 import hashlib
 import json
-import os
 import re
-import shutil
-import subprocess
 import sys
-import tempfile
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
 from collections import Counter, defaultdict
 from difflib import SequenceMatcher
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CHANGELOG_PATH = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.json"
-CHANGELOG_ARCHIVE_PATH = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.archive.json"
+from changelog_utils import (
+    CHANGELOG_ARCHIVE_JSON,
+    CHANGELOG_JSON,
+    CHANGELOG_SUMMARIES_JSON,
+    load_config,
+    load_json_list,
+    load_summaries,
+    normalize_llm_summary,
+    run_llm_with_fallback,
+    save_json_list,
+    save_summaries,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+CHANGELOG_PATH = CHANGELOG_JSON
+CHANGELOG_ARCHIVE_PATH = CHANGELOG_ARCHIVE_JSON
 DEFAULT_OUTPUT = PROJECT_ROOT / "dist" / "RELEASE_NOTES.md"
-CONFIG_DEFAULTS = PROJECT_ROOT / "docs" / "changelog" / "changelog-config.json"
-CHANGELOG_SUMMARIES_PATH = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.summaries.json"
+CHANGELOG_SUMMARIES_PATH = CHANGELOG_SUMMARIES_JSON
 
 # Display order for approved summary tags
 TAG_ORDER = [
@@ -115,55 +125,23 @@ def get_current_version() -> str:
     return str(ns.get("__version__", "0.0.0"))
 
 
-def _load_json_list(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-    if not isinstance(data, list):
-        print(f"ERROR: {path} must be a JSON list.", file=sys.stderr)
-        sys.exit(1)
-    return [e for e in data if isinstance(e, dict)]
-
-
 def load_current_changelog() -> list[dict]:
     if not CHANGELOG_PATH.exists():
         print(f"ERROR: {CHANGELOG_PATH} not found.", file=sys.stderr)
         sys.exit(1)
-    return _load_json_list(CHANGELOG_PATH)
+    return load_json_list(CHANGELOG_PATH)
 
 
 def load_archive_changelog() -> list[dict]:
-    return _load_json_list(CHANGELOG_ARCHIVE_PATH)
+    return load_json_list(CHANGELOG_ARCHIVE_PATH)
 
 
 def save_current_changelog(entries: list[dict]) -> None:
-    with open(CHANGELOG_PATH, "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    save_json_list(CHANGELOG_PATH, entries)
 
 
 def save_archive_changelog(entries: list[dict]) -> None:
-    with open(CHANGELOG_ARCHIVE_PATH, "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-
-
-def _load_summaries() -> dict:
-    if not CHANGELOG_SUMMARIES_PATH.exists():
-        return {}
-    try:
-        with open(CHANGELOG_SUMMARIES_PATH, encoding="utf-8") as f:
-            data = json.load(f)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
-
-
-def _save_summaries(data: dict) -> None:
-    with open(CHANGELOG_SUMMARIES_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    save_json_list(CHANGELOG_ARCHIVE_PATH, entries)
 
 
 def _version_tuple(v: str) -> tuple[int, ...]:
@@ -429,54 +407,6 @@ def _date_range(entries: list[dict]) -> str:
     return lo if lo == hi else f"{lo} - {hi}"
 
 
-def load_config() -> dict:
-    """Load changelog summarizer config from config_changelog-config.json."""
-    if not CONFIG_DEFAULTS.exists():
-        return {
-            "enabled": True,
-            "backend": "intelligent",
-            "common": {
-                "timeout_seconds": 300,
-            },
-            "codex": {
-                "model": "",
-            },
-            "claude_cli": {},
-            "intelligent": {},
-        }
-    try:
-        with open(CONFIG_DEFAULTS, encoding="utf-8") as f:
-            config = json.load(f)
-        return config.get("changelog_summarization", {})
-    except Exception as e:
-        print(f"WARNING: Failed to load config: {e}", file=sys.stderr)
-        return {}
-
-
-def _backend_key(name: str) -> str:
-    return str(name or "").replace("-", "_").strip() or "intelligent"
-
-
-def _common_cfg(config: dict) -> dict:
-    common = config.get("common")
-    if isinstance(common, dict):
-        return common
-    return config
-
-
-def _provider_cfg(config: dict, backend: str) -> dict:
-    provider = config.get(_backend_key(backend))
-    if isinstance(provider, dict):
-        return provider
-    return config
-
-
-def _runtime_timeout(config: dict, backend: str) -> int:
-    provider = _provider_cfg(config, backend)
-    common = _common_cfg(config)
-    return int(provider.get("timeout_seconds", common.get("timeout_seconds", 300)))
-
-
 def _format_entries_for_llm(entries: list[dict], version: str, config: dict | None = None) -> str:
     """Format changelog entries into a prompt for the LLM."""
     if config is None:
@@ -506,7 +436,7 @@ def _format_entries_for_llm(entries: list[dict], version: str, config: dict | No
 
     lines.append("---")
     lines.append("")
-    requirements = _common_cfg(config).get(
+    requirements = config.get("common", {}).get(
         "release_notes_prompt_requirements",
         [
             "Group changes logically by category (Bug Fixes, New Features, Improvements)",
@@ -956,25 +886,15 @@ def build_markdown(
         prompt = _format_entries_for_llm(entries, version, config)
         backend = config.get("backend", "intelligent")
 
-        if backend == "codex":
-            llm_summary = _call_codex_api_for_summary(prompt, config)
-        elif backend == "claude-cli":
-            llm_summary = _call_claude_cli_for_summary(prompt, config)
-        elif backend == "copilot":
-            llm_summary = _call_copilot_cli_for_summary(prompt, config)
-        elif backend == "gemini":
-            llm_summary = _call_gemini_cli_for_summary(prompt, config)
-        else:
-            print(
-                f"WARNING: Unsupported llm backend '{backend}' for release notes; "
-                "falling back to intelligent mode.",
-                file=sys.stderr,
-            )
+        if backend == "intelligent":
+            # Intelligent mode is just the default structure below, so fallback immediately
             llm_summary = None
+        else:
+            llm_summary, used_backend = run_llm_with_fallback(prompt, config, preferred_backend=backend)
 
         if llm_summary:
             # Normalize LLM output
-            llm_summary = _normalize_llm_summary(llm_summary)
+            llm_summary = normalize_llm_summary(llm_summary)
 
             lines = [f"# Release Notes - {title_version}", ""]
             date_range = _date_range(entries)
@@ -1132,7 +1052,7 @@ def ensure_version_summary_cache(stamped_entries: list[dict], stamped_version: s
     if not stamped_entries:
         return "missing"
 
-    summaries = _load_summaries()
+    summaries = load_summaries()
     if not summaries:
         summaries = {}
 
@@ -1162,7 +1082,7 @@ def ensure_version_summary_cache(stamped_entries: list[dict], stamped_version: s
         if key.startswith("unreleased:"):
             summaries.pop(key, None)
 
-    _save_summaries(summaries)
+    save_summaries(summaries)
     return result
 
 

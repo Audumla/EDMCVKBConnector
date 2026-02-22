@@ -11,13 +11,18 @@ This script finds the commit that introduced each entry and uses its hash.
 import json
 import re
 import subprocess
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CHANGELOG_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.json"
-CHANGELOG_ARCHIVE_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.archive.json"
+from changelog_utils import (
+    CHANGELOG_ARCHIVE_JSON,
+    CHANGELOG_JSON,
+    PROJECT_ROOT,
+    load_json_list,
+    save_json_list,
+)
 
 
 def git_log_short_hashes_by_date(date_str: str, file_path: Path) -> list[str]:
@@ -111,14 +116,8 @@ def migrate_file(file_path: Path, is_archive: bool = False, global_existing_ids:
 
     For archive files, prepends 'a' to commit hash to avoid collisions with current entries.
     """
-    if not file_path.exists():
-        return {}
-
-    with open(file_path, encoding="utf-8") as f:
-        entries = json.load(f)
-
-    if not isinstance(entries, list):
-        print(f"ERROR: {file_path} must be a JSON list")
+    entries = load_json_list(file_path)
+    if not entries:
         return {}
 
     if global_existing_ids is None:
@@ -169,9 +168,7 @@ def migrate_file(file_path: Path, is_archive: bool = False, global_existing_ids:
                     break
 
     # Save updated entries
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    save_json_list(file_path, entries)
 
     return id_mapping
 

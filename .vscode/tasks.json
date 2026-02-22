@@ -6,7 +6,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "tests/run_all_tests.py"
+                "test/run_all_tests.py"
             ],
             "group": {
                 "kind": "test",
@@ -20,7 +20,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/release_workflow.py",
+                "scripts/release/release_workflow.py",
                 "--strict",
                 "--preview-only",
                 "--summarize-backend",
@@ -39,7 +39,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/release_workflow.py",
+                "scripts/release/release_workflow.py",
                 "--strict",
                 "--summarize-backend",
                 "${input:releaseBackend}",
@@ -59,7 +59,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/run_edmc_from_dev.py"
+                "scripts/dev/run_edmc_from_dev.py"
             ],
             "problemMatcher": [],
             "detail": "Run EDMC from dev repository with isolated config (won't touch installed EDMC settings)"
@@ -69,7 +69,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/bootstrap_dev_env.py"
+                "scripts/dev/bootstrap_dev_env.py"
             ],
             "problemMatcher": [],
             "detail": "Set up development environment: clone EDMC, create venv, install deps, link plugin"
@@ -79,7 +79,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/bootstrap_dev_env.py",
+                "scripts/dev/bootstrap_dev_env.py",
                 "--run-tests"
             ],
             "problemMatcher": [],
@@ -91,7 +91,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/run_edmc_from_dev.py",
+                "scripts/dev/run_edmc_from_dev.py",
                 "--use-system-config"
             ],
             "problemMatcher": [],
@@ -103,7 +103,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/package_plugin.py"
+                "scripts/release/package_plugin.py"
             ],
             "group": {
                 "kind": "build",
@@ -127,7 +127,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/signal_catalog_editor.py"
+                "scripts/validation/signal_catalog_editor.py"
             ],
             "problemMatcher": [],
             "detail": "Launch the signal catalog editor UI"
@@ -137,7 +137,7 @@
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/release_workflow.py",
+                "scripts/release/release_workflow.py",
                 "--skip-prepare",
                 "--bump",
                 "${input:releaseBump}"
@@ -176,11 +176,10 @@
             "description": "Summarizer backend",
             "default": "codex",
             "options": [
-                "codex",
-                "claude-cli",
-                "copilot",
-                "gemini",
                 "claude",
+                "codex",
+                "gemini",
+                "copilot",
                 "intelligent"
             ]
         },

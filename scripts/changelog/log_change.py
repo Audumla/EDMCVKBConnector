@@ -34,13 +34,15 @@ import json
 import re
 import subprocess
 import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 from build_changelog import rebuild_changelog_markdown
+from changelog_utils import load_json_list, save_json_list, CHANGELOG_JSON
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CHANGELOG_JSON = PROJECT_ROOT / "docs" / "changelog" / "CHANGELOG.json"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 APPROVED_TAGS = {
     "Bug Fix",
@@ -61,20 +63,6 @@ KNOWN_AGENTS = {"copilot", "claude", "codex", "gemini"}
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def load_json() -> list[dict]:
-    if not CHANGELOG_JSON.exists():
-        return []
-    with open(CHANGELOG_JSON, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_json(entries: list[dict]) -> None:
-    with open(CHANGELOG_JSON, "w", encoding="utf-8") as f:
-        json.dump(entries, f, indent=2, ensure_ascii=False)
-        f.write("\n")
-
 
 def _slugify(value: str, fallback: str = "misc") -> str:
     """Convert text to kebab-case slug."""
@@ -221,7 +209,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    entries = load_json()
+    entries = load_json_list(CHANGELOG_JSON)
     existing_ids = {str(e.get("id", "")) for e in entries if str(e.get("id", ""))}
     chg_id = generate_unique_id(args.agent, existing_ids)
     change_group = _normalise_group(args.group) if args.group else _default_group(args.summary)
@@ -244,7 +232,7 @@ def main() -> None:
         return
 
     entries.append(new_entry)
-    save_json(entries)
+    save_json_list(CHANGELOG_JSON, entries)
 
     rebuild_rc = rebuild_changelog_markdown(quiet=True)
     if rebuild_rc != 0:

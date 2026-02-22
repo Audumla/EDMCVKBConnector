@@ -14,12 +14,29 @@ from pathlib import Path
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-live-agents", action="store_true", default=False, help="run live LLM agent tests"
+    )
+
+
 def pytest_configure(config):
     """Ensure stdout/stderr use UTF-8 on Windows so Unicode test output works."""
+    config.addinivalue_line("markers", "live_agent: mark test as requiring a live LLM agent call")
     if sys.stdout and hasattr(sys.stdout, "buffer"):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     if sys.stderr and hasattr(sys.stderr, "buffer"):
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--run-live-agents"):
+        # --run-live-agents given in cli: do not skip live agent tests
+        return
+    skip_live = pytest.mark.skip(reason="need --run-live-agents option to run")
+    for item in items:
+        if "live_agent" in item.keywords:
+            item.add_marker(skip_live)
 
 from test.mock_vkb_server import MockVKBServer
 from edmcruleengine.config import Config

@@ -11,7 +11,7 @@ import argparse
 import re
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 VERSION_MODULE_PATH = PROJECT_ROOT / "src" / "edmcruleengine" / "version.py"
 
