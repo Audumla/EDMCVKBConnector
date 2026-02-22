@@ -162,5 +162,85 @@
       "Adjusted test_event_handler_vkb_link mocks for manager-driven probe/monitor APIs",
       "Updated test_vkb_server_integration EventHandler scenario to use a manager stub aligned with delegated manager responsibilities"
     ]
+  },
+  {
+    "id": "CHG-1f5c0aba",
+    "change_group": "changelogsummarization",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Configuration Cleanup"
+    ],
+    "summary": "Add claude-cli backend so summarization works via VS Code Claude extension without an API key",
+    "details": [
+      "Added call_claude_cli() to summarize_changelog.py that calls the claude CLI with -p flag",
+      "Wired claude-cli into summarize_version() dispatch alongside existing claude and codex backends",
+      "Added claude-cli to --backend argparse choices",
+      "Updated changelog-config.json default backend from claude to claude-cli"
+    ]
+  },
+  {
+    "id": "CHG-1f5c0aba-1",
+    "change_group": "changelogsummarization",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix"
+    ],
+    "summary": "Stop release script on summarization errors instead of silently falling back",
+    "details": [
+      "Changed changelog_activity.py to return a non-zero exit code when summarization fails",
+      "Release script now aborts on Step 1 failure; use --skip-summarize to bypass intentionally"
+    ]
+  },
+  {
+    "id": "CHG-1f5c0aba-2",
+    "change_group": "release-workflow-configurable-backends",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "New Feature",
+      "Build / Packaging",
+      "Bug Fix"
+    ],
+    "summary": "Add configurable VS Code release workflow with selectable summarizer backend and bump strategy",
+    "details": [
+      "Added scripts/release_workflow.py to run changelog preview and optionally trigger release-please with bump=auto|patch|minor|major",
+      "Extended changelog_activity.py and summarize_changelog.py to support backend override and robust Claude CLI execution in VS Code terminals",
+      "Updated release wrapper scripts, VS Code tasks, and release-please workflow input/path wiring for release_as dispatch and docs/changelog file commits"
+    ]
+  },
+  {
+    "id": "CHG-1f5c0aba-3",
+    "change_group": "release-workflow-configurable-backends",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Use release-please manifest as authoritative source when calculating forced bump versions",
+    "details": [
+      "Updated release_workflow.py to read current version from .release-please-manifest.json before pyproject.toml fallback",
+      "Keeps --bump patch/minor/major aligned with release-please state even if local files drift",
+      "Validated with dry-run output showing expected release_as values"
+    ]
+  },
+  {
+    "id": "CHG-1f5c0aba-4",
+    "change_group": "release-workflow-configurable-backends",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Fix codex backend summarization by auto-discovering VS Code codex.exe and using codex exec interface",
+    "details": [
+      "Updated summarize_changelog.py to resolve codex CLI from PATH or VS Code extension bundles when PATH is missing",
+      "Switched Codex summarization call from deprecated codex run --plan flow to codex exec with stdin prompt and output capture",
+      "Validated end-to-end changelog_activity.py --strict --summarize-backend codex now generates summaries and preview successfully"
+    ]
   }
 ]

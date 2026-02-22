@@ -12,5 +12,6 @@ Maintained scripts in this directory:
 - `run_codex_plan.py`: run `codex exec` from a plan file and write monitorable run artifacts under `agent_artifacts/codex/reports/plan_runs/`; non-dry runs execute in a new isolated git worktree branch by default, default model is `gpt-5.3-codex`, and `--effort 1..4` maps to reasoning effort (auto-discovers VS Code bundled `codex.exe` if `codex` is not on `PATH`).
 - `claude_run_plan.py`: Claude wrapper around `run_codex_plan.py` that writes `claude_report.json` and a formatted `codex_results.md` summary (tokens, estimated cost, final message).
 - `codex_results.py`: print a clean, user-facing `/codex-results` summary from the latest or specified Codex run.
+- `release_workflow.py`: prepare changelog/release preview and optionally trigger release-please with configurable summarizer backend and bump strategy (`auto`, `patch`, `minor`, `major`).
 
 One-off migration and agent-generated maintenance scripts were removed to keep this directory focused on repeatable workflows.

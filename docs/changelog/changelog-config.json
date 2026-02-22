@@ -13,7 +13,7 @@
   "changelog_summarization": {
     "_comment": "LLM-based changelog summarization for release notes (used by scripts/changelog_activity.py)",
     "enabled": true,
-    "backend": "claude",
+    "backend": "claude-cli",
     "claude_model": "claude-haiku-4-5-20251001",
     "claude_max_tokens": 1500
   }

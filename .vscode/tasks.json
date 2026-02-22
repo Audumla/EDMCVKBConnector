@@ -74,12 +74,15 @@
             "detail": "Launch the signal catalog editor UI"
         },
         {
-            "label": "Release: Prepare changelog",
+            "label": "Release: Prepare preview (Codex backend)",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/changelog_activity.py",
-                "--strict"
+                "scripts/release_workflow.py",
+                "--strict",
+                "--preview-only",
+                "--summarize-backend",
+                "codex"
             ],
             "problemMatcher": [],
             "presentation": {
@@ -87,7 +90,26 @@
                 "panel": "shared",
                 "focus": true
             },
-            "detail": "Rebuild CHANGELOG.md and generate release notes preview (required before release)"
+            "detail": "Rebuild CHANGELOG.md and release preview using Codex summarization"
+        },
+        {
+            "label": "Release: Prepare preview (Claude CLI backend)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release_workflow.py",
+                "--strict",
+                "--preview-only",
+                "--summarize-backend",
+                "claude-cli"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Rebuild CHANGELOG.md and release preview using Claude CLI summarization"
         },
         {
             "label": "Release: Trigger release-please workflow",
@@ -107,14 +129,16 @@
             "detail": "Trigger the release-please GitHub Actions workflow (creates/updates release PR)"
         },
         {
-            "label": "Release: Full workflow (prep + trigger)",
+            "label": "Release: Full workflow (auto bump, Codex backend)",
             "type": "shell",
-            "command": "powershell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}/scripts/release.ps1"
+                "scripts/release_workflow.py",
+                "--strict",
+                "--summarize-backend",
+                "codex",
+                "--bump",
+                "auto"
             ],
             "problemMatcher": [],
             "presentation": {
@@ -122,7 +146,67 @@
                 "panel": "shared",
                 "focus": true
             },
-            "detail": "Prepare changelog and trigger release-please in one step (Windows-native)"
+            "detail": "Prepare changelog preview, then trigger release-please with automatic bump selection"
+        },
+        {
+            "label": "Release: Full workflow (patch bump, Codex backend)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release_workflow.py",
+                "--strict",
+                "--summarize-backend",
+                "codex",
+                "--bump",
+                "patch"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Prepare changelog preview, then trigger release-please forcing next patch version"
+        },
+        {
+            "label": "Release: Full workflow (minor bump, Codex backend)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release_workflow.py",
+                "--strict",
+                "--summarize-backend",
+                "codex",
+                "--bump",
+                "minor"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Prepare changelog preview, then trigger release-please forcing next minor version"
+        },
+        {
+            "label": "Release: Full workflow (major bump, Codex backend)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release_workflow.py",
+                "--strict",
+                "--summarize-backend",
+                "codex",
+                "--bump",
+                "major"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Prepare changelog preview, then trigger release-please forcing next major version"
         }
     ]
 }

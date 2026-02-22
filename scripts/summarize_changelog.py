@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,7 +30,7 @@ def load_config() -> dict:
         return {
             "backend": "claude",
             "claude_model": "claude-haiku-4-5-20251001",
-            "max_tokens": 1500,
+            "claude_max_tokens": 1500,
             "codex_model": "gpt-5-mini",
         }
     try:
@@ -144,7 +145,7 @@ def call_claude_api(prompt: str, config: dict) -> str | None:
     try:
         client = Anthropic(api_key=api_key)
         model = config.get("claude_model", "claude-haiku-4-5-20251001")
-        max_tokens = config.get("max_tokens", 1500)
+        max_tokens = config.get("claude_max_tokens", config.get("max_tokens", 1500))
 
         response = client.messages.create(
             model=model,
@@ -158,26 +159,186 @@ def call_claude_api(prompt: str, config: dict) -> str | None:
         return None
 
 
+def _find_git_bash() -> str | None:
+    """Find git bash executable for Claude Code on Windows."""
+    # Already set in environment
+    if val := os.environ.get("CLAUDE_CODE_GIT_BASH_PATH"):
+        return val
+    # Try to resolve the current bash via shutil / which
+    import shutil
+    bash = shutil.which("bash")
+    if bash:
+        # Convert Unix-style path to Windows path if needed (e.g. when running under MSYS/Git bash)
+        try:
+            result = subprocess.run(
+                ["cygpath", "-w", bash], capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return bash
+    # Common fallback locations
+    for candidate in [
+        r"C:\Program Files\Git\bin\bash.exe",
+        r"C:\Program Files\Git\usr\bin\bash.exe",
+    ]:
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
+def _resolve_claude_cli_command() -> list[str]:
+    """Resolve an executable command for Claude CLI across Windows wrappers."""
+    import shutil
+
+    candidates = ["claude"]
+    if sys.platform == "win32":
+        candidates.extend(["claude.cmd", "claude.exe", "claude.bat", "claude.ps1"])
+
+    for candidate in candidates:
+        resolved = shutil.which(candidate)
+        if not resolved:
+            continue
+        if resolved.lower().endswith(".ps1"):
+            return ["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", resolved]
+        return [resolved]
+
+    # Fall back to plain command so caller gets a consistent FileNotFound error path.
+    return ["claude"]
+
+
+def _normalize_windowsish_path(path_value: str) -> str:
+    """Convert /c/... style paths to C:\\... on Windows-like environments."""
+    if not path_value or not path_value.startswith("/") or len(path_value) < 3:
+        return path_value
+    if len(path_value) >= 3 and path_value[1].isalpha() and path_value[2] == "/":
+        drive = path_value[1].upper()
+        rest = path_value[3:].replace("/", "\\")
+        return f"{drive}:\\{rest}"
+    return path_value
+
+
+def _discover_vscode_codex() -> str | None:
+    """Find codex.exe bundled in VS Code extension installs."""
+    candidates: list[Path] = []
+    roots: list[Path] = []
+
+    for env_key in ("USERPROFILE", "HOME"):
+        raw = os.environ.get(env_key)
+        if not raw:
+            continue
+        roots.append(Path(_normalize_windowsish_path(raw)))
+
+    for root in roots:
+        for vscode_dir in (".vscode", ".vscode-insiders"):
+            ext_dir = root / vscode_dir / "extensions"
+            if not ext_dir.exists():
+                continue
+            candidates.extend(ext_dir.glob("openai.chatgpt-*/bin/windows-x86_64/codex.exe"))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return str(candidates[0])
+
+
+def _resolve_codex_command() -> list[str]:
+    """Resolve codex CLI command, including VS Code bundled fallback on Windows."""
+    resolved = shutil.which("codex") or shutil.which("codex.exe")
+    if resolved:
+        return [resolved]
+
+    if sys.platform == "win32":
+        discovered = _discover_vscode_codex()
+        if discovered:
+            return [discovered]
+
+    return ["codex"]
+
+
+def call_claude_cli(prompt: str, config: dict) -> str | None:
+    """Call the Claude Code CLI for summarization (uses VS Code extension auth, no API key needed)."""
+    try:
+        # Strip CLAUDECODE so a nested claude process is allowed to start
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+        # Ensure Claude Code can locate git bash on Windows
+        if sys.platform == "win32" and "CLAUDE_CODE_GIT_BASH_PATH" not in env:
+            bash_path = _find_git_bash()
+            if bash_path:
+                env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
+        claude_cmd = _resolve_claude_cli_command()
+        result = subprocess.run(
+            [*claude_cmd, "-p", prompt],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+        )
+
+        if result.returncode != 0:
+            print(f"ERROR: claude CLI failed: {result.stderr.strip()}", file=sys.stderr)
+            return None
+
+        output = result.stdout.strip()
+        return output if output else None
+
+    except FileNotFoundError:
+        print("ERROR: claude CLI not found. Ensure Claude Code is installed and on PATH.", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to call claude CLI: {e}", file=sys.stderr)
+        return None
+
+
 def call_codex_api(prompt: str, config: dict) -> str | None:
     """Call Codex CLI for summarization."""
     try:
+        codex_cmd = _resolve_codex_command()
         with tempfile.TemporaryDirectory() as tmpdir:
             plan_file = Path(tmpdir) / "plan.md"
+            output_file = Path(tmpdir) / "output.md"
             plan_file.write_text(prompt, encoding="utf-8")
 
+            model = str(config.get("codex_model", "")).strip()
+            exec_cmd = [
+                *codex_cmd,
+                "--sandbox",
+                "read-only",
+                "--ask-for-approval",
+                "never",
+                "exec",
+                "--cd",
+                str(PROJECT_ROOT),
+                "--output-last-message",
+                str(output_file),
+            ]
+            if model:
+                exec_cmd.extend(["--model", model])
+            exec_cmd.append("-")
+
             result = subprocess.run(
-                ["codex", "run", "--plan", str(plan_file), "--output-dir", tmpdir],
+                exec_cmd,
+                input=prompt,
                 capture_output=True,
                 text=True,
                 timeout=300,
             )
 
+            # Backward compatibility for older codex CLI builds.
+            if result.returncode != 0 and ("unrecognized" in (result.stderr or "").lower() or "unknown" in (result.stderr or "").lower()):
+                result = subprocess.run(
+                    [*codex_cmd, "run", "--plan", str(plan_file), "--output-dir", tmpdir],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+
             if result.returncode != 0:
-                print(f"ERROR: Codex failed: {result.stderr}", file=sys.stderr)
+                stderr = (result.stderr or "").strip()
+                print(f"ERROR: Codex failed: {stderr}", file=sys.stderr)
                 return None
 
-            # Try to read the Codex output file
-            output_file = Path(tmpdir) / "output.md"
             if output_file.exists():
                 return output_file.read_text(encoding="utf-8")
 
@@ -212,7 +373,9 @@ def summarize_version(version: str, entries: list[dict], config: dict, force: bo
 
     if backend == "codex":
         summary = call_codex_api(prompt, config)
-    else:  # default to claude
+    elif backend == "claude-cli":
+        summary = call_claude_cli(prompt, config)
+    else:  # default to claude (API key)
         summary = call_claude_api(prompt, config)
 
     if not summary:
@@ -244,7 +407,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["claude", "codex"],
+        choices=["claude", "claude-cli", "codex"],
         help="Override the configured LLM backend",
     )
 

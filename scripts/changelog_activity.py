@@ -37,6 +37,11 @@ def main() -> int:
         help="Skip LLM-based changelog summarization (use fallback format).",
     )
     parser.add_argument(
+        "--summarize-backend",
+        choices=("claude", "claude-cli", "codex"),
+        help="Override changelog summarizer backend for this run.",
+    )
+    parser.add_argument(
         "--preview-output",
         default=str(DEFAULT_PREVIEW),
         help=f"Compact release-note preview output path (default: {DEFAULT_PREVIEW})",
@@ -51,9 +56,12 @@ def main() -> int:
             str(PROJECT_ROOT / "scripts" / "summarize_changelog.py"),
             "--unreleased",
         ]
+        if args.summarize_backend:
+            cmd.extend(["--backend", args.summarize_backend])
         proc = subprocess.run(cmd, cwd=PROJECT_ROOT)
         if proc.returncode != 0:
-            print("WARNING: Summarization failed; continuing with fallback format.", file=sys.stderr)
+            print("ERROR: Summarization failed. Fix the error or run with --skip-summarize to bypass.", file=sys.stderr)
+            return proc.returncode
 
     # Step 2: Rebuild CHANGELOG.md
     print("\nStep 2: Rebuilding CHANGELOG.md...")
