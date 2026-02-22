@@ -30,5 +30,21 @@
       "Added git.pruneOnFetch=true so deleted remote branches are removed from local tracking refs.",
       "Helps the PR/branch UI reflect post-merge release workflow updates faster and with less stale branch noise."
     ]
+  },
+  {
+    "id": "CHG-0f866788",
+    "change_group": "post-merge-release-auto-sync",
+    "plugin_version": "unreleased",
+    "date": "2026-02-22",
+    "summary_tags": [
+      "Configuration Cleanup",
+      "Build / Packaging"
+    ],
+    "summary": "Auto-sync local main after release-please stamp commits land",
+    "details": [
+      "Added .githooks/post-merge to launch a background watcher after local merges on main.",
+      "Added scripts/auto_pull_after_release.py to poll origin/main, require fast-forward safety, and run git pull --ff-only when the release stamp commit appears.",
+      "Configured repository hook line endings via .gitattributes and documented the watcher in scripts/README.md."
+    ]
   }
 ]
