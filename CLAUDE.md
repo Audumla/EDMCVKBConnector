@@ -50,6 +50,19 @@ Use one or more of these exact strings:
 `Documentation Update` · `Test Update` · `Dependency Update` ·
 `Performance Improvement` · `UI Improvement` · `Build / Packaging`
 
+## Agent Delegation Protocol
+
+This project uses a specific delegation protocol via `#agent:<budget>:<planner>` tags. When you see one:
+1. Research the task.
+2. Write a Markdown plan to `agent_artifacts/gemini/temp/plan.md`.
+3. Execute: `python scripts/agent_runners/run_agent_plan.py --planner <planner> --thinking-budget <budget> --plan-file agent_artifacts/gemini/temp/plan.md --task-summary "Claude: <task>"`
+4. Output a Delegation Receipt:
+   - **Planner:** Claude
+   - **Executor:** Codex
+   - **Budget:** <budget>
+   - **Monitor:** `python scripts/agent_runners/watch_run.py`
+
+
 ## Codex Delegation — `/codex` label
 
 When the user's prompt contains the label `/codex`, delegate the task to Codex via the wrapper script instead of implementing it directly. Follow these steps exactly:

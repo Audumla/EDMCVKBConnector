@@ -5,13 +5,22 @@ from unittest.mock import Mock, patch
 
 from edmcruleengine import Config
 from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
+
+
+def _make_handler(config=None):
+    """Create EventHandler with a VKBLinkManager endpoint for tests."""
+    if config is None:
+        config = Config()
+    manager = VKBLinkManager.from_config(config, Path("."))
+    handler = EventHandler(config, endpoints=[manager])
+    return handler
 
 
 def test_event_flow():
     """Test event processing without real socket connection."""
-    config = Config()
-    handler = EventHandler(config)
-    
+    handler = _make_handler()
+
     # Mock the VKB client to prevent actual connection attempts
     handler.vkb_client.send_event = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=False)  # Prevent connection
@@ -36,9 +45,8 @@ def test_event_flow():
 
 def test_dashboard_event():
     """Test dashboard event processing."""
-    config = Config()
-    handler = EventHandler(config)
-    
+    handler = _make_handler()
+
     handler.vkb_client.send_event = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=False)
     
@@ -64,8 +72,7 @@ def test_dashboard_event():
 
 def test_shift_bitmap_manipulation():
     """Test shift state management."""
-    config = Config()
-    handler = EventHandler(config)
+    handler = _make_handler()
     manager = handler.vkb_link_manager
     manager.client.send_event = Mock(return_value=True)
     manager.client.connect = Mock(return_value=False)
@@ -88,8 +95,7 @@ def test_shift_bitmap_manipulation():
 
 def test_error_handling():
     """Test that VKB send errors are handled gracefully."""
-    config = Config()
-    handler = EventHandler(config)
+    handler = _make_handler()
     manager = handler.vkb_link_manager
 
     error_occurred = False
@@ -115,7 +121,7 @@ def test_error_handling():
 def test_rule_engine_initialization():
     """Test rule engine initialization."""
     config = Config()
-    handler = EventHandler(config, plugin_dir=str(Path(__file__).parent.parent))
+    handler = EventHandler(config, endpoints=[], plugin_dir=str(Path(__file__).parent.parent))
     
     # Rule engine should be initialized even if rules file doesn't exist
     if handler.rule_engine:
@@ -127,9 +133,8 @@ def test_rule_engine_initialization():
 
 def test_cmdr_isolation():
     """Test that commander data is isolated."""
-    config = Config()
-    handler = EventHandler(config)
-    
+    handler = _make_handler()
+
     handler.vkb_client.send_event = Mock(return_value=True)
     handler.vkb_client.connect = Mock(return_value=False)
     

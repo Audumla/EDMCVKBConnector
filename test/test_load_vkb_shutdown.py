@@ -29,46 +29,94 @@ def _status(*, running: bool) -> SimpleNamespace:
     )
 
 
-def test_plugin_stop_does_not_stop_preexisting_vkb_link(monkeypatch):
+def test_plugin_stop_calls_manager_shutdown_and_handler_disconnect(monkeypatch):
+    """plugin_stop() must delegate VKB teardown to manager.shutdown() and disconnect handler."""
     manager = Mock()
-    manager.get_status.return_value = _status(running=True)
-    manager.stop_running.return_value = SimpleNamespace(message="stopped", status=None)
-
     handler = Mock()
 
     plugin_load._state.config = DictConfig(vkb_link_auto_manage=True)
     plugin_load._state.event_handler = handler
     plugin_load._state.vkb_manager = manager
     plugin_load._state.event_recorder = None
-    plugin_load._state.vkb_link_started_by_plugin = False
 
     plugin_load.plugin_stop()
 
-    manager.on_session_event.assert_called_once_with("Shutdown")
-    manager.disconnect.assert_called_once()
+    manager.shutdown.assert_called_once()
     handler.disconnect.assert_called_once()
-    manager.stop_running.assert_not_called()
 
 
-def test_plugin_stop_stops_only_when_started_by_plugin(monkeypatch):
-    manager = Mock()
-    manager.get_status.return_value = _status(running=True)
-    manager.stop_running.return_value = SimpleNamespace(message="stopped", status=None)
+def test_plugin_stop_does_not_stop_preexisting_vkb_link(monkeypatch):
+    """Manager started-by-manager=False → shutdown() stops no process internally."""
+    from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
+    from unittest.mock import MagicMock, patch
+    from pathlib import Path
+
+    class FakeConfig:
+        def get(self, key, default=None):
+            return {"vkb_link_auto_manage": True, "vkb_host": "127.0.0.1", "vkb_port": 50995}.get(key, default)
+
+        def set(self, key, value):
+            pass
+
+    # A real manager with _started_by_manager=False simulates pre-existing process
+    with patch.object(VKBLinkManager, "_find_running_processes", return_value=[]):
+        manager = VKBLinkManager(FakeConfig(), Path("."))
+    manager._started_by_manager = False
+
+    stop_mock = Mock(return_value=SimpleNamespace(message="stopped", status=None))
+    manager.stop_running = stop_mock
+    manager.disconnect = Mock()
+    manager.on_session_event = Mock()
 
     handler = Mock()
-
-    plugin_load._state.config = DictConfig(vkb_link_auto_manage=False)
+    plugin_load._state.config = FakeConfig()
     plugin_load._state.event_handler = handler
     plugin_load._state.vkb_manager = manager
     plugin_load._state.event_recorder = None
-    plugin_load._state.vkb_link_started_by_plugin = True
 
     plugin_load.plugin_stop()
 
     manager.on_session_event.assert_called_once_with("Shutdown")
     manager.disconnect.assert_called_once()
     handler.disconnect.assert_called_once()
-    manager.stop_running.assert_called_once_with(reason="plugin_shutdown")
+    stop_mock.assert_not_called()
+
+
+def test_plugin_stop_stops_only_when_started_by_plugin(monkeypatch):
+    """Manager started-by-manager=True → shutdown() calls stop_running."""
+    from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
+    from unittest.mock import patch
+    from pathlib import Path
+
+    class FakeConfig:
+        def get(self, key, default=None):
+            return {"vkb_link_auto_manage": False, "vkb_host": "127.0.0.1", "vkb_port": 50995}.get(key, default)
+
+        def set(self, key, value):
+            pass
+
+    with patch.object(VKBLinkManager, "_find_running_processes", return_value=[]):
+        manager = VKBLinkManager(FakeConfig(), Path("."))
+    manager._started_by_manager = True
+
+    stop_result = SimpleNamespace(message="stopped", status=None)
+    stop_mock = Mock(return_value=stop_result)
+    manager.stop_running = stop_mock
+    manager.disconnect = Mock()
+    manager.on_session_event = Mock()
+
+    handler = Mock()
+    plugin_load._state.config = FakeConfig()
+    plugin_load._state.event_handler = handler
+    plugin_load._state.vkb_manager = manager
+    plugin_load._state.event_recorder = None
+
+    plugin_load.plugin_stop()
+
+    manager.on_session_event.assert_called_once_with("Shutdown")
+    manager.disconnect.assert_called_once()
+    handler.disconnect.assert_called_once()
+    stop_mock.assert_called_once_with(reason="plugin_shutdown")
 
 
 def test_plugin_start_skips_ensure_running_when_auto_manage_disabled(monkeypatch, tmp_path):

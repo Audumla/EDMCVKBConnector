@@ -21,6 +21,7 @@ from edmcruleengine.events.unregistered_events_tracker import UnregisteredEvents
 from edmcruleengine.rules.signals_catalog import SignalsCatalog
 from edmcruleengine import Config
 from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
 
 
 class TestUnregisteredEventsTracker:
@@ -341,9 +342,10 @@ class TestEventHandlerURI:
     def test_event_handler_tracks_unknown_events(self, temp_dir):
         """Test that EventHandler tracks unknown events."""
         config = Config()
-        handler = EventHandler(config, plugin_dir=str(temp_dir))
+        manager = VKBLinkManager.from_config(config, temp_dir)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(temp_dir))
         handler.track_unregistered_events = True
-        
+
         # Mock VKB client to prevent connection
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=False)
@@ -366,11 +368,12 @@ class TestEventHandlerURI:
         """Test that EventHandler doesn't track known events when catalog is available."""
         config = Config()
         # Use the real plugin directory where catalog exists
-        handler = EventHandler(config, plugin_dir=".")
-        
+        manager = VKBLinkManager.from_config(config, Path("."))
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=".")
+
         # Clear any existing tracked events from initialization
         handler.clear_all_unregistered_events()
-        
+
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=False)
         
@@ -391,9 +394,10 @@ class TestEventHandlerURI:
     def test_event_handler_public_methods(self, temp_dir):
         """Test EventHandler provides public methods for tracker access."""
         config = Config()
-        handler = EventHandler(config, plugin_dir=str(temp_dir))
+        manager = VKBLinkManager.from_config(config, temp_dir)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(temp_dir))
         handler.track_unregistered_events = True
-        
+
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=False)
         
@@ -424,9 +428,10 @@ class TestEventHandlerURI:
     def test_event_handler_refresh_unregistered_events(self, temp_dir):
         """Test EventHandler refresh method."""
         config = Config()
-        handler = EventHandler(config, plugin_dir=str(temp_dir))
+        manager = VKBLinkManager.from_config(config, temp_dir)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(temp_dir))
         handler.track_unregistered_events = True
-        
+
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=False)
         

@@ -258,6 +258,14 @@ def _resolve_gemini_command() -> list[str]:
     return ["gemini"]
 
 
+def _resolve_opencode_command() -> list[str]:
+    """Resolve OpenCode CLI command."""
+    resolved = shutil.which("opencode") or shutil.which("opencode.exe") or shutil.which("opencode.cmd")
+    if resolved:
+        return [resolved]
+    return ["opencode"]
+
+
 def _resolve_copilot_command() -> list[str]:
     """Resolve GitHub Copilot CLI command (installed as Windows app)."""
     candidates = ["copilot", "copilot.exe"]
@@ -389,6 +397,43 @@ def _call_gemini_cli_for_summary(prompt: str, config: dict) -> str | None:
         return None
     except Exception as e:
         print(f"ERROR: Failed to call Google Gemini: {e}", file=sys.stderr)
+        return None
+
+
+def _call_opencode_cli_for_summary(prompt: str, config: dict) -> str | None:
+    """Call OpenCode CLI for release notes summary."""
+    try:
+        opencode_cmd = _resolve_opencode_command()
+        provider = _provider_cfg(config, "opencode")
+        model = str(provider.get("model", "")).strip()
+
+        # OpenCode CLI interface
+        args = [*opencode_cmd, "-p", prompt]
+        if model:
+            args.extend(["--model", model])
+
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_runtime_timeout(config, "opencode"),
+        )
+
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()
+            print(f"ERROR: OpenCode CLI failed: {stderr}", file=sys.stderr)
+            return None
+
+        output = result.stdout.strip()
+        return output if output else None
+
+    except FileNotFoundError:
+        print("ERROR: opencode CLI not found. Ensure OpenCode is installed and on PATH.", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"ERROR: Failed to call opencode CLI: {e}", file=sys.stderr)
         return None
 
 

@@ -109,7 +109,8 @@ def test_plugin_with_journal_events():
         
         # Initialize plugin with rules loaded
         config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=51001)
-        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
+        manager = VKBLinkManager.from_config(config, PLUGIN_ROOT)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(PLUGIN_ROOT))
         
         # Connect
         success = handler.connect()
@@ -173,7 +174,8 @@ def test_specific_journal_scenarios():
         server.verbose = False
         
         config = _TestConfig(vkb_port=51002)
-        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
+        manager = VKBLinkManager.from_config(config, PLUGIN_ROOT)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(PLUGIN_ROOT))
         handler.connect()
         
         # Test Scenario 1: FSD Jump sequence
@@ -257,7 +259,8 @@ def test_journal_event_filtering():
         server.verbose = False
         
         config = _TestConfig(vkb_port=51003)
-        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
+        manager = VKBLinkManager.from_config(config, PLUGIN_ROOT)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(PLUGIN_ROOT))
         handler.connect()
         
         # Count different event types

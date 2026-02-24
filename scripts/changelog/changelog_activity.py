@@ -43,7 +43,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--summarize-backend",
-        choices=("claude", "claude-cli", "codex", "copilot", "gemini", "local-llm", "intelligent"),
+        choices=("claude", "claude-cli", "codex", "copilot", "gemini", "opencode", "local-llm", "intelligent"),
         help="Override changelog summarizer backend for this run.",
     )
     parser.add_argument(

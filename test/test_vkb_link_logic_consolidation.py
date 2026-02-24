@@ -42,7 +42,7 @@ def test_vkb_link_manager_is_source_of_truth_for_ini_patching():
 @patch("load.logger")
 def test_plugin_start_uses_vkb_link_manager(mock_logger, tmp_path, monkeypatch):
     """
-    Verify that plugin_start3 correctly interacts with VKBLinkManager via EventHandler.
+    Verify that plugin_start3 correctly creates and registers VKBLinkManager.
     """
     # Setup mocks
     mock_config = Mock()
@@ -51,24 +51,24 @@ def test_plugin_start_uses_vkb_link_manager(mock_logger, tmp_path, monkeypatch):
         "vkb_port": 50995,
         "vkb_link_auto_manage": True,
     }.get(key, default)
-    
+
     mock_manager = Mock()
-    mock_manager.get_status.return_value = Mock(running=False, exe_path="/path/to/exe", install_dir="/path", version="1.0", managed=True)
-    mock_manager.ensure_running.return_value = Mock(success=True, message="Started", action_taken="started", status=mock_manager.get_status.return_value)
-    mock_manager.connect.return_value = True
-    
+    mock_manager.startup.return_value = True
+
     mock_handler = Mock()
     mock_handler.refresh_unregistered_events_against_catalog.return_value = 0
-    
+
     # Mock dependencies in load.py
     monkeypatch.setattr("edmcruleengine.Config", lambda: mock_config)
     monkeypatch.setattr("edmcruleengine.EventHandler", lambda *args, **kwargs: mock_handler)
-    monkeypatch.setattr("edmcruleengine.vkb.vkb_client.VKBClient", Mock)
-    monkeypatch.setattr("edmcruleengine.vkb.vkb_link_manager.VKBLinkManager", lambda *args, **kwargs: mock_manager)
+    monkeypatch.setattr(
+        "edmcruleengine.vkb.vkb_link_manager.VKBLinkManager.from_config",
+        classmethod(lambda cls, *args, **kwargs: mock_manager),
+    )
     monkeypatch.setattr("edmcruleengine.events.event_recorder.EventRecorder", Mock)
     monkeypatch.setattr(load, "_ensure_rules_file_exists", Mock())
     monkeypatch.setattr(load, "_restore_test_shift_state_from_config", Mock())
-    
+
     # Mock threading to run synchronously for testing
     class SyncThread:
         def __init__(self, target, args=(), kwargs=None, daemon=False):
@@ -77,25 +77,21 @@ def test_plugin_start_uses_vkb_link_manager(mock_logger, tmp_path, monkeypatch):
             self.kwargs = kwargs or {}
         def start(self):
             self.target(*self.args, **self.kwargs)
-            
+
     monkeypatch.setattr("threading.Thread", SyncThread)
-    
+
     # Run plugin_start3
     result = load.plugin_start3(str(tmp_path))
-    
+
     assert result == "VKB Connector"
     # Verify state was populated
     assert load._state.config == mock_config
     assert load._state.event_handler == mock_handler
     assert load._state.vkb_manager == mock_manager
     assert load._state.plugin_dir == str(tmp_path)
-    
-    # Verify manager was called
-    mock_manager.ensure_running.assert_called_once()
-    # Verify it was called with correct host/port from config
-    args, kwargs = mock_manager.ensure_running.call_args
-    assert kwargs["host"] == "127.0.0.1"
-    assert kwargs["port"] == 50995
+
+    # Verify startup was delegated to the manager
+    mock_manager.startup.assert_called_once()
 
 def test_vkb_link_manager_write_ini_delegates_to_patch_ini_text(tmp_path):
     """Verify that _write_ini correctly uses _patch_ini_text and writes to file."""

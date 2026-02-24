@@ -49,3 +49,29 @@ Use one or more of these exact strings:
 `Bug Fix` · `New Feature` · `Code Refactoring` · `Configuration Cleanup` ·
 `Documentation Update` · `Test Update` · `Dependency Update` ·
 `Performance Improvement` · `UI Improvement` · `Build / Packaging`
+
+## Post-Action Validation Mandate
+
+EVERY task performed by Gemini MUST conclude with an explicit validation phase. A task is not considered complete until the following are satisfied:
+
+1.  **Integrity Check**: Run static analysis (e.g., `ruff check`, `mypy`, `python -m py_compile`) to ensure no syntax or type errors were introduced.
+2.  **Functional Verification**: Reproduce the original issue (for bug fixes) or demonstrate the new capability (for features) using a script or manual CLI command.
+3.  **Test Coverage**: 
+    - If modifying existing logic, run all related tests (`pytest test/test_*.py`).
+    - If adding a new feature, a new test file or case MUST be added and shown to pass.
+4.  **Zero-Regression**: Run the core smoke tests (`pytest test/test_integration.py`) to ensure existing functionality remains intact.
+
+Never declare a task done based on "implied correctness." Always provide the output of the validation commands in your final response.
+
+## Agent Delegation Protocol
+
+This project uses a specific delegation protocol via `#agent:<budget>:<planner>` tags. When you see one:
+1. Research the task.
+2. Write a Markdown plan to `agent_artifacts/gemini/temp/plan.md`.
+3. Execute: `python scripts/agent_runners/run_agent_plan.py --planner <planner> --thinking-budget <budget> --plan-file agent_artifacts/gemini/temp/plan.md --task-summary "Gemini: <task>"`
+4. Output a Delegation Receipt:
+   - **Planner:** Gemini
+   - **Executor:** Codex
+   - **Budget:** <budget>
+   - **Monitor:** `python scripts/agent_runners/watch_run.py`
+

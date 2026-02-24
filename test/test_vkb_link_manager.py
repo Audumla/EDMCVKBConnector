@@ -47,6 +47,14 @@ def _make_manager(tmp_path: Path, **config_overrides):
     return manager, cfg
 
 
+@pytest.fixture
+def manager_pair(tmp_path):
+    """Fixture that returns (manager, cfg) and ensures shutdown."""
+    manager, cfg = _make_manager(tmp_path)
+    yield manager, cfg
+    manager.shutdown()
+
+
 def _touch(path: Path, text: str = "stub") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
@@ -178,14 +186,14 @@ def test_ensure_running_updates_ini_when_process_exists(tmp_path, monkeypatch):
     ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
     process = VKBLinkProcessInfo(pid=42, exe_path=str(exe))
 
-    manager, _ = _make_manager(tmp_path, vkb_link_restart_on_failure=True)
+    manager, _ = _make_manager(tmp_path, vkb_host="127.0.0.1", vkb_port=50995, vkb_link_restart_on_failure=True)
     write_ini_mock = Mock()
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: process)
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [process])
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
 
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    result = manager.ensure_running(reason="test")
     assert result.success
     assert result.action_taken == "none"
     assert "running" in result.message.lower()
@@ -197,14 +205,14 @@ def test_ensure_running_updates_ini_without_restart_when_restart_disabled(tmp_pa
     ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
     process = VKBLinkProcessInfo(pid=99, exe_path=str(exe))
 
-    manager, _ = _make_manager(tmp_path, vkb_link_restart_on_failure=False)
+    manager, _ = _make_manager(tmp_path, vkb_host="10.0.0.5", vkb_port=5555, vkb_link_restart_on_failure=False)
     write_ini_mock = Mock()
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: process)
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [process])
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
 
-    result = manager.ensure_running(host="10.0.0.5", port=5555, reason="test")
+    result = manager.ensure_running(reason="test")
     assert result.success
     assert result.action_taken == "none"
     assert "ini updated" in result.message.lower()
@@ -214,7 +222,7 @@ def test_ensure_running_updates_ini_without_restart_when_restart_disabled(tmp_pa
 def test_ensure_running_starts_known_exe_path_when_not_running(tmp_path, monkeypatch):
     exe = _touch(tmp_path / "known" / "VKB-Link.exe")
     ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
-    manager, _ = _make_manager(tmp_path)
+    manager, _ = _make_manager(tmp_path, vkb_host="127.0.0.1", vkb_port=50995)
     write_ini_mock = Mock()
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
@@ -226,7 +234,7 @@ def test_ensure_running_starts_known_exe_path_when_not_running(tmp_path, monkeyp
     monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
     monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
 
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    result = manager.ensure_running(reason="test")
     assert result.success
     assert result.action_taken == "started"
     assert "started" in result.message.lower()
@@ -247,7 +255,7 @@ def test_ensure_running_skips_start_if_process_appears_during_race(tmp_path, mon
     monkeypatch.setattr(manager, "_start_process", start_mock)
     monkeypatch.setattr(manager, "_write_ini", Mock())
 
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    result = manager.ensure_running(reason="test")
     assert result.success
     assert result.action_taken == "none"
     assert "running" in result.message.lower()
@@ -280,7 +288,7 @@ def test_ensure_running_downloads_installs_and_starts_when_no_known_exe(tmp_path
     monkeypatch.setattr(manager, "_write_ini", write_ini_side_effect)
     monkeypatch.setattr(manager, "_start_process", start_process_side_effect)
 
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    result = manager.ensure_running(reason="test")
     assert result.success
     assert result.action_taken == "started"
     assert "started" in result.message.lower()
@@ -331,7 +339,7 @@ def test_ensure_running_download_bootstraps_first_run_when_ini_is_missing(tmp_pa
     monkeypatch.setattr(manager, "_write_ini", write_ini_side_effect)
     monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
 
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
+    result = manager.ensure_running(reason="test")
     assert result.success
     assert result.action_taken == "started"
     assert call_order == ["bootstrap_start", "stop", "write", "start"]
@@ -591,3 +599,118 @@ def test_install_release_uses_valid_cached_archive_without_redownload(tmp_path):
     assert cfg.get("vkb_link_version") == "3.3.0"
     # The cache was valid, so no download should have been requested
     manager.downloader.download.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# New lifecycle-helper method tests
+# ---------------------------------------------------------------------------
+
+def test_from_config_creates_manager_with_client(tmp_path):
+    """from_config classmethod must construct a VKBLinkManager with a VKBClient."""
+    from edmcruleengine.vkb.vkb_client import VKBClient
+
+    class FakeConfig:
+        def get(self, key, default=None):
+            return {
+                "vkb_host": "10.0.0.1",
+                "vkb_port": 55000,
+                "vkb_header_byte": 0xA5,
+                "vkb_command_byte": 13,
+                "socket_timeout": 3,
+            }.get(key, default)
+
+    manager = vkbm.VKBLinkManager.from_config(FakeConfig(), tmp_path)
+    assert manager.client is not None
+    assert isinstance(manager.client, VKBClient)
+    assert manager.client.host == "10.0.0.1"
+    assert manager.client.port == 55000
+
+
+def test_set_shift_state_updates_bitmaps(tmp_path):
+    """set_shift_state must store the given bitmaps without sending."""
+    manager, _ = _make_manager(tmp_path)
+    manager.set_shift_state(0b11, 0b0000011)
+    assert manager._shift_bitmap == 0b11
+    assert manager._subshift_bitmap == 0b0000011
+
+
+def test_restore_shift_state_from_config_reads_config(tmp_path):
+    """restore_shift_state_from_config must read test bitmaps from config."""
+    manager, cfg = _make_manager(
+        tmp_path, test_shift_bitmap=0b10, test_subshift_bitmap=0b0000101
+    )
+    manager.restore_shift_state_from_config()
+    assert manager._shift_bitmap == 0b10
+    assert manager._subshift_bitmap == 0b0000101
+
+
+def test_restore_shift_state_from_config_masks_values(tmp_path):
+    """restore_shift_state_from_config must apply SHIFT (0x03) and SUBSHIFT (0x7F) masks."""
+    manager, cfg = _make_manager(
+        tmp_path, test_shift_bitmap=0xFF, test_subshift_bitmap=0xFF
+    )
+    manager.restore_shift_state_from_config()
+    assert manager._shift_bitmap == 0xFF & 0x03
+    assert manager._subshift_bitmap == 0xFF & 0x7F
+
+
+def test_shutdown_calls_session_event_disconnect_and_conditionally_stop(tmp_path, monkeypatch):
+    """shutdown() must clear shift state, disconnect, and stop only if started by manager."""
+    manager, _ = _make_manager(tmp_path)
+
+    session_mock = Mock()
+    disconnect_mock = Mock()
+    stop_mock = Mock(return_value=vkbm.VKBLinkActionResult(True, "stopped"))
+
+    monkeypatch.setattr(manager, "on_session_event", session_mock)
+    monkeypatch.setattr(manager, "disconnect", disconnect_mock)
+    monkeypatch.setattr(manager, "stop_running", stop_mock)
+
+    # Not started by manager → stop_running must NOT be called
+    manager._started_by_manager = False
+    manager.shutdown()
+    session_mock.assert_called_once_with("Shutdown")
+    disconnect_mock.assert_called_once()
+    stop_mock.assert_not_called()
+
+    session_mock.reset_mock()
+    disconnect_mock.reset_mock()
+
+    # Started by manager → stop_running MUST be called
+    manager._started_by_manager = True
+    manager.shutdown()
+    session_mock.assert_called_once_with("Shutdown")
+    disconnect_mock.assert_called_once()
+    stop_mock.assert_called_once_with(reason="plugin_shutdown")
+    # Flag must be cleared after shutdown
+    assert not manager._started_by_manager
+
+
+def test_startup_sets_started_by_manager_flag_when_process_launched(tmp_path, monkeypatch):
+    """startup() must set _started_by_manager=True when it starts the process."""
+    manager, _ = _make_manager(tmp_path, vkb_link_auto_manage=True)
+
+    result = vkbm.VKBLinkActionResult(True, "started", action_taken="started")
+    monkeypatch.setattr(manager, "get_status", lambda check_running=False: vkbm.VKBLinkStatus(
+        exe_path=None, install_dir=None, version=None, running=False, managed=True
+    ))
+    monkeypatch.setattr(manager, "ensure_running", lambda reason="": result)
+    monkeypatch.setattr(manager, "connect", lambda: True)
+    monkeypatch.setattr(manager, "set_connection_status_override", lambda _: None)
+
+    manager.startup()
+    assert manager._started_by_manager is True
+
+
+def test_startup_does_not_set_started_by_manager_when_already_running(tmp_path, monkeypatch):
+    """startup() must NOT set _started_by_manager if process was already running."""
+    manager, _ = _make_manager(tmp_path, vkb_link_auto_manage=True)
+
+    monkeypatch.setattr(manager, "get_status", lambda check_running=False: vkbm.VKBLinkStatus(
+        exe_path="/exe", install_dir=None, version="1.0", running=True, managed=True
+    ))
+    monkeypatch.setattr(manager, "connect", lambda: True)
+    monkeypatch.setattr(manager, "set_connection_status_override", lambda _: None)
+
+    manager.startup()
+    assert manager._started_by_manager is False

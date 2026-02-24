@@ -27,6 +27,7 @@ def pytest_configure(config):
     """Ensure stdout/stderr use UTF-8 on Windows so Unicode test output works."""
     config.addinivalue_line("markers", "live_agent: mark test as requiring a live LLM agent call")
     config.addinivalue_line("markers", "changelog: mark test as part of the changelog utility suite")
+    config.addinivalue_line("markers", "skip_all_by_default: mark test to be skipped unless explicitly requested")
     if sys.stdout and hasattr(sys.stdout, "buffer"):
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     if sys.stderr and hasattr(sys.stderr, "buffer"):

@@ -75,3 +75,24 @@ Use one or more of these exact strings:
 `Bug Fix` · `New Feature` · `Code Refactoring` · `Configuration Cleanup` ·
 `Documentation Update` · `Test Update` · `Dependency Update` ·
 `Performance Improvement` · `UI Improvement` · `Build / Packaging`
+
+## Agent Delegation Protocol
+
+You support the `#agent:<budget>:<planner>` directive. If a user includes this in a request:
+1. Research the task and identify the files to change.
+2. Generate a detailed execution plan at `agent_artifacts/copilot/temp/plan.md`.
+3. Use the terminal to execute the delegation script in the background: 
+   `python scripts/agent_runners/run_agent_plan.py --planner <planner> --thinking-budget <budget> --plan-file agent_artifacts/copilot/temp/plan.md --cleanup-worktree --task-summary "Copilot: <user_task_description>"`
+4. Provide a Delegation Receipt:
+   - **Planner:** Copilot
+   - **Executor:** Codex
+   - **Budget:** <budget>
+   - **Monitor:** `python scripts/agent_runners/watch_run.py`
+
+
+### Supported Labels:
+- `#agent:deep:gemini` (Planner: Gemini, Budget: High)
+- `#agent:deep:claude` (Planner: Claude, Budget: High)
+- `#agent:fast:gemini` (Planner: Gemini, Budget: Low)
+- `#agent:fast:claude` (Planner: Claude, Budget: Low)
+

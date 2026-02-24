@@ -47,23 +47,7 @@ class EventHandler:
         self.config = config
         self.plugin_dir = Path(plugin_dir) if plugin_dir else Path.cwd()
         self.endpoints = endpoints if endpoints is not None else []
-        
-        # Auto-register VKBLinkManager if none provided and config has vkb_host
-        # This keeps the handler "naive" in logic but "ready-to-use" in practice.
-        if endpoints is None:
-            from ..vkb.vkb_client import VKBClient
-            from ..vkb.vkb_link_manager import VKBLinkManager
-            
-            vkb_client = VKBClient(
-                host=config.get("vkb_host", "127.0.0.1"),
-                port=config.get("vkb_port", 50995),
-                header_byte=config.get("vkb_header_byte", 0xA5),
-                command_byte=config.get("vkb_command_byte", 13),
-                socket_timeout=config.get("socket_timeout", 5),
-            )
-            vkb_manager = VKBLinkManager(config, self.plugin_dir, client=vkb_client)
-            self.endpoints.append(vkb_manager)
-        
+
         self.enabled = config.get("enabled", True)
         self.debug = config.get("debug", False)
         self.event_types = config.get("event_types", [])
@@ -303,6 +287,10 @@ class EventHandler:
 
         if current_path != self._rules_path or current_mtime_ns != self._rules_mtime_ns:
             self._load_rules(preserve_on_error=True)
+
+    def reload_rules(self) -> None:
+        """Reload rules from disk, preserving the current engine on error."""
+        self._load_rules(preserve_on_error=True)
 
     # ==== Unregistered Events Management ====
 

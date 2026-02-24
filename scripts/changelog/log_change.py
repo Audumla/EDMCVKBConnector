@@ -57,7 +57,7 @@ APPROVED_TAGS = {
     "Build / Packaging",
 }
 
-KNOWN_AGENTS = {"copilot", "claude", "codex", "gemini"}
+KNOWN_AGENTS = {"copilot", "claude", "codex", "gemini", "opencode"}
 
 
 # ---------------------------------------------------------------------------

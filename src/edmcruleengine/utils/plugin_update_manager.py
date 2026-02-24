@@ -5,10 +5,13 @@ Plugin self-update helper for EDMC VKB Connector.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
+import sys
 import tempfile
 import zipfile
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
@@ -68,6 +71,7 @@ class PluginUpdateManager:
         self.plugin_dir = Path(plugin_dir)
         self.logger = logger
         self.release_api_url = release_api_url
+        self.last_checked_release: Optional[PluginRelease] = None
 
     def _log(self, level: str, message: str) -> None:
         method = getattr(self.logger, level, None)
@@ -152,6 +156,82 @@ class PluginUpdateManager:
                 shutil.copytree(source, destination, dirs_exist_ok=True)
             else:
                 shutil.copy2(source, destination)
+
+    def check_for_update(self, current_version: str) -> Optional[PluginRelease]:
+        """Check if a newer version is available without installing."""
+        release = self._fetch_latest_release()
+        if not release:
+            return None
+        
+        if _is_version_newer(release.version, current_version):
+            self.last_checked_release = release
+            return release
+        
+        return None
+
+    def perform_update(self) -> PluginUpdateResult:
+        """Install the update that was previously found by check_for_update."""
+        if not self.last_checked_release:
+            return PluginUpdateResult(False, "No update available to install")
+        
+        release = self.last_checked_release
+        try:
+            with tempfile.TemporaryDirectory(prefix="edmcvkb-plugin-update-") as temp_dir:
+                temp_path = Path(temp_dir)
+                archive_path = temp_path / release.asset_name
+                if not self._download_release_archive(release, archive_path):
+                    return PluginUpdateResult(False, "Failed to download plugin update archive")
+
+                extract_dir = temp_path / "extract"
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(archive_path, "r") as archive:
+                    archive.extractall(extract_dir)
+
+                payload_root = self._locate_payload_root(extract_dir)
+                if not payload_root:
+                    return PluginUpdateResult(False, "Downloaded archive does not contain a valid plugin package")
+
+                self._install_payload(payload_root)
+        except Exception as exc:
+            self._log("error", f"Plugin update: install failed: {exc}")
+            return PluginUpdateResult(False, f"Failed to install plugin update: {exc}")
+
+        self._log("info", f"Plugin update: installed v{release.version}")
+        return PluginUpdateResult(
+            True,
+            f"Plugin updated to v{release.version}.",
+            updated=True,
+            latest_version=release.version,
+        )
+
+    def restart_edmc(self) -> None:
+        """Attempt to restart EDMarketConnector."""
+        try:
+            self._log("info", "Plugin update: attempting to restart EDMC")
+            
+            # Identify the executable and arguments
+            # If running from source (python.exe + EDMarketConnector.py), use sys.executable and sys.argv
+            # If running as EDMarketConnector.exe, use sys.executable
+            
+            executable = sys.executable
+            args = sys.argv[:]
+            
+            # On Windows, if we're running as a compiled exe, sys.executable is the exe
+            # and sys.argv might just be the arguments.
+            # If we're running under python, sys.executable is python.exe.
+            
+            self._log("debug", f"Restart: executable={executable}, args={args}")
+            
+            # Start new instance
+            subprocess.Popen([executable] + args, cwd=os.getcwd(), start_new_session=True)
+            
+            # Exit current instance
+            # In EDMC, we should ideally use a clean shutdown, but for a restart
+            # triggered by a plugin after file replacement, a quick exit is often required.
+            os._exit(0)
+            
+        except Exception as exc:
+            self._log("error", f"Plugin update: restart failed: {exc}")
 
     def update_to_latest(self, *, current_version: str) -> PluginUpdateResult:
         if not self.plugin_dir.exists():

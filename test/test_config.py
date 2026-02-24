@@ -71,11 +71,13 @@ def test_vkb_client_init():
 def test_event_handler_init():
     """Test EventHandler initialization."""
     from edmcruleengine.events.event_handler import EventHandler
+    from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
     from edmcruleengine import Config
-    
+
     config = Config()
-    handler = EventHandler(config)
-    
+    manager = VKBLinkManager.from_config(config, Path("."))
+    handler = EventHandler(config, endpoints=[manager])
+
     assert handler.enabled == True
     assert handler.vkb_client is not None
     print("[OK] EventHandler initialization test passed")

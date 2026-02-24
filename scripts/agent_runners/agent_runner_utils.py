@@ -1,68 +1,53 @@
 """
-claude_run_plan.py - Claude orchestration wrapper for run_codex_plan.py
-
-Calls run_codex_plan.py with a plan file, then writes claude_report.json into the
-run directory with Claude planning metadata, Codex execution summary, cost estimates,
-and a preformatted codex_results.md summary.
-
-Usage (called by Claude after writing a plan file):
-    python scripts/agent_runners/claude_run_plan.py \\
-        --plan-file agent_artifacts/claude/temp/my_plan.md \\
-        --claude-model claude-sonnet-4-6 \\
-        --task-summary "One-line description of what Claude is orchestrating" \\
-        [--claude-input-tokens 5000] [--claude-output-tokens 2000] \\
-        [--run-name label] [--dry-run] [--sandbox MODE] [--approval POLICY] ...
-
-Note: Token estimates default to 5000 input / 2000 output for typical plan files. Adjust if your
-plan is unusually large or requires extensive reasoning.
-
-All remaining args after known claude_run_plan.py flags are forwarded to run_codex_plan.py.
-The claude_report.json is written into the same run directory that run_codex_plan.py creates.
+agent_runner_utils.py - Shared utilities for agent runner scripts.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
-import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-
-# Load default configuration
-CONFIG_FILE = PROJECT_ROOT / "scripts" / "delegation-config.json"
-_config_defaults = {}
-if CONFIG_FILE.exists():
-    try:
-        _config_data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        _config_defaults = _config_data.get("codex_delegation", {})
-    except json.JSONDecodeError:
-        pass
-
 # ---------------------------------------------------------------------------
 # Pricing tables (USD per million tokens)
 # ---------------------------------------------------------------------------
-CLAUDE_PRICING: dict[str, dict[str, float]] = {
+AGENT_PRICING: dict[str, dict[str, float]] = {
+    # Claude
     "claude-opus-4-6":     {"input": 15.00, "output": 75.00},
     "claude-sonnet-4-6":   {"input":  3.00, "output": 15.00},
     "claude-haiku-4-5":    {"input":  0.80, "output":  4.00},
-    # aliases / shorthands
-    "opus":                {"input": 15.00, "output": 75.00},
-    "sonnet":              {"input":  3.00, "output": 15.00},
-    "haiku":               {"input":  0.80, "output":  4.00},
+    "claude-3-5-sonnet":   {"input":  3.00, "output": 15.00},
+    # Gemini
+    "gemini-2.0-flash":    {"input":  0.10, "output":  0.40},
+    "gemini-2.0-pro":      {"input":  1.25, "output":  5.00},
+    "gemini-1.5-pro":      {"input":  1.25, "output":  5.00},
+    "gemini-1.5-flash":    {"input":  0.075, "output": 0.30},
+    # Codex / GPT
+    "gpt-5":               {"input":  1.25, "output": 10.00},
+    "gpt-5-mini":          {"input":  0.15, "output":  0.60},
+    "gpt-4o":              {"input":  5.00, "output": 15.00},
+    "gpt-4o-mini":         {"input":  0.15, "output":  0.60},
+    # Others
+    "opencode-latest":     {"input":  1.00, "output":  5.00},
+    "copilot-gpt-4":       {"input":  0.00, "output":  0.00},
+    "local-llm":           {"input":  0.00, "output":  0.00},
 }
 
+# Aliases
+AGENT_PRICING["sonnet"] = AGENT_PRICING["claude-3-5-sonnet"]
+AGENT_PRICING["opus"] = AGENT_PRICING["claude-opus-4-6"]
+AGENT_PRICING["haiku"] = AGENT_PRICING["claude-haiku-4-5"]
+AGENT_PRICING["gemini"] = AGENT_PRICING["gemini-2.0-flash"]
+AGENT_PRICING["codex"] = AGENT_PRICING["gpt-5"]
+
+
 # OpenAI API pricing table used for best-effort Codex execution cost estimates.
-# Rates are configurable via CLI overrides in case your account/pricing differs.
 CODEX_PRICING: dict[str, dict[str, float]] = {
     "gpt-5": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
     "gpt-5-codex": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
     "gpt-5-mini": {"input": 0.25, "cached_input": 0.025, "output": 2.00},
-    "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.40},
-    # common aliases
+    "gpt-5-nano": {"input": 0.05, "cached_input": 0.025, "output": 0.40},
     "codex": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
 }
 
@@ -71,62 +56,19 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def parse_args() -> tuple[argparse.Namespace, list[str]]:
-    parser = argparse.ArgumentParser(
-        description="Claude orchestration wrapper: calls run_codex_plan.py and appends claude_report.json.",
-        add_help=True,
-    )
-    # Claude-specific args
-    parser.add_argument("--claude-model", default=_config_defaults.get("claude_model", "claude-sonnet-4-6"),
-                        help="Claude model ID used for the planning phase (default: from scripts/delegation-config.json or claude-sonnet-4-6).")
-    parser.add_argument("--claude-input-tokens", type=int, default=_config_defaults.get("claude_input_tokens", 5000),
-                        help="Input tokens used by Claude during planning (default: from scripts/delegation-config.json or 5000).")
-    parser.add_argument("--claude-output-tokens", type=int, default=_config_defaults.get("claude_output_tokens", 2000),
-                        help="Output tokens used by Claude during planning (default: from scripts/delegation-config.json or 2000).")
-    parser.add_argument("--thinking-budget", default=_config_defaults.get("thinking_budget", "none"),
-                        choices=["none", "low", "medium", "high"],
-                        help="Extended thinking budget for Claude (default: from scripts/delegation-config.json or 'none'). Pass to run_codex_plan.py.")
-    parser.add_argument("--task-summary", default="",
-                        help="One-line description of the task Claude is orchestrating.")
-    parser.add_argument(
-        "--codex-model",
-        default=_config_defaults.get("codex_model", "gpt-5"),
-        help="Codex model used for execution-cost estimation (default: from scripts/delegation-config.json or gpt-5).",
-    )
-    parser.add_argument(
-        "--codex-input-rate",
-        type=float,
-        default=None,
-        help="Override Codex input token rate (USD per million).",
-    )
-    parser.add_argument(
-        "--codex-cached-input-rate",
-        type=float,
-        default=None,
-        help="Override Codex cached input token rate (USD per million).",
-    )
-    parser.add_argument(
-        "--codex-output-rate",
-        type=float,
-        default=None,
-        help="Override Codex output token rate (USD per million).",
-    )
-    # Required: plan file (also passed to run_codex_plan.py)
-    parser.add_argument("--plan-file", required=True, type=Path,
-                        help="Path to the plan file to hand to Codex.")
-    return parser.parse_known_args()
-
-
-def estimate_claude_cost(model: str, input_tokens: int, output_tokens: int) -> dict[str, Any]:
-    pricing = CLAUDE_PRICING.get(model)
+def estimate_planner_cost(model: str | None, input_tokens: int, output_tokens: int) -> dict[str, Any]:
+    if not model:
+        return {"input_usd": None, "output_usd": None, "total_usd": None, "note": "unknown model"}
+    
+    pricing = AGENT_PRICING.get(model)
     if pricing is None:
-        # Try prefix match (e.g. "claude-sonnet-4" matches "claude-sonnet-4-6")
-        for key, val in CLAUDE_PRICING.items():
+        for key, val in AGENT_PRICING.items():
             if model.startswith(key) or key.startswith(model):
                 pricing = val
                 break
+    
     if pricing is None:
-        return {"input_usd": None, "output_usd": None, "total_usd": None, "note": "unknown model"}
+        return {"input_usd": None, "output_usd": None, "total_usd": None, "note": f"unknown pricing for {model}"}
 
     input_usd  = (input_tokens  / 1_000_000) * pricing["input"]
     output_usd = (output_tokens / 1_000_000) * pricing["output"]
@@ -235,16 +177,17 @@ def detect_codex_model(run_dir: Path, fallback_model: str) -> str:
     if not isinstance(command, list):
         return fallback_model
 
+    detected = None
     for idx, token in enumerate(command):
         if token == "--model" and idx + 1 < len(command):
             candidate = command[idx + 1]
             if isinstance(candidate, str) and candidate.strip():
-                return candidate.strip()
-    return fallback_model
+                detected = candidate.strip()
+    
+    return detected if detected else fallback_model
 
 
 def parse_codex_events(events_file: Path) -> dict[str, Any]:
-    """Extract summary metrics from the Codex events.jsonl file in a single pass."""
     if not events_file.exists():
         return {}
 
@@ -255,7 +198,6 @@ def parse_codex_events(events_file: Path) -> dict[str, Any]:
     agent_message_count = 0
     event_count = 0
 
-    # Single pass: parse events and count types simultaneously
     with events_file.open("r", encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
@@ -296,55 +238,24 @@ def parse_codex_events(events_file: Path) -> dict[str, Any]:
     }
 
 
-def run_codex_plan(plan_file: Path, thinking_budget: str, extra_args: list[str]) -> tuple[int, str | None]:
-    """
-    Invoke run_codex_plan.py and return (returncode, run_dir_path).
-    run_dir is parsed from the stdout line 'Run directory: <path>'.
-    """
-    cmd = [
-        sys.executable,
-        str(PROJECT_ROOT / "scripts" / "agent_runners" / "run_codex_plan.py"),
-        "--plan-file", str(plan_file),
-    ]
-
-    # Pass thinking budget if not 'none'
-    if thinking_budget and thinking_budget != "none":
-        cmd.extend(["--thinking-budget", thinking_budget])
-
-    cmd.extend(extra_args)
-    print(f"[claude_run_plan] Launching: {' '.join(cmd)}", flush=True)
-
-    proc = subprocess.run(cmd, capture_output=False, text=True,
-                          stdout=subprocess.PIPE, stderr=None)
-    stdout = proc.stdout or ""
-
-    # Print so the caller can see progress
-    print(stdout, end="", flush=True)
-
-    run_dir: str | None = None
-    for line in stdout.splitlines():
-        if line.startswith("Run directory:") or line.startswith("Dry run created:"):
-            run_dir = line.split(":", 1)[1].strip()
-            break
-
-    return proc.returncode, run_dir
-
-
 def build_report(
     *,
     run_dir: Path,
-    claude_model: str,
-    claude_input_tokens: int,
-    claude_output_tokens: int,
+    planner_model: str | None,
+    planner_input_tokens: int,
+    planner_output_tokens: int,
     thinking_budget: str,
     codex_model_hint: str,
-    codex_input_rate: float | None,
-    codex_cached_input_rate: float | None,
-    codex_output_rate: float | None,
-    task_summary: str,
-    codex_returncode: int,
-    generated_at: str,
+    codex_input_rate: float | None = None,
+    codex_cached_input_rate: float | None = None,
+    codex_output_rate: float | None = None,
+    task_summary: str = "",
+    codex_returncode: int = 0,
+    generated_at: str | None = None,
 ) -> dict[str, Any]:
+    if generated_at is None:
+        generated_at = utc_now()
+        
     status_file  = run_dir / "status.json"
     events_file  = run_dir / "events.jsonl"
     final_msg    = run_dir / "final_message.txt"
@@ -379,8 +290,6 @@ def build_report(
     total_input = codex_usage.get("input_tokens") or 0
     cache_hit_pct = round(100 * cached / total_input, 1) if total_input else None
 
-    # Read cost estimate from status.json if available (run_codex_plan.py calculates this)
-    # Only recalculate if rate overrides are provided or if status doesn't have the estimate
     if status.get("cost_estimate") and not (codex_input_rate or codex_cached_input_rate or codex_output_rate):
         codex_cost = status.get("cost_estimate")
     else:
@@ -393,11 +302,11 @@ def build_report(
             cached_input_rate=codex_cached_input_rate,
             output_rate=codex_output_rate,
         )
-    claude_cost = estimate_claude_cost(claude_model, claude_input_tokens, claude_output_tokens)
+    planner_cost = estimate_planner_cost(planner_model, planner_input_tokens, planner_output_tokens)
     total_estimated_cost: float | None = None
-    if claude_cost.get("total_usd") is not None and codex_cost.get("total_usd") is not None:
+    if planner_cost.get("total_usd") is not None and codex_cost.get("total_usd") is not None:
         total_estimated_cost = round(
-            float(claude_cost["total_usd"]) + float(codex_cost["total_usd"]), 6
+            float(planner_cost["total_usd"]) + float(codex_cost["total_usd"]), 6
         )
 
     return {
@@ -405,15 +314,15 @@ def build_report(
         "run_id": run_dir.name,
         "task_summary": task_summary,
 
-        "claude_planning": {
-            "model": claude_model,
+        "planner_results": {
+            "model": planner_model,
             "thinking_budget": thinking_budget,
-            "input_tokens":  claude_input_tokens,
-            "output_tokens": claude_output_tokens,
-            "cost": claude_cost,
+            "input_tokens":  planner_input_tokens,
+            "output_tokens": planner_output_tokens,
+            "cost": planner_cost,
         },
 
-        "codex_execution": {
+        "executor_results": {
             "state":           status.get("state"),
             "return_code":     codex_returncode,
             "model":           codex_model,
@@ -436,12 +345,12 @@ def build_report(
         },
 
         "combined": {
-            "claude_total_tokens": claude_input_tokens + claude_output_tokens,
-            "codex_total_tokens":  (total_input + (codex_usage.get("output_tokens") or 0)),
-            "claude_cost_usd": claude_cost.get("total_usd"),
-            "codex_cost_usd": codex_cost.get("total_usd"),
+            "planner_total_tokens": planner_input_tokens + planner_output_tokens,
+            "executor_total_tokens":  (total_input + (codex_usage.get("output_tokens") or 0)),
+            "planner_cost_usd": planner_cost.get("total_usd"),
+            "executor_cost_usd": codex_cost.get("total_usd"),
             "total_estimated_cost_usd": total_estimated_cost,
-            "note": "Codex cost is an estimate from token usage and configured rate table/overrides.",
+            "note": "Executor cost is an estimate from token usage and configured rate table/overrides.",
         },
     }
 
@@ -490,24 +399,24 @@ def _fmt_duration_seconds(value: Any) -> str:
 
 
 def build_formatted_results(report: dict[str, Any]) -> str:
-    codex_exec = report.get("codex_execution", {})
-    codex_tokens = codex_exec.get("token_usage", {})
-    codex_cost = codex_exec.get("cost_estimate", {})
+    executor_exec = report.get("executor_results", {})
+    executor_tokens = executor_exec.get("token_usage", {})
+    executor_cost = executor_exec.get("cost_estimate", {})
     combined = report.get("combined", {})
-    final_message = codex_exec.get("final_message") or "(No final message captured.)"
-    events = codex_exec.get("events", {})
+    final_message = executor_exec.get("final_message") or "(No final message captured.)"
+    events = executor_exec.get("events", {})
 
     lines = [
-        "# Codex Results",
+        "# Agent Results",
         "",
         f"- Run ID: `{report.get('run_id', 'n/a')}`",
         f"- Task: {report.get('task_summary') or 'n/a'}",
-        f"- State: `{codex_exec.get('state', 'n/a')}` (return code `{codex_exec.get('return_code', 'n/a')}`)",
-        f"- Duration: {_fmt_duration_seconds(codex_exec.get('duration_seconds'))}",
+        f"- State: `{executor_exec.get('state', 'n/a')}` (return code `{executor_exec.get('return_code', 'n/a')}`)",
+        f"- Duration: {_fmt_duration_seconds(executor_exec.get('duration_seconds'))}",
         "",
         "## Execution",
         "",
-        f"- Model: `{codex_exec.get('model', 'n/a')}`",
+        f"- Model: `{executor_exec.get('model', 'n/a')}`",
         (
             "- Events: "
             f"{_fmt_int(events.get('total'))} total, "
@@ -518,19 +427,19 @@ def build_formatted_results(report: dict[str, Any]) -> str:
         "",
         "## Tokens",
         "",
-        f"- Input: {_fmt_int(codex_tokens.get('input_tokens'))}",
-        f"- Cached Input: {_fmt_int(codex_tokens.get('cached_input_tokens'))}",
-        f"- Output: {_fmt_int(codex_tokens.get('output_tokens'))}",
-        f"- Cache Hit: {_fmt_pct(codex_tokens.get('cache_hit_pct'))}",
-        f"- Total (input + output): {_fmt_int(combined.get('codex_total_tokens'))}",
+        f"- Input: {_fmt_int(executor_tokens.get('input_tokens'))}",
+        f"- Cached Input: {_fmt_int(executor_tokens.get('cached_input_tokens'))}",
+        f"- Output: {_fmt_int(executor_tokens.get('output_tokens'))}",
+        f"- Cache Hit: {_fmt_pct(executor_tokens.get('cache_hit_pct'))}",
+        f"- Total (input + output): {_fmt_int(combined.get('executor_total_tokens'))}",
         "",
         "## Cost Estimate",
         "",
-        f"- Codex Input: {_fmt_money(codex_cost.get('input_usd'))}",
-        f"- Codex Cached Input: {_fmt_money(codex_cost.get('cached_input_usd'))}",
-        f"- Codex Output: {_fmt_money(codex_cost.get('output_usd'))}",
-        f"- Codex Total: {_fmt_money(codex_cost.get('total_usd'))}",
-        f"- Claude Planning Total: {_fmt_money(combined.get('claude_cost_usd'))}",
+        f"- Execution Input: {_fmt_money(executor_cost.get('input_usd'))}",
+        f"- Execution Cached Input: {_fmt_money(executor_cost.get('cached_input_usd'))}",
+        f"- Execution Output: {_fmt_money(executor_cost.get('output_usd'))}",
+        f"- Execution Total: {_fmt_money(executor_cost.get('total_usd'))}",
+        f"- Agent Planning Total: {_fmt_money(combined.get('planner_cost_usd'))}",
         f"- Combined Estimated Total: {_fmt_money(combined.get('total_estimated_cost_usd'))}",
         f"- Estimation Basis: {combined.get('note') or 'n/a'}",
         "",
@@ -541,49 +450,3 @@ def build_formatted_results(report: dict[str, Any]) -> str:
         "```",
     ]
     return "\n".join(lines) + "\n"
-
-
-def main() -> int:
-    args, extra_args = parse_args()
-    generated_at = utc_now()
-
-    returncode, run_dir_str = run_codex_plan(args.plan_file, args.thinking_budget, extra_args)
-
-    if run_dir_str is None:
-        print(
-            "[claude_run_plan] ERROR: Could not parse run directory from run_codex_plan.py output.",
-            file=sys.stderr,
-        )
-        return returncode or 1
-
-    run_dir = Path(run_dir_str)
-    if not run_dir.exists():
-        print(f"[claude_run_plan] ERROR: Run directory not found: {run_dir}", file=sys.stderr)
-        return returncode or 1
-
-    report = build_report(
-        run_dir=run_dir,
-        claude_model=args.claude_model,
-        claude_input_tokens=args.claude_input_tokens,
-        claude_output_tokens=args.claude_output_tokens,
-        thinking_budget=args.thinking_budget,
-        codex_model_hint=args.codex_model,
-        codex_input_rate=args.codex_input_rate,
-        codex_cached_input_rate=args.codex_cached_input_rate,
-        codex_output_rate=args.codex_output_rate,
-        task_summary=args.task_summary,
-        codex_returncode=returncode,
-        generated_at=generated_at,
-    )
-
-    report_file = run_dir / "claude_report.json"
-    report_file.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    formatted_results_file = run_dir / "codex_results.md"
-    formatted_results_file.write_text(build_formatted_results(report), encoding="utf-8")
-    print(f"[claude_run_plan] Report written: {report_file}", flush=True)
-    print(f"[claude_run_plan] Formatted results written: {formatted_results_file}", flush=True)
-    return returncode
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

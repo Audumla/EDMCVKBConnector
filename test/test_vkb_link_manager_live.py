@@ -58,7 +58,8 @@ def test_live_download_start_connect_update_and_stop(monkeypatch):
         vkb_link_auto_manage=True,
         vkb_link_restart_on_failure=True,
     )
-    manager = VKBLinkManager(cfg, plugin_dir)
+    # Use from_config to ensure the internal VKBClient is initialized
+    manager = VKBLinkManager.from_config(cfg, plugin_dir)
 
     started_by_test = False
     client = VKBClient(
@@ -77,7 +78,7 @@ def test_live_download_start_connect_update_and_stop(monkeypatch):
         return False
 
     try:
-        result = manager.ensure_running(host=host, port=port, reason="pytest_live")
+        result = manager.ensure_running(reason="pytest_live")
         if not result.success:
             pytest.xfail(f"Unable to provision VKB-Link in this environment: {result.message}")
         started_by_test = True
@@ -95,7 +96,7 @@ def test_live_download_start_connect_update_and_stop(monkeypatch):
             pytest.xfail(f"Mid-cycle stop failed: {stop_result.message}")
         client.disconnect()
 
-        restart_result = manager.ensure_running(host=host, port=current_port, reason="pytest_live_midcycle_restart")
+        restart_result = manager.ensure_running(reason="pytest_live_midcycle_restart")
         if not restart_result.success:
             pytest.xfail(f"Mid-cycle restart failed: {restart_result.message}")
 
@@ -110,20 +111,22 @@ def test_live_download_start_connect_update_and_stop(monkeypatch):
         ui_port = current_port + 1
         monkeypatch.setattr(EventHandler, "_load_catalog", lambda self: None)
         monkeypatch.setattr(EventHandler, "_load_rules", lambda self: None)
-        handler = EventHandler(cfg, vkb_client=client, plugin_dir=str(plugin_dir))
-        handler.vkb_link_manager = manager
+        handler = EventHandler(cfg, endpoints=[manager], plugin_dir=str(plugin_dir))
         handler._apply_endpoint_change(host, ui_port)
         current_port = ui_port
 
-        if client.port != current_port:
-            pytest.xfail("UI endpoint-change flow did not update VKB client port.")
-        if not client.connected and not _wait_for_connect():
-            pytest.xfail("UI endpoint-change restart completed but client could not connect to new port.")
-        ui_send_ok = client.send_event("VKBShiftBitmap", {"shift": 3, "subshift": 0})
+        if manager.client.port != current_port:
+            pytest.xfail(f"UI endpoint-change flow did not update VKB client port (expected {current_port}, got {manager.client.port}).")
+        
+        # Connect the manager's client if not already connected
+        if not manager.client.connected:
+            manager.client.connect()
+            
+        ui_send_ok = manager.client.send_event("VKBShiftBitmap", {"shift": 3, "subshift": 0})
         if not ui_send_ok:
             pytest.xfail("Connected after UI endpoint change but failed to send VKBShiftBitmap payload.")
 
-        update_result = manager.update_to_latest(host=host, port=current_port)
+        update_result = manager.update_to_latest()
         if not update_result.success:
             pytest.xfail(f"Live update flow failed: {update_result.message}")
     finally:

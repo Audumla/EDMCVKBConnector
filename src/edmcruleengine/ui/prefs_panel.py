@@ -549,8 +549,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
             return
         update_inflight[0] = True
         update_btn.configure(state=tk.DISABLED, text="Checking...")
-        host = host_var.get().strip() or "127.0.0.1"
-        port_value = _parse_port_value()
 
         def _worker() -> None:
             manager = _vkb_manager
@@ -559,7 +557,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                 error_message = "VKB-Link manager unavailable"
             else:
                 try:
-                    result = manager.update_to_latest(host=host, port=port_value)
+                    result = manager.update_to_latest()
                     error_message = None
                 except Exception as exc:
                     result = None
@@ -778,13 +776,6 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         # Always probe process state in the background so status reflects process
         # availability even when auto-manage is disabled.
         if _vkb_manager and not safety_restart_inflight[0]:
-            host = host_var.get().strip() or "127.0.0.1"
-            port_str = port_var.get().strip()
-            try:
-                port = int(port_str)
-            except (ValueError, TypeError):
-                port = 50995
-
             def _probe_process_state():
                 try:
                     manager = _vkb_manager
@@ -837,11 +828,14 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
                     try:
                         logger.info("VKB-Link polling: process not running; starting it")
-                        result = manager.ensure_running(host=host, port=port, reason="polling_safety")
+                        result = manager.ensure_running(reason="polling_safety")
                         if result.success:
                             logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
                             if result.action_taken in ("started", "restarted"):
-                                manager.wait_for_listener_ready(host, port)
+                                _cfg = getattr(manager, "config", None)
+                                _host = _cfg.get("vkb_host", "127.0.0.1") if _cfg else "127.0.0.1"
+                                _port = _cfg.get("vkb_port", 50995) if _cfg else 50995
+                                manager.wait_for_listener_ready(_host, _port)
                                 manager.connect()
                         else:
                             logger.warning(f"VKB-Link polling: auto-start failed ({result.message})")

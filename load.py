@@ -15,6 +15,8 @@ import os
 import json
 import threading
 import socket
+import tkinter as tk
+from tkinter import messagebox
 from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING, Union
 
@@ -124,9 +126,9 @@ class PluginState:
         self.event_handler: Optional["EventHandler"] = None
         self.vkb_manager: Optional["VKBLinkManager"] = None
         self.event_recorder: Optional["EventRecorder"] = None
+        self.plugin_update_manager: Optional[Any] = None
         self.plugin_dir: Optional[str] = None
         self.prefs_vars: dict[str, Any] = {}
-        self.vkb_link_started_by_plugin: bool = False
         self.stop_event = threading.Event()
 
 
@@ -159,14 +161,59 @@ def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]
 
 def _restore_test_shift_state_from_config() -> None:
     """Restore persisted test Shift/Subshift bitmaps into the VKB manager."""
-    if not _state.config or not _state.vkb_manager:
+    if not _state.vkb_manager:
+        return
+    _state.vkb_manager.restore_shift_state_from_config()
+
+
+def _check_for_updates() -> None:
+    """Check for plugin updates in a background thread and prompt if found."""
+    if not _state.plugin_update_manager:
         return
 
-    manager = _state.vkb_manager
-    shift_bitmap = _safe_int(_state.config.get("test_shift_bitmap", 0), 0) & SHIFT_BITMAP_MASK
-    subshift_bitmap = _safe_int(_state.config.get("test_subshift_bitmap", 0), 0) & SUBSHIFT_BITMAP_MASK
-    manager._shift_bitmap = shift_bitmap
-    manager._subshift_bitmap = subshift_bitmap
+    def _do_check():
+        try:
+            latest = _state.plugin_update_manager.check_for_update(VERSION)
+            if latest:
+                logger.info(f"Plugin update available: v{latest.version}")
+                
+                # We need to run UI code on the main thread.
+                # EDMC doesn't provide easy access to the main root, 
+                # but we can try to find it or create a temporary one for the message box.
+                
+                def _show_popup():
+                    title = "VKB Connector Update"
+                    msg = (
+                        f"A new version of VKB Connector is available: v{latest.version}\n\n"
+                        "Would you like to update now?\n"
+                        "(EDMC will need to restart to apply the update)"
+                    )
+                    if messagebox.askyesno(title, msg):
+                        logger.info(f"User requested update to v{latest.version}")
+                        result = _state.plugin_update_manager.perform_update()
+                        if result.success:
+                            if messagebox.askyesno("Update Complete", "Update installed successfully. Restart EDMC now?"):
+                                _state.plugin_update_manager.restart_edmc()
+                        else:
+                            messagebox.showerror("Update Failed", f"Failed to install update: {result.message}")
+                
+                # In EDMC, we can usually find the root window
+                import tkinter as tk
+                try:
+                    root = tk._default_root
+                    if root:
+                        root.after(0, _show_popup)
+                    else:
+                        # Fallback if no default root found
+                        _show_popup()
+                except Exception:
+                    _show_popup()
+                    
+        except Exception as e:
+            logger.error(f"Error checking for updates: {e}")
+
+    update_thread = threading.Thread(target=_do_check, daemon=True)
+    update_thread.start()
 
 
 def _ensure_rules_file_exists(plugin_dir: str) -> None:
@@ -279,14 +326,13 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
         from edmcruleengine import Config, EventHandler
-        from edmcruleengine.vkb.vkb_client import VKBClient
         from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
         from edmcruleengine.events.event_recorder import EventRecorder
+        from edmcruleengine.utils.plugin_update_manager import PluginUpdateManager
         import threading
 
         logger.info(f"VKB Connector v{VERSION} starting")
         _state.stop_event.clear()
-        _state.vkb_link_started_by_plugin = False
 
         # Initialize configuration (uses EDMC's stored preferences)
         _state.config = Config()
@@ -309,23 +355,20 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
             f"Target: {vkb_host}:{vkb_port}"
         )
 
-        # Initialize VKB components
-        vkb_client = VKBClient(
-            host=vkb_host,
-            port=vkb_port,
-            header_byte=_state.config.get("vkb_header_byte", 0xA5),
-            command_byte=_state.config.get("vkb_command_byte", 13),
-            socket_timeout=_state.config.get("socket_timeout", 5),
-        )
-        _state.vkb_manager = VKBLinkManager(_state.config, Path(_state.plugin_dir), client=vkb_client)
+        # Initialize VKB components — client construction is encapsulated in from_config
+        _state.vkb_manager = VKBLinkManager.from_config(_state.config, Path(_state.plugin_dir))
 
         # Initialize event handler and register endpoints
         _state.event_handler = EventHandler(_state.config, endpoints=[], plugin_dir=_state.plugin_dir)
         _state.event_handler.add_endpoint(_state.vkb_manager)
-        
+
         _state.event_recorder = EventRecorder()
         _restore_test_shift_state_from_config()
-        
+
+        # Initialize update manager and check for updates in background
+        _state.plugin_update_manager = PluginUpdateManager(Path(_state.plugin_dir), logger=logger)
+        _check_for_updates()
+
         # On startup, refresh unregistered events against catalog
         # This removes any events that may have been added to the catalog since last run
         try:
@@ -335,92 +378,14 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         except Exception as e:
             logger.warning(f"Error refreshing unregistered events on startup: {e}")
 
-        startup_ready = threading.Event()
-
-        def _start_vkb_link_if_needed() -> None:
-            """Ensure VKB-Link app is running on startup (if not already running)."""
-            try:
-                if _state.stop_event.is_set():
-                    return
-                if not _state.vkb_manager or not _state.config:
-                    logger.warning("Startup: VKB-Link check skipped (manager/config unavailable)")
-                    return
-                
-                manager = _state.vkb_manager
-                status = manager.get_status(check_running=True)
-                auto_manage = _state.config.get("vkb_link_auto_manage", True) if _state.config else True
-                logger.info(
-                    "Startup: VKB-Link status: "
-                    f"running={status.running} exe_path={status.exe_path or 'none'} "
-                    f"install_dir={status.install_dir or 'none'} "
-                    f"version={status.version or 'unknown'} managed={status.managed} "
-                    f"auto_manage={auto_manage}"
-                )
-                if status.running:
-                    logger.info("Startup: VKB-Link already running; no start required")
-                    return
-                if not auto_manage:
-                    logger.info("Startup: auto-manage disabled; VKB-Link start skipped")
-                    return
-
-                if _state.stop_event.is_set():
-                    return
-
-                logger.info("Startup: VKB-Link not running; starting now")
-                result = manager.ensure_running(host=vkb_host, port=vkb_port, reason="startup")
-                logger.info(f"Startup: VKB-Link ensure_running result: {result.message}")
-                if result.success and result.action_taken in ("started", "restarted"):
-                    _state.vkb_link_started_by_plugin = True
-                if result.status is not None:
-                    logger.info(
-                        "Startup: VKB-Link post-start status: "
-                        f"running={result.status.running} "
-                        f"exe_path={result.status.exe_path or 'none'} "
-                        f"version={result.status.version or 'unknown'} "
-                        f"managed={result.status.managed}"
-                    )
-                else:
-                    logger.info("Startup: VKB-Link post-start status unavailable")
-            except Exception as e:
-                logger.error(f"Startup: VKB-Link start check failed: {e}", exc_info=True)
-            finally:
-                startup_ready.set()
-
-        # Start VKB-Link check in background thread to avoid blocking UI
-        vkb_link_thread = threading.Thread(target=_start_vkb_link_if_needed, daemon=True)
-        vkb_link_thread.start()
-
-        # Start connection attempt in background thread to avoid blocking UI
-        def _connect_in_background() -> None:
-            """Try to connect to VKB in background without blocking the UI."""
-            try:
-                # Wait for process check to complete, or plugin to stop
-                while not startup_ready.is_set():
-                    if _state.stop_event.wait(timeout=0.1):
-                        return
-                
-                if _state.stop_event.is_set():
-                    return
-
-                if _state.vkb_manager:
-                    _state.vkb_manager.set_connection_status_override("Connecting to VKB-Link...")
-                
-                if _state.vkb_manager and _state.vkb_manager.connect():
-                    logger.info("Successfully connected to VKB hardware on startup")
-                else:
-                    logger.warning(
-                        f"Initial connection to VKB hardware failed at {vkb_host}:{vkb_port}. "
-                        "The plugin will reconnect when VKB-Link process recovery is triggered."
-                    )
-            except Exception as e:
-                logger.error(f"Error during background connection attempt: {e}", exc_info=True)
-            finally:
-                if _state.vkb_manager:
-                    _state.vkb_manager.set_connection_status_override(None)
-
-        # Start the connection attempt in a daemon thread so it doesn't block
-        connect_thread = threading.Thread(target=_connect_in_background, daemon=True)
-        connect_thread.start()
+        # Delegate the full startup sequence (ensure-running + connect) to the manager.
+        # Runs in a daemon thread so it never blocks the EDMC UI.
+        startup_thread = threading.Thread(
+            target=_state.vkb_manager.startup,
+            kwargs={"stop_event": _state.stop_event},
+            daemon=True,
+        )
+        startup_thread.start()
 
         # Return the internal name for the plugin (shown in EDMC UI)
         return "VKB Connector"
@@ -442,46 +407,10 @@ def plugin_stop() -> None:
         if _state.event_recorder and _state.event_recorder.is_recording:
             _state.event_recorder.stop()
         
-        # Disconnect VKB components first
+        # Delegate VKB shutdown (clear state + disconnect + conditionally stop process)
         if _state.vkb_manager:
-            try:
-                # Clear shift state on shutdown (moved to manager)
-                if hasattr(_state.vkb_manager, "on_session_event"):
-                    _state.vkb_manager.on_session_event("Shutdown")
-            except Exception as e:
-                logger.warning(f"Shutdown: failed to send VKB-Link clear state: {e}")
-            
-            _state.vkb_manager.disconnect()
-            
-            manager = _state.vkb_manager
-            try:
-                status_before_stop = manager.get_status(check_running=True)
-                logger.info(
-                    "Shutdown: VKB-Link pre-stop status: "
-                    f"running={status_before_stop.running} "
-                    f"exe_path={status_before_stop.exe_path or 'none'} "
-                    f"version={status_before_stop.version or 'unknown'} "
-                    f"managed={status_before_stop.managed} "
-                    f"started_by_plugin={_state.vkb_link_started_by_plugin}"
-                )
-            except Exception:
-                logger.info("Shutdown: VKB-Link pre-stop status unavailable")
-                
-            if _state.vkb_link_started_by_plugin:
-                logger.info("Shutdown: stopping VKB-Link (started-by-plugin policy)")
-                result = manager.stop_running(reason="plugin_shutdown")
-                logger.info(f"Shutdown: VKB-Link stop result: {result.message}")
-                if result.status is not None:
-                    logger.info(
-                        "Shutdown: VKB-Link post-stop status: "
-                        f"running={result.status.running} "
-                        f"exe_path={result.status.exe_path or 'none'} "
-                        f"version={result.status.version or 'unknown'} "
-                        f"managed={result.status.managed}"
-                    )
-                else:
-                    logger.info("Shutdown: VKB-Link post-stop status unavailable")
-        
+            _state.vkb_manager.shutdown()
+
         # Finally disconnect the event handler
         if _state.event_handler:
             _state.event_handler.disconnect()
@@ -552,8 +481,7 @@ def _apply_test_shift_from_ui() -> None:
     if shift_bitmap is None or subshift_bitmap is None:
         return
 
-    manager._shift_bitmap = shift_bitmap
-    manager._subshift_bitmap = subshift_bitmap
+    manager.set_shift_state(shift_bitmap, subshift_bitmap)
     manager._send_shift_state_if_changed(force=True)
 
 
@@ -575,14 +503,11 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
     try:
         logger.info("Preferences changed, reconnecting VKB connector")
         _persist_prefs_from_ui()
-        
-        # Refresh VKB endpoint before reconnecting to use updated host/port
-        _state.event_handler._refresh_vkb_endpoint()
-        
+
         # Reload rules and reconnect with new settings
         _state.event_handler.reload_rules()
         _state.event_handler.disconnect()
-        
+
         # Only attempt to connect if the plugin is still enabled
         if _state.event_handler.enabled:
             _state.event_handler.connect()

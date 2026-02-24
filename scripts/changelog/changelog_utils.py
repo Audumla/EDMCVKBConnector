@@ -38,7 +38,7 @@ VERSION_RE = re.compile(r'^\s*version\s*=\s*"(?P<version>\d+\.\d+\.\d+)"\s*$', r
 RELEASE_TITLE_RE = re.compile(r"release\s+(?P<version>\d+\.\d+\.\d+)", re.IGNORECASE)
 
 # Default fallback order if not specified in config
-DEFAULT_FALLBACK_ORDER = ["claude-cli", "codex", "gemini", "copilot", "local-llm"]
+DEFAULT_FALLBACK_ORDER = ["claude-cli", "codex", "opencode", "gemini", "copilot", "local-llm"]
 
 # Display order for approved summary tags
 TAG_ORDER = [
@@ -375,6 +375,12 @@ def _resolve_gemini_command() -> list[str]:
         return [resolved]
     return ["gemini"]
 
+def _resolve_opencode_command() -> list[str]:
+    resolved = shutil.which("opencode") or shutil.which("opencode.exe") or shutil.which("opencode.cmd")
+    if resolved:
+        return [resolved]
+    return ["opencode"]
+
 def _resolve_copilot_command() -> list[str]:
     candidates = ["copilot", "copilot.exe"]
     for candidate in candidates:
@@ -407,10 +413,12 @@ def call_claude_cli(prompt: str, config: dict) -> str | None:
         args = [*cmd]
         if model:
             args.extend(["--model", model])
-        args.extend(["-p", prompt])
+        # Use -p "-" to read prompt from stdin to avoid Windows cmd length limits
+        args.extend(["-p", "-"])
 
         result = subprocess.run(
             args,
+            input=prompt,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -441,6 +449,7 @@ def call_codex_cli(prompt: str, config: dict) -> str | None:
                 "--sandbox", "read-only",
                 "--ask-for-approval", "never",
                 "exec",
+                "--skip-git-repo-check",
                 "--cd", str(PROJECT_ROOT),
                 "--output-last-message", str(output_file),
             ]
@@ -459,19 +468,6 @@ def call_codex_cli(prompt: str, config: dict) -> str | None:
             )
             
             if result.returncode != 0:
-                 # Try fallback to 'run --plan' if exec fails (older codex versions)
-                plan_file = Path(tmpdir) / "plan.md"
-                plan_file.write_text(prompt, encoding="utf-8")
-                result = subprocess.run(
-                    [*cmd, "run", "--plan", str(plan_file), "--output-dir", tmpdir],
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    timeout=_get_timeout(config, "codex"),
-                )
-
-            if result.returncode != 0:
                 print(f"DEBUG: Codex CLI error: {result.stderr.strip()}", file=sys.stderr)
                 return None
 
@@ -488,8 +484,10 @@ def call_gemini_cli(prompt: str, config: dict) -> str | None:
         provider = config.get("gemini", {})
         model = str(provider.get("model", "")).strip()
         
-        # Use stdin for prompt to handle large multi-line inputs reliably
-        args = [*cmd, "-y"]
+        # Use stdin for prompt to handle large multi-line inputs reliably.
+        # Use -p "-" to force headless mode reading from stdin.
+        # Use --output-format json for clean programmatic parsing.
+        args = [*cmd, "-y", "-p", "-", "--output-format", "json"]
         if model:
             args.extend(["-m", model])
 
@@ -505,9 +503,45 @@ def call_gemini_cli(prompt: str, config: dict) -> str | None:
         if result.returncode != 0:
             print(f"DEBUG: Gemini CLI error: {result.stderr.strip()}", file=sys.stderr)
             return None
-        return result.stdout.strip() or None
+            
+        try:
+            data = json.loads(result.stdout)
+            return str(data.get("response", "")).strip() or None
+        except json.JSONDecodeError:
+            # Fallback to raw output if JSON parsing fails for some reason
+            return result.stdout.strip() or None
     except Exception as e:
         print(f"DEBUG: Failed call_gemini_cli: {e}", file=sys.stderr)
+        return None
+
+def call_opencode_cli(prompt: str, config: dict) -> str | None:
+    try:
+        cmd = _resolve_opencode_command()
+        provider = config.get("opencode", {})
+        model = str(provider.get("model", "")).strip()
+        
+        # OpenCode CLI interface: use 'run -' to read from stdin
+        args = [*cmd]
+        if model:
+            args.extend(["--model", model])
+        args.extend(["run", "-"])
+
+        result = subprocess.run(
+            args,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=_get_timeout(config, "opencode"),
+        )
+        if result.returncode != 0:
+            print(f"DEBUG: OpenCode CLI error: {result.stderr.strip()}", file=sys.stderr)
+            return None
+        output = result.stdout.strip()
+        return output if output else None
+    except Exception as e:
+        print(f"DEBUG: Failed call_opencode_cli: {e}", file=sys.stderr)
         return None
 
 def call_copilot_cli(prompt: str, config: dict) -> str | None:
@@ -737,6 +771,8 @@ def run_llm_with_fallback(prompt: str, config: dict, preferred_backend: str | No
             result = call_codex_cli(prompt, config)
         elif backend == "gemini":
             result = call_gemini_cli(prompt, config)
+        elif backend == "opencode":
+            result = call_opencode_cli(prompt, config)
         elif backend == "copilot":
             result = call_copilot_cli(prompt, config)
         elif backend == "local-llm":

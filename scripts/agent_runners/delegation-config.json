@@ -1,10 +1,65 @@
 {
-  "_comment": "Defaults for Claude orchestration + Codex delegation (used by scripts/claude_run_plan.py)",
-  "codex_delegation": {
-    "claude_model": "claude-sonnet-4-6",
-    "thinking_budget": "none",
-    "claude_input_tokens": 5000,
-    "claude_output_tokens": 2000,
-    "codex_model": "gpt-5"
-  }
+  "_comment": "Configuration for agent planning and execution delegation.",
+  "planners": {
+    "claude": {
+      "model": "claude-3-5-sonnet",
+      "thinking_budget": "none",
+      "input_tokens": 5000,
+      "output_tokens": 2000
+    },
+    "gemini": {
+      "model": "gemini-2.0-flash",
+      "thinking_budget": "none",
+      "input_tokens": 8000,
+      "output_tokens": 4000
+    },
+    "codex": {
+      "model": "gpt-5",
+      "thinking_budget": "none",
+      "input_tokens": 5000,
+      "output_tokens": 2000
+    },
+    "opencode": {
+      "model": "opencode-latest",
+      "thinking_budget": "none",
+      "input_tokens": 5000,
+      "output_tokens": 2000
+    },
+    "copilot": {
+      "model": "copilot-gpt-4",
+      "thinking_budget": "none",
+      "input_tokens": 5000,
+      "output_tokens": 2000
+    },
+    "local-llm": {
+      "model": "local-model",
+      "thinking_budget": "none",
+      "input_tokens": 0,
+      "output_tokens": 0
+    }
+  },
+  "executors": {
+    "codex": {
+      "bin": "codex",
+      "model": "gpt-5.3-codex",
+      "runner": "run_codex_plan.py"
+    },
+    "opencode": {
+      "bin": "opencode",
+      "model": "opencode-latest",
+      "runner": "run_codex_plan.py"
+    },
+    "gemini": {
+      "bin": "gemini",
+      "model": "gemini-2.0-pro",
+      "runner": "run_codex_plan.py"
+    },
+    "local-llm": {
+      "bin": "local-llm",
+      "model": "local-model",
+      "runner": "run_codex_plan.py"
+    }
+  },
+  "default_planner": "claude",
+  "default_executor": "codex"
 }

@@ -45,7 +45,12 @@ CODEX_PRICING: dict[str, dict[str, float]] = {
     "gpt-5-codex": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
     "gpt-5-mini": {"input": 0.25, "cached_input": 0.025, "output": 2.00},
     "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.40},
+    "gpt-4o": {"input": 5.00, "cached_input": 2.50, "output": 15.00},
+    "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
     "codex": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+    "gemini-2.0-flash": {"input": 0.10, "cached_input": 0.05, "output": 0.40},
+    "gemini-2.0-pro": {"input": 1.25, "cached_input": 0.625, "output": 5.00},
+    "opencode-latest": {"input": 1.00, "cached_input": 0.50, "output": 5.00},
 }
 
 
@@ -207,6 +212,18 @@ def parse_args() -> argparse.Namespace:
         "--no-isolated-branch",
         action="store_true",
         help="Run directly in --workspace instead of creating a per-run worktree branch.",
+    )
+    parser.add_argument(
+        "--cleanup-worktree",
+        action="store_true",
+        default=True,
+        help="Remove the isolated Git worktree and branch after a successful run (default: True).",
+    )
+    parser.add_argument(
+        "--no-cleanup",
+        action="store_false",
+        dest="cleanup_worktree",
+        help="Disable automatic cleanup of worktrees.",
     )
     parser.add_argument(
         "--branch-prefix",
@@ -376,14 +393,32 @@ def create_isolated_worktree(
     branch_name = unique_branch_name(repo_root, f"{branch_prefix}/{run_id}")
     worktree_root.mkdir(parents=True, exist_ok=True)
     worktree_dir = unique_worktree_dir(worktree_root, branch_name)
-    result = git_run(
-        repo_root,
-        ["worktree", "add", "-b", branch_name, str(worktree_dir), "HEAD"],
-    )
+    
+    # 1. Create the worktree at HEAD
+    result = git_run(repo_root, ["worktree", "add", "-b", branch_name, str(worktree_dir), "HEAD"])
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise RuntimeError(f"Failed to create isolated worktree branch: {detail or branch_name}")
+
+    # 2. Sync uncommitted changes from the current working directory
+    # We create a temporary stash and apply it to the new worktree
+    status = git_run(repo_root, ["status", "--porcelain"])
+    if status.stdout.strip():
+        print(f"Syncing uncommitted changes to worktree...")
+        git_run(repo_root, ["stash", "push", "--include-untracked", "-m", f"temp-sync-{run_id}"])
+        git_run(repo_root, ["-C", str(worktree_dir), "stash", "apply", "stash@{0}"])
+        git_run(repo_root, ["stash", "pop"])
+
     return branch_name, worktree_dir, repo_root
+
+
+def cleanup_worktree(repo_root: Path, worktree_dir: Path, branch_name: str) -> None:
+    """Remove the git worktree but KEEP the associated branch."""
+    # 1. Remove worktree
+    git_run(repo_root, ["worktree", "remove", "--force", str(worktree_dir)])
+    # 2. Try to remove the directory if it still exists (it shouldn't after worktree remove)
+    if worktree_dir.exists():
+        shutil.rmtree(worktree_dir, ignore_errors=True)
 
 
 def build_command(
@@ -450,13 +485,16 @@ def main() -> int:
         return 1
 
     resolved_codex_bin, resolve_method = resolve_codex_bin(args.codex_bin)
-    if shutil.which(resolved_codex_bin) is None and not Path(resolved_codex_bin).exists():
+    binary_found = shutil.which(resolved_codex_bin) is not None or Path(resolved_codex_bin).exists()
+    
+    if not binary_found and not args.dry_run:
         print(
             "ERROR: Could not locate Codex CLI. "
             "Install it or pass --codex-bin with an absolute path.",
             file=sys.stderr,
         )
         return 1
+    
     args.codex_bin = resolved_codex_bin
 
     run_label = args.run_name or plan_file.stem
@@ -565,7 +603,15 @@ def main() -> int:
         print(f"Dry run created: {run_dir}")
         return 0
 
-    plan_text = plan_file.read_text(encoding="utf-8")
+    # Robust encoding detection for plan file
+    try:
+        plan_text = plan_file.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            plan_text = plan_file.read_text(encoding="utf-16")
+        except UnicodeDecodeError:
+            plan_text = plan_file.read_text(encoding="latin-1")
+            
     status["state"] = "running"
     status["started_at"] = utc_now()
     status["heartbeat_at"] = utc_now()
@@ -682,6 +728,18 @@ def main() -> int:
         status["ended_at"] = utc_now()
         status["heartbeat_at"] = utc_now()
         write_json(status_file, status)
+
+        # Commit changes in worktree if successful
+        if status["state"] == "succeeded" and isolated_worktree_path:
+            print(f"Committing agent changes in worktree...")
+            git_run(isolated_worktree_path, ["add", "."])
+            git_run(isolated_worktree_path, ["commit", "-m", f"Agent execution results for {run_id}"])
+
+        # Cleanup isolated worktree if successful
+        if status["state"] == "succeeded" and args.cleanup_worktree and isolated_worktree_path and git_repo_root and isolated_branch_name:
+            print(f"Cleaning up isolated worktree: {isolated_worktree_path}")
+            cleanup_worktree(git_repo_root, isolated_worktree_path, isolated_branch_name)
+
     except KeyboardInterrupt:
         if proc is not None and proc.poll() is None:
             proc.terminate()

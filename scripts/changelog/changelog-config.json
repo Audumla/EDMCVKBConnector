@@ -7,7 +7,7 @@
     "common": {
       "_comment": "Shared settings for all backends. timeout_seconds is global fallback.",
       "timeout_seconds": 300,
-      "fallback_order": ["local-llm","gemini", "claude-cli", "codex", "copilot"],
+      "fallback_order": ["local-llm", "opencode", "gemini", "claude-cli", "codex", "copilot"],
       "_comment_timeout_seconds": "Single command timeout in seconds for backend CLI calls (default recommendation: 300-600).",
       "changelog_prompt_requirements": [
         "1-2 sentence overview of release focus",
@@ -27,8 +27,8 @@
     },
     "codex": {
       "_comment": "Codex backend settings (backend=codex).",
-      "_comment_model": "Any model accepted by your codex CLI (examples: gpt-5, gpt-5-mini, gpt-5-codex).",
-      "model": "gpt-5.3"
+      "_comment_model": "Any model accepted by your codex CLI (examples: gpt-4o, o3, o1).",
+      "model": "gpt-4o"
     },
     "claude_cli": {
       "_comment": "Claude CLI backend settings (backend=claude-cli).",
@@ -47,6 +47,11 @@
       "_comment_model": "Optional model name (e.g., gemini-2.0-flash, gemini-1.5-pro). Defaults to Gemini's selected model.",
       "model": ""
     },
+    "opencode": {
+      "_comment": "OpenCode CLI backend settings (backend=opencode).",
+      "_comment_model": "Optional model name passed to opencode CLI.",
+      "model": ""
+    },
     "local_llm": {
       "_comment": "Local LLM backend settings (backend=local-llm).",
       "_comment_url": "The local server URL (usually http://localhost:1234/v1).",
@@ -57,6 +62,6 @@
     "intelligent": {
       "_comment": "Deterministic local summarizer (no LLM/API usage)."
     },
-    "_comment_backend": "Backend options: codex | claude-cli | copilot | gemini | local-llm | intelligent"
+    "_comment_backend": "Backend options: codex | claude-cli | copilot | gemini | opencode | local-llm | intelligent"
   }
 }

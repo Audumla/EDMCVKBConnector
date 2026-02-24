@@ -206,7 +206,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["local-llm","claude-cli", "codex", "copilot", "gemini", "intelligent"],
+        choices=["local-llm", "claude-cli", "codex", "copilot", "gemini", "opencode", "intelligent"],
         help="Override the configured LLM backend",
     )
 

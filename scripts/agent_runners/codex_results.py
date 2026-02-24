@@ -14,7 +14,7 @@ import json
 import sys
 from pathlib import Path
 
-from claude_run_plan import build_formatted_results, build_report, utc_now
+from agent_runner_utils import build_formatted_results, build_report, utc_now
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -74,30 +74,30 @@ def resolve_run_dir(args: argparse.Namespace) -> Path | None:
 
 
 def load_or_build_report(run_dir: Path) -> dict:
-    report_file = run_dir / "claude_report.json"
-    task_summary = "Codex run summary"
-    claude_model = "claude-sonnet-4-6"
+    report_file = run_dir / "agent_report.json"
+    task_summary = "Agent run summary"
+    planner_model = "claude-3-5-sonnet"
     thinking_budget = "none"
-    claude_input_tokens = 0
-    claude_output_tokens = 0
+    planner_input_tokens = 0
+    planner_output_tokens = 0
     codex_model_hint = "gpt-5"
     if report_file.exists():
         try:
             previous = json.loads(report_file.read_text(encoding="utf-8"))
             task_summary = previous.get("task_summary") or task_summary
-            claude_section = previous.get("claude_planning", {})
-            if isinstance(claude_section, dict):
-                claude_model = claude_section.get("model") or claude_model
-                thinking_budget = claude_section.get("thinking_budget") or thinking_budget
-                claude_input_tokens = int(claude_section.get("input_tokens") or 0)
-                claude_output_tokens = int(claude_section.get("output_tokens") or 0)
-            codex_section = previous.get("codex_execution", {})
-            if isinstance(codex_section, dict):
-                codex_model_hint = codex_section.get("model") or codex_model_hint
+            planner_section = previous.get("planner_results", {})
+            if isinstance(planner_section, dict):
+                planner_model = planner_section.get("model") or planner_model
+                thinking_budget = planner_section.get("thinking_budget") or thinking_budget
+                planner_input_tokens = int(planner_section.get("input_tokens") or 0)
+                planner_output_tokens = int(planner_section.get("output_tokens") or 0)
+            executor_section = previous.get("executor_results", {})
+            if isinstance(executor_section, dict):
+                codex_model_hint = executor_section.get("model") or codex_model_hint
         except Exception:
             pass
 
-    # Fallback for legacy runs that may not have claude_report.json.
+    # Fallback for runs that may not have agent_report.json yet.
     status_file = run_dir / "status.json"
     status_return_code = 0
     if status_file.exists():
@@ -109,9 +109,9 @@ def load_or_build_report(run_dir: Path) -> dict:
 
     return build_report(
         run_dir=run_dir,
-        claude_model=claude_model,
-        claude_input_tokens=claude_input_tokens,
-        claude_output_tokens=claude_output_tokens,
+        planner_model=planner_model,
+        planner_input_tokens=planner_input_tokens,
+        planner_output_tokens=planner_output_tokens,
         thinking_budget=thinking_budget,
         codex_model_hint=codex_model_hint,
         codex_input_rate=None,
@@ -133,7 +133,7 @@ def main() -> int:
         print(f"ERROR: Run directory not found: {run_dir}", file=sys.stderr)
         return 1
 
-    formatted_file = run_dir / "codex_results.md"
+    formatted_file = run_dir / "agent_results.md"
     if formatted_file.exists() and not args.refresh:
         print(formatted_file.read_text(encoding="utf-8"), end="")
         return 0

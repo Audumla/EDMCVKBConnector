@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from edmcruleengine import Config
 from edmcruleengine.config.config import DEFAULTS
 from edmcruleengine.vkb.vkb_client import VKBClient
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
 from edmcruleengine.events.event_handler import EventHandler
 from test.mock_vkb_server import MockVKBServer
 
@@ -207,26 +208,17 @@ def test_reconnect_requires_explicit_connect_after_server_restart():
 def test_connection_with_event_handler():
     """Test EventHandler connection and event sending through real VKB server."""
     print("Test: EventHandler with real VKB server connection")
-    
+
     with running_mock_server(port=50999) as server:
         config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=50999)
-        handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
-        handler.vkb_link_manager = Mock(
-            get_status=Mock(return_value=Mock(running=True, exe_path=r"H:\dummy\VKB-Link.exe")),
-            wait_for_post_start_settle=Mock(),
-            should_probe_listener_before_connect=Mock(return_value=False),
-            start_process_health_monitor=Mock(),
-            stop_process_health_monitor=Mock(),
-        )
-        
-        # Update config to use test port
-        handler.vkb_client.port = 50999
-        
+        manager = VKBLinkManager.from_config(config, PLUGIN_ROOT)
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(PLUGIN_ROOT))
+
         # Connect
         success = handler.connect()
         assert success, "EventHandler failed to connect"
         assert handler.vkb_client.connected, "Not connected through EventHandler"
-        
+
         # Send journal event
         handler.handle_event(
             "FSDJump",
@@ -239,14 +231,14 @@ def test_connection_with_event_handler():
             cmdr="TestCmdr",
             is_beta=False,
         )
-        
+
         time.sleep(0.2)
-        
+
         # Server should have received something
         assert server.bytes_received > 0, "Server did not receive data from EventHandler"
-        
+
         handler.disconnect()
-        
+
     print(f"  OK: EventHandler integration test passed ({server.bytes_received} bytes received)")
 
 

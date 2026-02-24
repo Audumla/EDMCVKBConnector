@@ -121,7 +121,7 @@ def test_run_llm_with_fallback_all_fail(mock_local, mock_copilot, mock_gemini, m
 # ---------------------------------------------------------------------------
 
 @pytest.mark.live_agent
-@pytest.mark.parametrize("backend", ["claude-cli", "codex", "gemini", "copilot", "local-llm"])
+@pytest.mark.parametrize("backend", ["claude-cli", "codex", "gemini", "opencode", "copilot", "local-llm"])
 def test_live_agent_output_format(backend):
     """
     Call the REAL agent and ensure the output is normalized and follows the template.

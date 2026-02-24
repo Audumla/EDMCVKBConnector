@@ -1,0 +1,5 @@
+description = "Clean up all stale agent worktrees and temporary files"
+prompt = """
+SYSTEM DIRECTIVE: Perform a full cleanup of agent artifacts.
+!{python scripts/agent_runners/cleanup_artifacts.py}
+"""

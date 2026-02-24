@@ -7,6 +7,49 @@ All Codex execution artifacts must stay under `agent_artifacts/codex/`.
 
 Do not write Codex-generated reports or temp files anywhere else in this repository.
 
+## Verbose Agent Protocol
+
+Whenever the user includes a label in the format `#agent:<budget>:<planner>` or `/agent:<budget>:<planner>` in their prompt, the active agent MUST follow this strict delegation workflow.
+
+### Protocol Labels
+| Label | Planner | Budget | Executor |
+| :--- | :--- | :--- | :--- |
+| `#agent:deep:gemini` | Gemini | High | Codex |
+| `#agent:deep:claude` | Claude | High | Codex |
+| `#agent:fast:gemini` | Gemini | Low | Codex |
+| `#agent:fast:claude` | Claude | Low | Codex |
+
+### Required Action Sequence
+1. **Plan:** Analyze the request and write a detailed Markdown plan to your workspace-specific temp folder:
+   - **Copilot:** `agent_artifacts/copilot/temp/plan.md`
+   - **Gemini/Claude:** `agent_artifacts/gemini/temp/plan.md`
+2. **Execute (Background):** Launch the delegation script in the **background** to minimize session overhead.
+   `python scripts/agent_runners/run_agent_plan.py --planner <planner> --thinking-budget <budget> --plan-file <path_to_plan.md> --cleanup-worktree --task-summary "<task>"`
+
+### Maintenance
+To purge old temporary files and stale worktrees:
+`python scripts/agent_runners/cleanup_artifacts.py`
+3. **Finish:** Immediately report the Run ID and the background command to the user. Do not wait for completion.
+
+### Mandatory Output Format
+The agent MUST output a handoff receipt similar to:
+> **DELEGATION ACTIVE**
+> - **Planner:** <Agent Name>
+> - **Executor:** Codex (Isolated Worktree)
+> - **Budget:** <High/Low>
+> - **Monitor:** `python scripts/agent_runners/watch_run.py`
+
+### Monitoring
+Users can monitor background progress without agent overhead using:
+`python scripts/agent_runners/watch_run.py`
+
+
+The project uses a structured Agent Runner system for delegating complex engineering tasks.
+
+- **Tutorial:** [docs/AGENT_RUNNER_TUTORIAL.md](docs/AGENT_RUNNER_TUTORIAL.md)
+- **Configuration:** `scripts/agent_runners/delegation-config.json`
+- **Output:** `agent_artifacts/codex/reports/plan_runs/`
+
 ## Changelog Policy
 
 ### At the START of every session

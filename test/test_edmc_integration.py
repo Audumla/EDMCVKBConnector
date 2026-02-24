@@ -15,23 +15,33 @@ from unittest.mock import Mock, call
 from edmcruleengine.events.event_handler import EventHandler
 from edmcruleengine import Config
 from edmcruleengine.rules.signals_catalog import SignalsCatalog
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
+
+
+def _make_handler(config, plugin_dir=None):
+    """Create EventHandler with a VKBLinkManager endpoint for tests."""
+    manager = VKBLinkManager.from_config(config, Path("."))
+    kwargs = {"endpoints": [manager]}
+    if plugin_dir is not None:
+        kwargs["plugin_dir"] = plugin_dir
+    handler = EventHandler(config, **kwargs)
+    handler.vkb_client.send_event = Mock(return_value=True)
+    handler.vkb_client.connect = Mock(return_value=True)
+    return handler
 
 
 class TestEDMCIntegration:
     """Test complete EDMC event processing flow."""
-    
+
     @pytest.fixture
     def config(self):
         """Create test configuration."""
         return Config()
-    
+
     @pytest.fixture
     def handler(self, config):
         """Create event handler with mocked VKB client."""
-        handler = EventHandler(config, plugin_dir=str(Path(__file__).parent.parent))
-        handler.vkb_client.send_event = Mock(return_value=True)
-        handler.vkb_client.connect = Mock(return_value=True)
-        return handler
+        return _make_handler(config, plugin_dir=str(Path(__file__).parent.parent))
     
     def test_event_tracking_lifecycle(self, handler):
         """Test that events are tracked and pruned correctly."""
@@ -625,19 +635,16 @@ class TestEDMCIntegration:
 
 class TestSignalResolutionWithRealData:
     """Test that signals resolve correctly with real Elite Dangerous data."""
-    
-    @pytest.fixture
-    def handler(self, config):
-        """Create handler."""
-        handler = EventHandler(config, plugin_dir=str(Path(__file__).parent.parent))
-        handler.vkb_client.send_event = Mock(return_value=True)
-        handler.vkb_client.connect = Mock(return_value=True)
-        return handler
-    
+
     @pytest.fixture
     def config(self):
         """Create config."""
         return Config()
+
+    @pytest.fixture
+    def handler(self, config):
+        """Create handler."""
+        return _make_handler(config, plugin_dir=str(Path(__file__).parent.parent))
     
     def test_all_event_types_resolve(self, handler):
         """Test that a variety of event types all resolve without errors."""

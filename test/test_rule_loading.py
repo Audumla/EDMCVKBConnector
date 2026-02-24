@@ -39,10 +39,10 @@ def _copy_catalog_to_plugin_dir(plugin_dir: Path) -> None:
 def test_loads_default_rules_json_from_plugin_dir():
     with tempfile.TemporaryDirectory() as td:
         plugin_dir = Path(td)
-        
+
         # Copy catalog
         _copy_catalog_to_plugin_dir(plugin_dir)
-        
+
         # Write rules
         _write_json(
             plugin_dir / "rules.json",
@@ -60,8 +60,7 @@ def test_loads_default_rules_json_from_plugin_dir():
             ],
         )
         cfg = StubConfig()
-        handler = EventHandler(cfg, plugin_dir=str(plugin_dir))
-        handler.vkb_client.send_event = Mock(return_value=True)
+        handler = EventHandler(cfg, endpoints=[], plugin_dir=str(plugin_dir))
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
@@ -110,8 +109,7 @@ def test_loads_override_rules_json_path():
             ],
         )
         cfg = StubConfig(rules_path=str(override_path))
-        handler = EventHandler(cfg, plugin_dir=str(plugin_dir))
-        handler.vkb_client.send_event = Mock(return_value=True)
+        handler = EventHandler(cfg, endpoints=[], plugin_dir=str(plugin_dir))
 
         assert handler.rule_engine is not None
         assert len(handler.rule_engine.rules) == 1
@@ -124,16 +122,15 @@ def test_invalid_rules_file_disables_rule_engine():
     with tempfile.TemporaryDirectory() as td:
         plugin_dir = Path(td)
         bad_path = plugin_dir / "rules.json"
-        
+
         # Copy catalog
         _copy_catalog_to_plugin_dir(plugin_dir)
-        
+
         with bad_path.open("w", encoding="utf-8") as f:
             f.write("{not-json")
 
         cfg = StubConfig()
-        handler = EventHandler(cfg, plugin_dir=str(plugin_dir))
-        handler.vkb_client.send_event = Mock(return_value=True)
+        handler = EventHandler(cfg, endpoints=[], plugin_dir=str(plugin_dir))
         assert handler.rule_engine is None
         print("[OK] Invalid rules file handling passed")
 
@@ -146,4 +143,3 @@ if __name__ == "__main__":
     print("\n" + "=" * 70)
     print("[SUCCESS] Rule loading tests passed")
     print("=" * 70)
-

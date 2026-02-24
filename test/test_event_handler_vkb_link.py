@@ -102,3 +102,23 @@ def test_get_connection_status_override_delegates_to_manager(tmp_path, monkeypat
 
     assert handler.get_connection_status_override() == "Status"
     manager.get_connection_status_override.assert_called_once()
+
+
+def test_reload_rules_calls_load_rules(tmp_path, monkeypatch):
+    """reload_rules() must re-load rules from disk without discarding engine on error."""
+    handler, cfg = _make_handler(tmp_path, monkeypatch)
+    load_rules_mock = Mock()
+    monkeypatch.setattr(handler, "_load_rules", load_rules_mock)
+
+    handler.reload_rules()
+
+    load_rules_mock.assert_called_once_with(preserve_on_error=True)
+
+
+def test_event_handler_init_without_endpoints_creates_empty_list(tmp_path, monkeypatch):
+    """Passing endpoints=[] must work; auto-fallback VKBClient block is removed."""
+    cfg = type("Cfg", (), {"get": lambda self, k, d=None: d, "set": lambda self, k, v: None})()
+    monkeypatch.setattr(EventHandler, "_load_catalog", lambda self: None)
+    monkeypatch.setattr(EventHandler, "_load_rules", lambda self: None)
+    handler = EventHandler(cfg, endpoints=[], plugin_dir=str(tmp_path))
+    assert handler.endpoints == []

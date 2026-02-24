@@ -471,10 +471,28 @@ def _mega_list_folder(folder_node: str, folder_key: bytes) -> list[VKBLinkReleas
 class VKBLinkManager(Endpoint):
     """Manage VKB-Link process, configuration INI, and update/download flow."""
 
+    @classmethod
+    def from_config(cls, config, plugin_dir: Path) -> "VKBLinkManager":
+        """
+        Create a fully-initialized VKBLinkManager from a config object.
+
+        Constructs the VKBClient internally so callers never need to know the
+        exact config keys or protocol defaults.
+        """
+        from .vkb_client import VKBClient
+        client = VKBClient(
+            host=config.get("vkb_host", "127.0.0.1"),
+            port=config.get("vkb_port", 50995),
+            header_byte=config.get("vkb_header_byte", 0xA5),
+            command_byte=config.get("vkb_command_byte", 13),
+            socket_timeout=config.get("socket_timeout", 5),
+        )
+        return cls(config, plugin_dir, client=client)
+
     def __init__(
-        self, 
-        config, 
-        plugin_dir: Path, 
+        self,
+        config,
+        plugin_dir: Path,
         downloader: Optional[Downloader] = None,
         client: Optional["VKBClient"] = None
     ) -> None:
@@ -493,13 +511,16 @@ class VKBLinkManager(Endpoint):
         self._last_running_detected_monotonic = 0.0
         self._windows_tasklist_fallback_warned = False
         self._managed_mode_unavailable_warned = False
-        
+
         # Connection and recovery state
         self._recovery_lock = threading.Lock()
         self._recovery_inflight = False
         self._connection_status_lock = threading.Lock()
         self._connection_status_override: Optional[str] = None
         self._endpoint_change_active = False  # Suppresses recovery during intentional restart
+
+        # Lifecycle ownership: True when this manager started the VKB-Link process
+        self._started_by_manager = False
 
         # VKB Shift State
         self._shift_bitmap = 0
@@ -697,6 +718,125 @@ class VKBLinkManager(Endpoint):
         with self._connection_status_lock:
             return self._connection_status_override
 
+    # ------------------------------------------------------------------
+    # Plugin lifecycle helpers — called by load.py
+    # ------------------------------------------------------------------
+
+    def startup(self, stop_event: Optional[threading.Event] = None) -> bool:
+        """
+        Perform the full plugin startup sequence.
+
+        Ensures VKB-Link is running (if auto-manage is on), then establishes
+        the TCP socket connection.  Designed to run in a background daemon
+        thread so it never blocks the EDMC UI.
+
+        Args:
+            stop_event: Optional event that signals the caller is shutting
+                        down.  Checked before each blocking step.
+
+        Returns:
+            True if the socket connection was established, False otherwise.
+        """
+        def _cancelled() -> bool:
+            return stop_event is not None and stop_event.is_set()
+
+        try:
+            if _cancelled():
+                return False
+            if not self.config:
+                logger.warning("VKB-Link startup: config unavailable; skipping")
+                return False
+
+            auto_manage = self.config.get("vkb_link_auto_manage", True)
+            status = self.get_status(check_running=True)
+            logger.info(
+                "VKB-Link startup: "
+                f"running={status.running} exe_path={status.exe_path or 'none'} "
+                f"version={status.version or 'unknown'} managed={status.managed} "
+                f"auto_manage={auto_manage}"
+            )
+
+            if status.running:
+                logger.info("VKB-Link startup: already running; no start required")
+            elif not auto_manage:
+                logger.info("VKB-Link startup: auto-manage disabled; skipping start")
+            else:
+                if _cancelled():
+                    return False
+                logger.info("VKB-Link startup: not running; starting now")
+                result = self.ensure_running(reason="startup")
+                logger.info(f"VKB-Link startup: ensure_running result: {result.message}")
+                if result.success and result.action_taken in ("started", "restarted"):
+                    self._started_by_manager = True
+
+            if _cancelled():
+                return False
+
+            self.set_connection_status_override("Connecting to VKB-Link...")
+            connected = self.connect()
+            if connected:
+                logger.info("VKB-Link startup: connected successfully")
+            else:
+                logger.warning("VKB-Link startup: initial connection failed; recovery will retry")
+            return connected
+        except Exception as e:
+            logger.error(f"VKB-Link startup error: {e}", exc_info=True)
+            return False
+        finally:
+            self.set_connection_status_override(None)
+
+    def shutdown(self) -> None:
+        """
+        Perform the full plugin shutdown sequence.
+
+        Clears shift state, closes the socket, and (if this manager started
+        the VKB-Link process) stops it.
+        """
+        try:
+            self.on_session_event("Shutdown")
+        except Exception as e:
+            logger.warning(f"VKB-Link shutdown: failed to clear shift state: {e}")
+
+        try:
+            self.disconnect()
+        except Exception as e:
+            logger.warning(f"VKB-Link shutdown: disconnect error: {e}")
+
+        if self._started_by_manager:
+            logger.info("VKB-Link shutdown: stopping process (started-by-manager policy)")
+            try:
+                result = self.stop_running(reason="plugin_shutdown")
+                logger.info(f"VKB-Link shutdown: stop result: {result.message}")
+            except Exception as e:
+                logger.warning(f"VKB-Link shutdown: stop error: {e}")
+            self._started_by_manager = False
+
+    def set_shift_state(self, shift_bitmap: int, subshift_bitmap: int) -> None:
+        """
+        Set the internal shift/subshift bitmaps.
+
+        Does not send to hardware — call _send_shift_state_if_changed(force=True)
+        afterwards if an immediate send is required.
+        """
+        self._shift_bitmap = shift_bitmap
+        self._subshift_bitmap = subshift_bitmap
+
+    def restore_shift_state_from_config(self) -> None:
+        """
+        Restore persisted test shift/subshift bitmaps from config into the
+        manager's internal state.
+        """
+        if not self.config:
+            return
+        SHIFT_MASK = 0x03
+        SUBSHIFT_MASK = 0x7F
+        try:
+            shift = int(self.config.get("test_shift_bitmap", 0) or 0) & SHIFT_MASK
+            subshift = int(self.config.get("test_subshift_bitmap", 0) or 0) & SUBSHIFT_MASK
+        except (TypeError, ValueError):
+            return
+        self.set_shift_state(shift, subshift)
+
     def connect(self, on_connected_callback: Optional[Callable[[], None]] = None) -> bool:
         """
         Connect to VKB hardware, ensuring VKB-Link process is running.
@@ -731,8 +871,6 @@ class VKBLinkManager(Endpoint):
                     )
                     return False
                 ensure_result = self.ensure_running(
-                    host=host,
-                    port=port,
                     reason="connect",
                 )
                 logger.info(f"VKB-Link ensure-before-connect result: {ensure_result.message}")
@@ -783,7 +921,7 @@ class VKBLinkManager(Endpoint):
                     self.client.clear_terminal_error()
                 
                 self.set_connection_status_override("Recovering VKB-Link...")
-                result = self.ensure_running(host=host, port=port, reason=reason)
+                result = self.ensure_running(reason=reason)
                 logger.info(f"VKB-Link recovery result: {result.message}")
                 
                 if result.success:
@@ -1074,11 +1212,13 @@ class VKBLinkManager(Endpoint):
             managed_unavailable_reason=managed_reason,
         )
 
-    def ensure_running(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
+    def ensure_running(self, *, reason: str = "") -> VKBLinkActionResult:
         with self._lifecycle_lock:
-            return self._ensure_running_locked(host=host, port=port, reason=reason)
+            return self._ensure_running_locked(reason=reason)
 
-    def _ensure_running_locked(self, *, host: str, port: int, reason: str = "") -> VKBLinkActionResult:
+    def _ensure_running_locked(self, *, reason: str = "") -> VKBLinkActionResult:
+        host = self.config.get("vkb_host", "127.0.0.1") if self.config else "127.0.0.1"
+        port = self.config.get("vkb_port", 50995) if self.config else 50995
         reason_label = reason or "unspecified"
         logger.info(f"VKB-Link ensure_running: reason={reason_label} host={host} port={port}")
         status_before = self.get_status(check_running=True)
@@ -1212,11 +1352,13 @@ class VKBLinkManager(Endpoint):
             action_taken="started",
         )
 
-    def update_to_latest(self, *, host: str, port: int) -> VKBLinkActionResult:
+    def update_to_latest(self) -> VKBLinkActionResult:
         with self._lifecycle_lock:
-            return self._update_to_latest_locked(host=host, port=port)
+            return self._update_to_latest_locked()
 
-    def _update_to_latest_locked(self, *, host: str, port: int) -> VKBLinkActionResult:
+    def _update_to_latest_locked(self) -> VKBLinkActionResult:
+        host = self.config.get("vkb_host", "127.0.0.1") if self.config else "127.0.0.1"
+        port = self.config.get("vkb_port", 50995) if self.config else 50995
         logger.info(f"VKB-Link: checking for updates (host={host} port={port})")
         managed_available, managed_reason = self._managed_mode_availability()
         if not managed_available:

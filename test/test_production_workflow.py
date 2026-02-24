@@ -20,6 +20,7 @@ from edmcruleengine.rules.signals_catalog import SignalsCatalog
 from edmcruleengine.rules.signal_derivation import SignalDerivation
 from edmcruleengine.rules.rules_engine import RuleEngine
 from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
 from edmcruleengine import Config
 
 
@@ -40,10 +41,12 @@ class TestProductionWorkflow:
     @pytest.fixture
     def handler(self, config):
         """Create event handler with mocked VKB client."""
-        handler = EventHandler(config, plugin_dir=str(Path(__file__).parent.parent))
+        manager = VKBLinkManager.from_config(config, Path("."))
+        handler = EventHandler(config, endpoints=[manager], plugin_dir=str(Path(__file__).parent.parent))
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=True)
-        return handler
+        yield handler
+        handler.disconnect()
     
     def test_complete_gaming_session(self, handler, catalog):
         """Test a complete gaming session sequence."""

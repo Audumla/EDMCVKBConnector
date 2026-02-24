@@ -5,17 +5,10 @@
         "Path": "${workspaceFolder}\\.venv\\Scripts;${env:Path}"
     },
     "python.testing.pytestPath": "${workspaceFolder}/.venv/Scripts/pytest.exe",
-    "python.testing.pytestArgs": [
-        "."
-    ],
+    "python.testing.pytestArgs": [],
     "python.testing.pytestDiscoverInstance": true,
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "[python]": {
-        "testing.pytestArgs": [
-            "test"
-        ]
-    },
     "git.autofetch": true,
     "git.pruneOnFetch": true,
     "chatgpt.openOnStartup": true

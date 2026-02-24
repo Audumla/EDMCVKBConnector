@@ -74,6 +74,7 @@ def test_rule_editor_handles_catalog_comments():
             root,
             test_rule,
             catalog,
+            plugin_dir,
             on_save=lambda r: None,
             on_cancel=lambda: None
         )

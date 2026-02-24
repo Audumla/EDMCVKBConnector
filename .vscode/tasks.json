@@ -16,6 +16,76 @@
             "detail": "Run the full test suite"
         },
         {
+            "label": "[fav] Agent: Open Interactive Dashboard",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/agent_runners/agent_dashboard.py"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Interactive TUI to monitor logs and kill active agent runs"
+        },
+        {
+            "label": "[fav] Agent: Watch Latest Run",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/agent_runners/watch_run.py"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Monitor the status and live logs of the most recent agent execution"
+        },
+        {
+            "label": "[fav] Agent: List Successful Runs",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/agent_runners/list_agent_runs.py"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "View a list of recent successful agent runs to find specific Run IDs"
+        },
+        {
+            "label": "[fav] Agent: Review Latest Changes (Diff)",
+            "type": "shell",
+            "command": "git diff HEAD..$(.venv/Scripts/python.exe scripts/agent_runners/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "See exactly what the agent changed. Leave Run ID blank for 'latest'."
+        },
+        {
+            "label": "[fav] Agent: Merge Latest Changes",
+            "type": "shell",
+            "command": "git merge $(.venv/Scripts/python.exe scripts/agent_runners/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Pull changes into your current branch. Leave Run ID blank for 'latest'."
+        },
+        {
             "label": "[fav] Release: Prepare preview",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
@@ -195,6 +265,25 @@
                 "minor",
                 "major"
             ]
+        },
+        {
+            "id": "agentChoice",
+            "type": "pickString",
+            "description": "Select the agent whose work you want to review/merge",
+            "default": "gemini",
+            "options": [
+                "gemini",
+                "claude",
+                "codex",
+                "opencode",
+                "copilot"
+            ]
+        },
+        {
+            "id": "runIdOverride",
+            "type": "promptString",
+            "description": "Optional: Enter a specific Run ID (leave blank for latest)",
+            "default": ""
         }
     ]
 }
