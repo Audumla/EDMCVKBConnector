@@ -43,7 +43,7 @@ def test_executor_enabled_respects_config(tmp_path):
     with patch("agent_system.core.run_agent_plan._executors_config", mock_config):
         # Disabled executor should exit
         with pytest.raises(SystemExit) as excinfo:
-            run_executor("codex", plan_file, "low", [])
+            run_executor("codex", plan_file, "low", "Summary", [])
         assert excinfo.value.code == 1
 
 def test_workflow_branch_thinking_budget(tmp_path):
@@ -63,7 +63,7 @@ def test_workflow_branch_thinking_budget(tmp_path):
             mock_run.return_value = mock_proc
             
             # Test with 'high' budget
-            run_executor("gemini", plan_file, "high", [])
+            run_executor("gemini", plan_file, "high", "Summary", [])
             
             # Check subprocess call
             args = mock_run.call_args[0][0]
@@ -72,7 +72,7 @@ def test_workflow_branch_thinking_budget(tmp_path):
             assert args[idx+1] == "high"
             
             # Test with 'none' budget (should NOT pass --thinking-budget)
-            run_executor("gemini", plan_file, "none", [])
+            run_executor("gemini", plan_file, "none", "Summary", [])
             args = mock_run.call_args[0][0]
             assert "--thinking-budget" not in args
 
@@ -92,7 +92,7 @@ def test_extra_args_forwarding(tmp_path):
             mock_proc.stdout = "Run directory: /mock/path\n"
             mock_run.return_value = mock_proc
             
-            run_executor("codex", plan_file, "low", ["--dry-run", "--custom-flag", "value"])
+            run_executor("codex", plan_file, "low", "Summary", ["--dry-run", "--custom-flag", "value"])
             
             args = mock_run.call_args[0][0]
             assert "--dry-run" in args
@@ -115,7 +115,7 @@ def test_executor_failure_handling(tmp_path):
             mock_proc.stdout = "ERROR: Failed to run\nRun directory: /mock/fail/path\n"
             mock_run.return_value = mock_proc
             
-            rc, run_dir = run_executor("opencode", plan_file, "low", [])
+            rc, run_dir = run_executor("opencode", plan_file, "low", "Summary", [])
             
             assert rc == 1
             assert run_dir == "/mock/fail/path"

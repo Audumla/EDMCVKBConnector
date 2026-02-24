@@ -2,9 +2,14 @@
 import json
 import os
 import shutil
+import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# Add core to path for shared utils
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
+from agent_runner_utils import load_delegation_config
 
 def create_mock_run(agent, run_id, summary, state="succeeded", model="test-model", cost=0.0, tokens=1000):
     run_dir = PROJECT_ROOT / "agent_artifacts" / agent / "reports" / "plan_runs" / run_id
@@ -21,7 +26,8 @@ def create_mock_run(agent, run_id, summary, state="succeeded", model="test-model
     
     meta = {
         "task_summary": summary,
-        "isolation": {"branch_name": f"agent/dummy-{run_id}"}
+        "isolation": {"branch_name": f"agent/dummy-{run_id}"},
+        "cost_estimate": {"model": model, "total_usd": cost}
     }
     (run_dir / "metadata.json").write_text(json.dumps(meta, indent=2), encoding="utf-8-sig")
     
@@ -34,9 +40,21 @@ def create_mock_run(agent, run_id, summary, state="succeeded", model="test-model
     (run_dir / "stdout.log").write_text("\n".join(logs), encoding="utf-8-sig")
 
 def main():
+    config = load_delegation_config()
+    test_mode = config.get("system_settings", {}).get("test_mode", False)
+    
+    if not test_mode:
+        print("❌ Simulation aborted: 'test_mode' is not enabled in delegation-config.json.")
+        sys.exit(1)
+
+    print("🛠️ Test mode active. Generating dummy data...")
     for agent in ["gemini", "opencode", "claude"]:
         path = PROJECT_ROOT / "agent_artifacts" / agent / "reports" / "plan_runs"
-        if path.exists(): shutil.rmtree(path)
+        if path.exists():
+            try:
+                shutil.rmtree(path)
+            except Exception as e:
+                print(f"⚠️ Warning: Could not fully clean {agent} reports: {e}")
             
     create_mock_run("gemini", "RUN_001", "Add retry logic to downloader", "succeeded", "gemini-2.0-pro", 0.0012, 1500)
     create_mock_run("claude", "RUN_002", "Refactor core orchestration logic", "running", "claude-3-5-sonnet", 0.0045, 3200)

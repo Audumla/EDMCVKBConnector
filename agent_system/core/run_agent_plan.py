@@ -4,33 +4,22 @@ run_agent_plan.py - Generic agent orchestration wrapper for planning and delegat
 This script allows an agent (planner) to write a plan file and delegate its execution
 to another agent/service (executor). It records planning metadata, execution results,
 and combined cost estimates.
-
-Usage:
-    python agent_system/core/run_agent_plan.py \
-        --planner gemini \
-        --executor codex \
-        --plan-file agent_artifacts/gemini/temp/my_plan.md \
-        --task-summary "Description of the task" \
-        --thinking-budget medium \
-        [--planner-model gemini-2.0-flash] \
-        [--planner-input-tokens 5000] [--planner-output-tokens 2000] \
-        [--run-name label] [--dry-run] ...
-
-All remaining args after known flags are forwarded to the executor's runner script
-(e.g., run_codex_plan.py).
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
-from agent_runner_utils import build_formatted_results, build_report, utc_now, extract_summary_from_plan
+from agent_runner_utils import (
+    build_formatted_results, build_report, utc_now, 
+    extract_summary_from_plan, slugify, write_json_safe
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -46,8 +35,8 @@ if CONFIG_FILE.exists():
         _planners_config = _config_data.get("planners", {})
         _executors_config = _config_data.get("executors", {})
         _config_defaults = {
-            "planner": _config_data.get("default_planner", "claude"),
-            "executor": _config_data.get("default_executor", "codex"),
+            "planner": _config_data.get("default_planner", "gemini"),
+            "executor": _config_data.get("default_executor", "gemini"),
         }
     except json.JSONDecodeError:
         pass
@@ -59,10 +48,10 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
         add_help=True,
     )
     # Orchestration args
-    parser.add_argument("--planner", default=_config_defaults.get("planner", "claude"),
+    parser.add_argument("--planner", default=_config_defaults.get("planner", "gemini"),
                         choices=["claude", "gemini", "codex", "opencode", "copilot", "local-llm"],
                         help="The agent that performed the planning.")
-    parser.add_argument("--executor", default=_config_defaults.get("executor", "codex"),
+    parser.add_argument("--executor", default=_config_defaults.get("executor", "gemini"),
                         choices=["codex", "opencode", "gemini", "local-llm"],
                         help="The agent/service that will execute the plan.")
     
@@ -85,19 +74,38 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
     return parser.parse_known_args()
 
 
-def get_planner_defaults(planner: str) -> dict[str, Any]:
-    cfg = _planners_config.get(planner, {})
-    if not cfg.get("enabled", True):
-        print(f"ERROR: Planner '{planner}' is currently disabled in configuration.", file=sys.stderr)
-        sys.exit(1)
-    return cfg
+def create_failure_report(executor: str, task_summary: str, error_msg: str, generated_at: str) -> Path:
+    """Create a minimal failure report directory for the dashboard."""
+    run_id = f"{time.strftime('%Y%m%dT%H%M%SZ')}_val-fail"
+    run_dir = PROJECT_ROOT / "agent_artifacts" / executor / "reports" / "plan_runs" / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    
+    status = {
+        "run_id": run_id,
+        "state": "failed",
+        "started_at": generated_at,
+        "ended_at": utc_now(),
+        "error": error_msg
+    }
+    write_json_safe(run_dir / "status.json", status)
+    
+    meta = {
+        "task_summary": f"VALIDATION FAILED: {task_summary}",
+        "isolation": {"branch_name": "none"},
+        "cost_estimate": {"model": "n/a", "total_usd": 0.0}
+    }
+    write_json_safe(run_dir / "metadata.json", meta)
+    
+    with open(run_dir / "stderr.log", "w", encoding="utf-8") as f:
+        f.write(error_msg)
+        
+    return run_dir
 
 
 def run_executor(executor: str, plan_file: Path, thinking_budget: str, task_summary: str, extra_args: list[str]) -> tuple[int, str | None]:
     executor_cfg = _executors_config.get(executor, {})
     if not executor_cfg.get("enabled", True):
-        print(f"ERROR: Executor '{executor}' is currently disabled in configuration.", file=sys.stderr)
-        sys.exit(1)
+        return 1, None # Validation should have caught this, but safety first
 
     runner_script = executor_cfg.get("runner", "run_codex_plan.py")
     
@@ -114,29 +122,22 @@ def run_executor(executor: str, plan_file: Path, thinking_budget: str, task_summ
         "--task-summary", task_summary,
     ]
 
-    # Pass the specific model for the executor if defined in config
     if "model" in executor_cfg:
         cmd.extend(["--model", executor_cfg["model"]])
 
-    # Pass thinking budget if not 'none'
     if thinking_budget and thinking_budget != "none":
         cmd.extend(["--thinking-budget", thinking_budget])
 
-    # If the executor has a specific binary, pass it if the runner supports it
     if "bin" in executor_cfg:
-        # Check if --bin is already in extra_args to avoid duplication
         if not any(arg == "--bin" for arg in extra_args):
             cmd.extend(["--bin", executor_cfg["bin"]])
 
     cmd.extend(extra_args)
-    print(f"[run_agent_plan] Delegating to {executor} via {runner_script}", flush=True)
     print(f"[run_agent_plan] Launching: {' '.join(cmd)}", flush=True)
 
     proc = subprocess.run(cmd, capture_output=False, text=True,
                           stdout=subprocess.PIPE, stderr=None)
     stdout = proc.stdout or ""
-
-    # Print so the caller can see progress
     print(stdout, end="", flush=True)
 
     run_dir: str | None = None
@@ -152,36 +153,47 @@ def main() -> int:
     args, extra_args = parse_args()
     generated_at = utc_now()
 
+    # 1. Pre-flight Validation
+    error_msg = None
+    if not args.plan_file.exists():
+        error_msg = f"Plan file not found: {args.plan_file}"
+    else:
+        planner_cfg = _planners_config.get(args.planner, {})
+        if not planner_cfg.get("enabled", True):
+            error_msg = f"Planner '{args.planner}' is currently disabled in configuration."
+        
+        executor_cfg = _executors_config.get(args.executor, {})
+        if not executor_cfg.get("enabled", True):
+            error_msg = f"Executor '{args.executor}' is currently disabled in configuration."
+            
+    if error_msg:
+        print(f"ERROR: {error_msg}", file=sys.stderr)
+        create_failure_report(args.executor, args.task_summary or args.plan_file.stem, error_msg, generated_at)
+        return 1
+
     # Resolve task summary
-    task_summary = args.task_summary
-    if not task_summary:
-        task_summary = extract_summary_from_plan(args.plan_file)
-        print(f"[run_agent_plan] Extracted summary: {task_summary}")
+    task_summary = args.task_summary or extract_summary_from_plan(args.plan_file)
 
     # Resolve planner settings
-    planner_defaults = get_planner_defaults(args.planner)
+    planner_defaults = _planners_config.get(args.planner, {})
     model = args.planner_model or planner_defaults.get("model")
     in_tokens = args.planner_input_tokens if args.planner_input_tokens is not None else planner_defaults.get("input_tokens", 0)
     out_tokens = args.planner_output_tokens if args.planner_output_tokens is not None else planner_defaults.get("output_tokens", 0)
     
-    # Resolve budget: CLI --thinking-budget (if provided) > Planner config > default 'none'
-    budget = args.thinking_budget
-    if budget is None:
-        budget = planner_defaults.get("thinking_budget", "none")
-
-    # Resolve executor settings
+    budget = args.thinking_budget or planner_defaults.get("thinking_budget", "none")
     executor_defaults = _executors_config.get(args.executor, {})
     executor_model = executor_defaults.get("model", "gpt-5")
 
-    # Run the executor
+    # 2. Run the executor
     returncode, run_dir_str = run_executor(args.executor, args.plan_file, budget, task_summary, extra_args)
 
     if run_dir_str is None:
-        print("[run_agent_plan] ERROR: Could not parse run directory from executor output.", file=sys.stderr)
+        print("[run_agent_plan] ERROR: Executor failed to provide a run directory.", file=sys.stderr)
+        create_failure_report(args.executor, task_summary, "Executor failed to provide a run directory.", generated_at)
         return returncode or 1
 
+    # 3. Final Report
     run_dir = Path(run_dir_str)
-    
     report = build_report(
         run_dir=run_dir,
         planner_model=model,
@@ -194,15 +206,15 @@ def main() -> int:
         generated_at=generated_at,
     )
     
-    report_file = run_dir / "agent_report.json"
-    report_file.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (run_dir / "agent_report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (run_dir / "agent_results.md").write_text(build_formatted_results(report), encoding="utf-8")
     
-    formatted_results_file = run_dir / "agent_results.md"
-    formatted_results_file.write_text(build_formatted_results(report), encoding="utf-8")
-    
-    print(f"[run_agent_plan] Report written: {report_file}", flush=True)
+    print(f"[run_agent_plan] Report written: {run_dir / 'agent_report.json'}", flush=True)
     return returncode
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

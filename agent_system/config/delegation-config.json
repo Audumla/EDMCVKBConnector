@@ -6,37 +6,52 @@
   },
   "planners": {
     "claude": {
-      "enabled": false,
+      "enabled": true,
+      "test_enabled": false,
       "model": "claude-3-5-sonnet",
       "available_models": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-haiku"],
       "thinking_budget": "none"
     },
     "gemini": {
       "enabled": true,
+      "test_enabled": true,
       "model": "gemini-2.0-flash",
-      "available_models": ["gemini-2.0-flash-exp", "gemini-2.0-flash-thinking-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
+      "available_models": [
+        "gemini-2.0-pro-exp-02-05",
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash-thinking-exp-01-21",
+        "gemini-2.0-flash-lite-preview-02-05",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash",
+        "gemini-exp-1206",
+        "gemini-3-pro-preview"
+      ],
       "thinking_budget": "none"
     },
     "codex": {
-      "enabled": false,
+      "enabled": true,
+      "test_enabled": false,
       "model": "gpt-5",
       "available_models": ["o3", "gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex", "gpt-5-mini", "gpt-4o"],
       "thinking_budget": "none"
     },
     "opencode": {
       "enabled": true,
+      "test_enabled": true,
       "model": "opencode/big-pickle",
       "available_models": ["opencode/big-pickle", "opencode/gpt-5-nano", "opencode/minimax-m2.5-free", "opencode/trinity-large-preview-free"],
       "thinking_budget": "none"
     },
     "copilot": {
-      "enabled": false,
+      "enabled": true,
+      "test_enabled": false,
       "model": "copilot-gpt-4",
       "available_models": ["claude-sonnet-4.6", "claude-opus-4.6", "gpt-5.3-codex", "gpt-5-mini", "gemini-3-pro-preview"],
       "thinking_budget": "none"
     },
     "local-llm": {
       "enabled": true,
+      "test_enabled": true,
       "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
       "available_models": ["Qwen2.5-7B-Instruct-Q4_K_M.gguf"],
       "thinking_budget": "none"
@@ -44,14 +59,16 @@
   },
   "executors": {
     "codex": {
-      "enabled": false,
+      "enabled": true,
+      "test_enabled": false,
       "bin": "codex",
       "model": "gpt-5.3-codex",
       "available_models": ["o3", "gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex", "gpt-5-mini", "gpt-4o"],
       "runner": "runners/run_codex_plan.py"
     },
     "claude": {
-      "enabled": false,
+      "enabled": true,
+      "test_enabled": false,
       "bin": "claude",
       "model": "claude-3-5-sonnet",
       "available_models": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-haiku"],
@@ -59,6 +76,7 @@
     },
     "opencode": {
       "enabled": true,
+      "test_enabled": true,
       "bin": "opencode",
       "model": "opencode/big-pickle",
       "available_models": ["opencode/big-pickle", "opencode/gpt-5-nano", "opencode/minimax-m2.5-free", "opencode/trinity-large-preview-free"],
@@ -66,20 +84,32 @@
     },
     "gemini": {
       "enabled": true,
+      "test_enabled": true,
       "bin": "gemini",
       "model": "gemini-2.0-flash-exp",
-      "available_models": ["gemini-2.0-flash-exp", "gemini-2.0-flash-thinking-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
+      "available_models": [
+        "gemini-2.0-pro-exp-02-05",
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash-thinking-exp-01-21",
+        "gemini-2.0-flash-lite-preview-02-05",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash",
+        "gemini-exp-1206",
+        "gemini-3-pro-preview"
+      ],
       "runner": "runners/run_gemini_plan.py"
     },
     "local-llm": {
       "enabled": true,
+      "test_enabled": true,
       "bin": "local-llm",
       "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
       "available_models": ["Qwen2.5-7B-Instruct-Q4_K_M.gguf"],
       "runner": "runners/run_localllm_plan.py"
     },
     "copilot": {
-      "enabled": false,
+      "enabled": true,
+      "test_enabled": false,
       "bin": "gh copilot",
       "model": "gpt-4o",
       "available_models": ["claude-sonnet-4.6", "claude-opus-4.6", "gpt-5.3-codex", "gpt-5-mini", "gemini-3-pro-preview"],

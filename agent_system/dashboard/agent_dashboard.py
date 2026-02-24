@@ -12,7 +12,7 @@ from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Header, Footer, DataTable, RichLog, Input, Select, Button, Static, Label
+from textual.widgets import Header, Footer, DataTable, RichLog, Input, Select, Button, Static, Label, TextArea
 from textual.reactive import reactive
 
 # Add core to path for shared utils
@@ -34,7 +34,7 @@ class AgentDashboardApp(App):
 
     #dispatcher-panel {
         dock: top;
-        height: 10;
+        height: 12;
         background: #24283b;
         border: tall #7aa2f7;
         padding: 0 2;
@@ -57,11 +57,13 @@ class AgentDashboardApp(App):
 
     #prompt-input {
         width: 1fr;
+        height: 5;
         border: inner #414868;
+        background: #1a1b26;
     }
 
     Select {
-        width: 24;
+        width: 32;
         margin-left: 1;
     }
 
@@ -110,6 +112,11 @@ class AgentDashboardApp(App):
         color: #c0caf5;
     }
 
+    #stat-error {
+        color: #f7768e;
+        text-style: bold;
+    }
+
     #run-log {
         height: 1fr;
         border: tall #7aa2f7;
@@ -139,7 +146,7 @@ class AgentDashboardApp(App):
         with Container(id="dispatcher-panel"):
             yield Label("🚀 TASK DISPATCHER")
             with Vertical():
-                yield Input(placeholder="Describe the task...", id="prompt-input")
+                yield TextArea("Describe the task...", id="prompt-input")
                 with Horizontal():
                     yield Select([(a.upper(), a) for a in enabled_planners], value=enabled_planners[0] if enabled_planners else None, id="planner-select", prompt="Planner")
                     yield Select([(a.upper(), a) for a in enabled_executors], value=enabled_executors[0] if enabled_executors else None, id="executor-select", prompt="Executor")
@@ -163,6 +170,9 @@ class AgentDashboardApp(App):
                     with Horizontal(classes="stat-row"):
                         yield Label("Stats: ", classes="stat-label")
                         yield Label("-", id="stat-summary", classes="stat-value")
+                    with Horizontal(classes="stat-row", id="error-row"):
+                        yield Label("Error: ", classes="stat-label")
+                        yield Label("-", id="stat-error", classes="stat-value")
                 yield RichLog(id="run-log", highlight=True, markup=True)
         yield Footer()
 
@@ -207,7 +217,14 @@ class AgentDashboardApp(App):
         if self.runs != new_runs:
             self.runs = new_runs
             table.clear()
-            status_styles = {"running": "yellow", "succeeded": "green", "failed": "red", "cancelled": "red"}
+            status_styles = {
+                "running": "yellow", 
+                "succeeded": "green", 
+                "failed": "red", 
+                "cancelled": "red",
+                "merged": "cyan",
+                "crashed": "bold red"
+            }
             for run in self.runs:
                 state = run['state'].lower()
                 status = f"[{status_styles.get(state, 'white')}]{state.upper()}"
@@ -236,6 +253,8 @@ class AgentDashboardApp(App):
             self.query_one("#stat-model").update("-")
             self.query_one("#stat-branch").update("-")
             self.query_one("#stat-summary").update("-")
+            self.query_one("#stat-error").update("-")
+            self.query_one("#error-row").display = False
             run_log_widget.clear()
             self.selected_run = {}
             return
@@ -250,6 +269,14 @@ class AgentDashboardApp(App):
             self.query_one("#stat-model").update(self.selected_run['model'])
             self.query_one("#stat-branch").update(self.selected_run['branch'] or "n/a")
             self.query_one("#stat-summary").update(f"Cost: ${self.selected_run['cost']:.4f} | Tokens: {self.selected_run['tokens']}")
+
+            # Error handling
+            error_row = self.query_one("#error-row")
+            if self.selected_run.get("error"):
+                self.query_one("#stat-error").update(self.selected_run["error"])
+                error_row.display = True
+            else:
+                error_row.display = False
 
             # If we switched runs, clear the log and reset position
             if prev_run_id != curr_run_id:
@@ -277,8 +304,9 @@ class AgentDashboardApp(App):
             self.action_submit_task()
 
     def action_submit_task(self) -> None:
-        prompt = self.query_one("#prompt-input").value
-        if not prompt:
+        prompt_widget = self.query_one("#prompt-input")
+        prompt = prompt_widget.text
+        if not prompt or prompt == "Describe the task...":
             self.notify("Please enter a prompt", severity="error")
             return
 
@@ -290,7 +318,15 @@ class AgentDashboardApp(App):
         plan_dir = PROJECT_ROOT / "agent_artifacts" / planner / "temp"
         plan_dir.mkdir(parents=True, exist_ok=True)
         plan_file = plan_dir / f"dispatch_{int(time.time())}.md"
-        plan_file.write_text(f"# Task\n{prompt}\n", encoding="utf-8")
+        
+        # Add strict boundary enforcement directive
+        plan_content = f"""# BOUNDARY ENFORCEMENT & SAFETY MANDATE
+- **Workspace**: You MUST only work within the current directory.
+- **Isolation**: You are running in an isolated Git worktree on a dedicated branch.
+- **No Escaping**: Do not attempt to access paths outside of the current directory tree.
+- **Goal**: {prompt}
+"""
+        plan_file.write_text(plan_content, encoding="utf-8")
 
         cmd = [
             f'"{sys.executable}"',
@@ -314,14 +350,35 @@ class AgentDashboardApp(App):
             creationflags=0x00000008 if os.name == 'nt' else 0
         )
         
-        self.query_one("#prompt-input").value = ""
+        self.query_one("#prompt-input").load_text("")
         self.notify(f"Task dispatched: {model}")
         self.update_runs()
 
     def action_merge_run(self) -> None:
         if self.selected_run and self.selected_run.get("branch"):
-            subprocess.run(["git", "merge", self.selected_run["branch"]], cwd=PROJECT_ROOT)
-            self.notify("Merged successfully")
+            res = subprocess.run(["git", "merge", self.selected_run["branch"]], cwd=PROJECT_ROOT, capture_output=True, text=True)
+            if res.returncode == 0:
+                # Persist merged status to metadata
+                try:
+                    from agent_runner_utils import write_json_safe, _safe_read_json
+                    meta_path = self.selected_run["dir"] / "metadata.json"
+                    meta = _safe_read_json(meta_path) or {}
+                    meta["lifecycle"] = meta.get("lifecycle", {})
+                    meta["lifecycle"]["merged_at"] = datetime.now().isoformat()
+                    meta["lifecycle"]["state"] = "merged"
+                    write_json_safe(meta_path, meta)
+                except Exception as e:
+                    self.notify(f"Metadata update failed: {e}", severity="warning")
+                
+                # Delete the branch after successful merge
+                branch_to_delete = self.selected_run["branch"]
+                del_res = subprocess.run(["git", "branch", "-D", branch_to_delete], cwd=PROJECT_ROOT, capture_output=True, text=True)
+                if del_res.returncode == 0:
+                    self.notify(f"Merged & deleted branch {branch_to_delete}")
+                else:
+                    self.notify(f"Merged, but branch deletion failed: {del_res.stderr[:50]}", severity="warning")
+            else:
+                self.notify(f"Merge failed: {res.stderr[:100]}", severity="error")
             self.update_runs()
             
     def action_kill_run(self) -> None:

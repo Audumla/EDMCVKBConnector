@@ -2,20 +2,26 @@
 
 ## Unreleased
 
-### Overview
-
-This release includes 4 changelog updates across 1 grouped workstreams, focused on Bug Fix.
-
 ### Bug Fixes
-- Fixed an issue where release packages were missing the most recent documentation updates.
-- Included necessary data files and the main changelog in the plugin's distribution package.
-- Prevented the automated release process from getting stuck in an infinite loop.
-- Stopped automated tools from overwriting the custom project changelog.
-- Corrected a file path error used during version updates.
+- Fixed release-please synchronization issues and ensured changelogs are included in distribution.
+- Resolved the "tick-behind" problem where release tags missed the latest changelog stamps.
+- Updated `package_plugin.py` to include `CHANGELOG.md` and data files in the ZIP asset.
+- Hardened release synchronization and post-merge hooks to prevent local overwrites and ensure cleaner syncs.
+- Fixed an endless loop caused by changelog stamp re-triggering CI by adding `[skip ci]` to the commit message.
+- Prevented release-please from overwriting custom `CHANGELOG.md` by changing the file path.
+
+### New Features
+- Added a dynamic model selector to the task dispatcher, allowing automatic model filtering based on selected executor.
+- Integrated Release Please configuration into the Agent System, creating a new version tracker and release workflow template.
+- Added native runners for Copilot and Generic Local LLM, supporting full native CLI support.
+- Implemented a native Claude runner, achieving 100% specialized execution logic for all supported AI agents.
+- Added an `enabled` flag to `delegation-config.json` for planner and executor control, and created a comprehensive integration test suite.
 
 ### Improvements
-- Hardened the synchronization between local and remote files to prevent accidental data loss.
-- Refined the automated update process to ensure a cleaner transition after merging new versions.
+- Completed the decoupling of the Agent System, pruned the project root, and finalized the modular structure.
+- Achieved a pristine standalone state for the Agent System, verified all internal modular paths, and ensured project-agnostic governance.
+- Updated and verified core unit tests for the modular Agent System, confirming full cross-module import compatibility.
+- Implemented automatic task summary extraction from plan files, using Markdown H1 headings to derive summaries.
 
 ### Fix release-please synchronization and include changelogs in distribution (Bug Fix, Build / Packaging)
 - Added automated changelog stamping to Release PRs via prepare-release job
@@ -294,6 +300,44 @@ This release includes 4 changelog updates across 1 grouped workstreams, focused 
 - Added extract_summary_from_plan() to run_agent_plan.py to derive summaries from Markdown H1 headings
 - Configured orchestration to use extracted summaries when none are provided via CLI
 - Validated functionality with end-to-end dry-run verification
+
+### Fix missing model info in dashboard and standardize reporting (Bug Fix, Code Refactoring)
+- Updated get_all_runs to resolve model/cost from metadata.json as primary source
+- Enhanced generic_native_runner to populate cost_estimate metadata for all agent types
+- Ensured all runs utilize the new automatic summary extraction logic
+
+### Enhance dashboard simulation and create dummy runs (Test Update, Configuration Cleanup)
+- Updated simulate_dashboard.py to comply with the test_mode flag
+- Handled permission errors during cleanup in simulation script
+- Generated dummy agent runs for testing purposes
+
+### Fix missing model info in dashboard for orchestrated runs (Bug Fix, Code Refactoring)
+- Updated agent_runner_utils.py to prioritize agent_report.json for model and cost resolution
+- Implemented multi-file fallback logic (Report > Metadata > Status) for robust reporting
+- Eliminated 'model n/a' issue in dashboard for runs delegated via run_agent_plan.py
+
+### Implement 'merged' status tracking for agent runs (New Feature, UI Improvement)
+- Updated dashboard to persist merge state and timestamp into metadata.json
+- Modified state resolution logic to surface 'merged' as a primary run status
+- Added visual styling for merged runs in the Textual dashboard
+
+### Automate branch cleanup after agent run merge (UI Improvement, Code Refactoring)
+- Updated action_merge_run in agent_dashboard.py to delete the source branch upon successful merge
+- Ensured user is notified of both the successful merge and the subsequent branch deletion
+- Verified through syntax check and logical path validation
+
+### Widen dashboard selection dropdowns for longer model names (UI Improvement)
+- Increased the CSS width of Select widgets from 24 to 32 in agent_dashboard.py
+- Ensures visibility for model names like Qwen2.5-7B-Instruct-Q4_K_M.gguf
+
+### Implement multi-line prompt support in dashboard (UI Improvement)
+- Replaced single-line Input with multi-line TextArea widget in agent_dashboard.py
+- Adjusted CSS layout to provide dedicated 5-row height for detailed task descriptions
+- Updated dispatch logic to handle multi-line text extraction and widget clearing
+
+### Expand Gemini available models list (New Feature, Configuration Cleanup)
+- Added gemini-2.0-pro-exp-02-05, gemini-2.0-flash-lite-preview-02-05, and others to delegation-config.json
+- Verified model availability through dry-run orchestration
 
 ---
 

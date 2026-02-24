@@ -34,7 +34,7 @@ def test_full_delegation_flow(tmp_path):
         }):
             # Mock PROJECT_ROOT inside the module
             with patch("agent_system.core.run_agent_plan.PROJECT_ROOT", tmp_path):
-                rc, run_dir = run_executor("codex", plan_file, "low", [])
+                rc, run_dir = run_executor("codex", plan_file, "low", "Summary", [])
                 
                 assert rc == 0
                 assert run_dir == "/mock/run/path"

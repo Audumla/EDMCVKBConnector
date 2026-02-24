@@ -7,6 +7,7 @@ import re
 import subprocess
 import shutil
 import time
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any
@@ -21,6 +22,29 @@ def _safe_read_json(path: Path):
         except: time.sleep(0.05)
     return None
 
+def is_process_running(pid: int) -> bool:
+    """Check if a process with the given PID is currently running."""
+    if pid is None: return False
+    try:
+        import psutil
+        return psutil.pid_exists(pid)
+    except ImportError:
+        # Fallback if psutil is not installed
+        if os.name == 'nt':
+            import ctypes
+            PROCESS_QUERY_INFORMATION = 0x0400
+            process_handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION, False, pid)
+            if process_handle == 0:
+                return False
+            ctypes.windll.kernel32.CloseHandle(process_handle)
+            return True
+        else:
+            try:
+                os.kill(pid, 0)
+                return True
+            except OSError:
+                return False
+
 def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
     all_runs = []
     for agent in AGENT_TYPES:
@@ -29,6 +53,8 @@ def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
             for p in output_root.iterdir():
                 status_file = p / "status.json"
                 meta_file = p / "metadata.json"
+                report_file = p / "agent_report.json"
+                
                 if status_file.exists():
                     try:
                         status = _safe_read_json(status_file)
@@ -37,18 +63,36 @@ def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
                             continue
                             
                         meta = _safe_read_json(meta_file) if meta_file.exists() else {}
+                        report = _safe_read_json(report_file) if report_file.exists() else {}
                         mtime = max(p.stat().st_mtime, status_file.stat().st_mtime)
+                        
+                        # Resolve state: Metadata Lifecycle > Status
+                        state = status.get("state", "unknown")
+                        pid = status.get("pid")
+                        
+                        # LIVENESS CHECK: If it says running but the process is dead, it's a zombie/crash
+                        if state == "running" and pid:
+                            if not is_process_running(pid):
+                                state = "crashed" # Or "stale"
+                        
+                        if meta and "lifecycle" in meta and meta["lifecycle"].get("state") == "merged":
+                            state = "merged"
+
+                        # Resolve model: Report > Metadata > Status
+                        model = "n/a"
+
                         all_runs.append({
                             "id": p.name,
                             "agent": agent,
                             "dir": p,
-                            "state": status.get("state", "unknown"),
+                            "state": state,
                             "pid": status.get("pid"),
-                            "model": status.get("cost_estimate", {}).get("model", "n/a"),
-                            "cost": float(status.get("cost_estimate", {}).get("total_usd") or 0.0),
+                            "model": model,
+                            "cost": cost,
                             "tokens": int(status.get("token_usage", {}).get("output_tokens") or 0),
                             "branch": meta.get("isolation", {}).get("branch_name") if meta else None,
                             "summary": meta.get("task_summary", "No summary provided") if meta else "No summary provided",
+                            "error": status.get("error"), # Capture explicit error messages
                             "mtime": mtime
                         })
                     except: continue
@@ -69,10 +113,20 @@ def get_enabled_planners() -> list[str]:
     planners = config.get("planners", {})
     return [p for p in planners if planners[p].get("enabled", True)]
 
+def get_test_enabled_planners() -> list[str]:
+    config = load_delegation_config()
+    planners = config.get("planners", {})
+    return [p for p in planners if planners[p].get("test_enabled", False)]
+
 def get_enabled_executors() -> list[str]:
     config = load_delegation_config()
     executors = config.get("executors", {})
     return [e for e in executors if executors[e].get("enabled", True)]
+
+def get_test_enabled_executors() -> list[str]:
+    config = load_delegation_config()
+    executors = config.get("executors", {})
+    return [e for e in executors if executors[e].get("test_enabled", False)]
 
 def get_agent_models(agent_type: str) -> list[str]:
     config = load_delegation_config()
@@ -245,67 +299,87 @@ def generic_native_runner(
     # 1. Setup Environment
     branch, worktree, repo = create_isolated_worktree(Path.cwd(), run_id, args.worktree_root)
     
-    status = {"run_id": run_id, "state": "running", "started_at": utc_now()}
+    status = {
+        "run_id": run_id, 
+        "state": "running", 
+        "started_at": utc_now(),
+        "pid": os.getpid() # Capture PID for liveness monitoring
+    }
     write_json_safe(run_dir / "status.json", status)
 
     # Write initial metadata so dashboard shows it immediately
     meta = {
         "task_summary": task_summary,
         "isolation": {"branch_name": branch},
-        "cost_estimate": {"model": args.model, "total_usd": 0.0}
+        "cost_estimate": {
+            "model": args.model, 
+            "total_usd": 0.0,
+            "note": "Cost estimation not available for native runner"
+        }
     }
     write_json_safe(run_dir / "metadata.json", meta)
 
-    # 2. Execute Native Command
-    plan_text = args.plan_file.read_text(encoding="utf-8-sig")
-    
-    import shlex
-    
-    # ... remaining logic ...
-    
-    # Split the binary if it contains spaces (like "gh copilot")
-    if os.name == 'nt':
-        # Simple split for Windows, shlex.split can be weird with backslashes
-        bin_parts = args.bin.split(' ')
-    else:
-        bin_parts = shlex.split(args.bin)
+    try:
+        # 2. Execute Native Command
+        # Robust encoding detection for plan file
+        try:
+            plan_text = args.plan_file.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            try:
+                plan_text = args.plan_file.read_text(encoding="utf-16")
+            except UnicodeDecodeError:
+                plan_text = args.plan_file.read_text(encoding="latin-1")
+        
+        import shlex
+        
+        # Split the binary if it contains spaces (like "gh copilot")
+        if os.name == 'nt':
+            # Simple split for Windows, shlex.split can be weird with backslashes
+            bin_parts = args.bin.split(' ')
+        else:
+            bin_parts = shlex.split(args.bin)
 
-    resolved_bin = shutil.which(bin_parts[0])
-    if resolved_bin:
-        bin_parts[0] = resolved_bin
+        resolved_bin = shutil.which(bin_parts[0])
+        if resolved_bin:
+            bin_parts[0] = resolved_bin
 
-    cmd = bin_parts
-    if extra_cmd_args:
-        # Template replacement for common variables
-        for arg in extra_cmd_args:
-            arg = arg.replace("{model}", args.model)
-            arg = arg.replace("{plan_text}", plan_text)
-            arg = arg.replace("{plan_file}", str(args.plan_file.resolve()))
-            arg = arg.replace("{thinking_budget}", args.thinking_budget)
-            cmd.append(arg)
-    else:
-        # Default simple pattern
-        cmd.extend(["-p", plan_text, "-m", args.model])
-    
-    with open(run_dir / "stdout.log", "w", encoding="utf-8") as out, \
-         open(run_dir / "stderr.log", "w", encoding="utf-8") as err:
-        # No shell=True, more secure and robust for long prompts
-        proc = subprocess.run(cmd, cwd=str(worktree), stdout=out, stderr=err, text=True)
+        cmd = bin_parts
+        if extra_cmd_args:
+            # Template replacement for common variables
+            for arg in extra_cmd_args:
+                arg = arg.replace("{model}", args.model)
+                arg = arg.replace("{plan_text}", plan_text)
+                arg = arg.replace("{plan_file}", str(args.plan_file.resolve()))
+                arg = arg.replace("{worktree}", str(worktree.resolve()))
+                arg = arg.replace("{thinking_budget}", args.thinking_budget)
+                cmd.append(arg)
+        else:
+            # Default simple pattern
+            cmd.extend(["-p", plan_text, "-m", args.model])
+        
+        with open(run_dir / "stdout.log", "w", encoding="utf-8") as out, \
+             open(run_dir / "stderr.log", "w", encoding="utf-8") as err:
+            # No shell=True, more secure and robust for long prompts
+            proc = subprocess.run(cmd, cwd=str(worktree), stdout=out, stderr=err, text=True)
 
-    # 3. Finalize
-    status["state"] = "succeeded" if proc.returncode == 0 else "failed"
-    status["ended_at"] = utc_now()
-    write_json_safe(run_dir / "status.json", status)
-    
-    meta = {
-        "task_summary": task_summary,
-        "isolation": {"branch_name": branch},
-        "cost_estimate": {"model": args.model, "total_usd": 0.0}
-    }
-    write_json_safe(run_dir / "metadata.json", meta)
+        # 3. Finalize
+        status["state"] = "succeeded" if proc.returncode == 0 else "failed"
+        status["ended_at"] = utc_now()
+        write_json_safe(run_dir / "status.json", status)
+        
+        # Write final metadata
+        write_json_safe(run_dir / "metadata.json", meta)
 
-    if not args.no_cleanup:
-        cleanup_worktree(repo, worktree, branch, keep_branch=(status["state"] == "succeeded"))
+        if not args.no_cleanup:
+            cleanup_worktree(repo, worktree, branch, keep_branch=(status["state"] == "succeeded"))
 
-    print(f"Run directory: {run_dir}")
-    return proc.returncode
+        print(f"Run directory: {run_dir}")
+        return proc.returncode
+
+    except Exception as e:
+        print(f"ERROR: Runner crashed: {e}", file=sys.stderr)
+        status["state"] = "failed"
+        status["ended_at"] = utc_now()
+        status["error"] = str(e)
+        write_json_safe(run_dir / "status.json", status)
+        return 1

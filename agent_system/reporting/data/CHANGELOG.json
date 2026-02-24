@@ -801,5 +801,129 @@
       "Configured orchestration to use extracted summaries when none are provided via CLI",
       "Validated functionality with end-to-end dry-run verification"
     ]
+  },
+  {
+    "id": "CHG-23a1459c",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Fix missing model info in dashboard and standardize reporting",
+    "details": [
+      "Updated get_all_runs to resolve model/cost from metadata.json as primary source",
+      "Enhanced generic_native_runner to populate cost_estimate metadata for all agent types",
+      "Ensured all runs utilize the new automatic summary extraction logic"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-1",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "Test Update",
+      "Configuration Cleanup"
+    ],
+    "summary": "Enhance dashboard simulation and create dummy runs",
+    "details": [
+      "Updated simulate_dashboard.py to comply with the test_mode flag",
+      "Handled permission errors during cleanup in simulation script",
+      "Generated dummy agent runs for testing purposes"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-2",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "Bug Fix",
+      "Code Refactoring"
+    ],
+    "summary": "Fix missing model info in dashboard for orchestrated runs",
+    "details": [
+      "Updated agent_runner_utils.py to prioritize agent_report.json for model and cost resolution",
+      "Implemented multi-file fallback logic (Report > Metadata > Status) for robust reporting",
+      "Eliminated 'model n/a' issue in dashboard for runs delegated via run_agent_plan.py"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-3",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "New Feature",
+      "UI Improvement"
+    ],
+    "summary": "Implement 'merged' status tracking for agent runs",
+    "details": [
+      "Updated dashboard to persist merge state and timestamp into metadata.json",
+      "Modified state resolution logic to surface 'merged' as a primary run status",
+      "Added visual styling for merged runs in the Textual dashboard"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-4",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "UI Improvement",
+      "Code Refactoring"
+    ],
+    "summary": "Automate branch cleanup after agent run merge",
+    "details": [
+      "Updated action_merge_run in agent_dashboard.py to delete the source branch upon successful merge",
+      "Ensured user is notified of both the successful merge and the subsequent branch deletion",
+      "Verified through syntax check and logical path validation"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-5",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Widen dashboard selection dropdowns for longer model names",
+    "details": [
+      "Increased the CSS width of Select widgets from 24 to 32 in agent_dashboard.py",
+      "Ensures visibility for model names like Qwen2.5-7B-Instruct-Q4_K_M.gguf"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-6",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "UI Improvement"
+    ],
+    "summary": "Implement multi-line prompt support in dashboard",
+    "details": [
+      "Replaced single-line Input with multi-line TextArea widget in agent_dashboard.py",
+      "Adjusted CSS layout to provide dedicated 5-row height for detailed task descriptions",
+      "Updated dispatch logic to handle multi-line text extraction and widget clearing"
+    ]
+  },
+  {
+    "id": "CHG-23a1459c-7",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-25",
+    "summary_tags": [
+      "New Feature",
+      "Configuration Cleanup"
+    ],
+    "summary": "Expand Gemini available models list",
+    "details": [
+      "Added gemini-2.0-pro-exp-02-05, gemini-2.0-flash-lite-preview-02-05, and others to delegation-config.json",
+      "Verified model availability through dry-run orchestration"
+    ]
   }
 ]
