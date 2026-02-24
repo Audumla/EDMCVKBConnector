@@ -1,4 +1,4 @@
 """Single source of truth for plugin/package version."""
 
-__version__ = "0.12.0"
+__version__ = "0.12.1"
 

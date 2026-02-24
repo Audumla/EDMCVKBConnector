@@ -2,6 +2,13 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## [0.12.1](https://github.com/Audumla/EDMCVKBConnector/compare/v0.12.0...v0.12.1) (2026-02-24)
+
+
+### Bug Fixes
+
+* align version numbers ([cd7cede](https://github.com/Audumla/EDMCVKBConnector/commit/cd7cede7ed5a0e95c674666432e0132454765fc1))
+
 ## v0.12.0 — 2026-02-24
 
 ### Overview
