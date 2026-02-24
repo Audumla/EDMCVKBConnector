@@ -99,6 +99,42 @@ def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
     all_runs.sort(key=lambda x: x["mtime"], reverse=True)
     return all_runs[:limit]
 
+def get_provider_usage(agent_type: str) -> dict[str, Any]:
+    """Fetch usage/quota information for a specific provider."""
+    if agent_type == "opencode":
+        try:
+            res = subprocess.run(["opencode", "stats"], capture_output=True, text=True, timeout=10)
+            if res.returncode == 0:
+                output = res.stdout
+                stats = {}
+                # Simple parser for the boxed output
+                for line in output.splitlines():
+                    if "Total Cost" in line: stats["cost"] = line.split()[-1]
+                    if "Input" in line and "Tokens" not in line: stats["input"] = line.split()[-1]
+                    if "Output" in line and "Tokens" not in line: stats["output"] = line.split()[-1]
+                    if "Cache Read" in line: stats["cache_read"] = line.split()[-1]
+                return stats
+        except: pass
+    
+    if agent_type == "local-llm":
+        # Check if server is up and maybe get some info
+        config = load_delegation_config()
+        endpoint = config.get("executors", {}).get("local-llm", {}).get("model", "local-model")
+        # For now, just return a status
+        return {"status": "ONLINE", "model": endpoint}
+
+    # Stubs for others
+    return {"status": "ACTIVE", "info": "CLI-only stats"}
+
+def get_detailed_provider_usage(agent_type: str) -> str:
+    """Fetch detailed usage/quota information by calling the dedicated script."""
+    cmd = [sys.executable, str(PROJECT_ROOT / "agent_system" / "reporting" / "get_usage_stats.py"), agent_type]
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
+        return res.stdout if res.returncode == 0 else res.stderr or f"Script failed with code {res.returncode}"
+    except Exception as e:
+        return f"ERROR: Failed to run usage script: {e}"
+
 def load_delegation_config() -> dict[str, Any]:
     config_path = Path(__file__).resolve().parent.parent / "config" / "delegation-config.json"
     if config_path.exists():
