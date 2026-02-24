@@ -8,17 +8,36 @@
 
 This release includes 41 changelog updates across 9 grouped workstreams, focused on New Feature, Bug Fix, Code Refactoring.
 
-### New Features
-- Added new capabilities for developer documentation and configuration.
-
 ### Bug Fixes
-- Fixed issues in changelog tooling and vkb-link lifecycle.
+- Fixed issues with agent-specific artifact pathing and improved the watch utility.
+- Resolved model selection bugs in the agent runner, ensuring correct model usage.
+- Enhanced the agent dashboard to handle thinking budget resolution and model reporting.
+- Addressed bugs in the agent maintenance tool, ensuring proper cleanup and orphan audit.
+- Fixed issues with plan file encoding on Windows to prevent crashes.
+- Resolved VKB-Link live integration test initialization problems.
+- Ensured proper handling of orphaned agent run branches and worktrees.
+
+### New Features
+- Added support for parallel agent runs with a VS Code agent picker.
+- Introduced a new Agent Dashboard with a full lifecycle TUI, including multi-pane layout and live log streaming.
+- Enhanced the agent runner with a local-llm option and integrated it into the system.
+- Created a Watch Latest Run VS Code task and added namespaced agent selection commands.
+- Added a new Watch Latest Run VS Code task and improved the agent runner with branch preservation and merge commands.
+- Implemented an Interactive Agent Dashboard with rich icons and safety logic.
+- Added a maintenance and orphan audit tool for agent runners.
+- Introduced auto-update notification popups and mandatory EDMC restarts for plugin updates.
+- Expanded the agent runner system to support multiple backends and generalized delegation.
 
 ### Improvements
-- Refactored tests for maintainability.
-
-### Improvements
-- Cleaned up configuration for changelog tooling and tests.
+- Centralized VKB coordination logic and fixed all broken tests.
+- Improved the reliability and memory usage of changelog agent backends.
+- Polished the agent dashboard with rich icons and safety logic.
+- Enhanced the agent runner scripts to support multiple backends and generalized delegation.
+- Cleaned up redundant VS Code test configuration and added a new Agent Runner tutorial.
+- Improved the agent runner with working-set synchronization and seamless VS Code integration.
+- Standardized versioning and git logic in changelog utilities and unified configuration across JSON settings files.
+- Added new features like slash commands for agent runners and a watch latest run task.
+- Upgraded the agent dashboard to a widescreen professional version with improved UI and safety logic.
 
 ---
 
