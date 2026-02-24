@@ -2,18 +2,6 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
-## [0.12.0](https://github.com/Audumla/EDMCVKBConnector/compare/v0.11.0...v0.12.0) (2026-02-24)
-
-
-### Features
-
-* refactored code and added to ignore list ([18eb8c4](https://github.com/Audumla/EDMCVKBConnector/commit/18eb8c4ef0559a22ddcd5ccaec087eee6f72be32))
-
-
-### Bug Fixes
-
-* agent runner ([59d53e5](https://github.com/Audumla/EDMCVKBConnector/commit/59d53e503c81d04fbf9ba6431ce551964a2e96a1))
-
 ## v0.11.0 — 2026-02-23 to 2026-02-24
 
 ### Overview
