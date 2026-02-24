@@ -624,5 +624,19 @@
       "Confirmed standardized agent_report.json generation and rendering",
       "Updated run_codex_plan.py to allow binary-less dry-runs for easier validation"
     ]
+  },
+  {
+    "id": "CHG-18eb8c4e",
+    "change_group": "agent-runners",
+    "plugin_version": "unreleased",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Configuration Cleanup"
+    ],
+    "summary": "Purge orphaned agent run branches and worktrees",
+    "details": [
+      "Removed active worktrees for gemini-audit and local-audit",
+      "Deleted corresponding git branches from codex/plan-runs/"
+    ]
   }
 ]
