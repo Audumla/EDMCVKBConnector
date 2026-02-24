@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "CHG-347f832c",
+    "change_group": "release-tooling",
+    "plugin_version": "unreleased",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Fix release-please synchronization and include changelogs in distribution",
+    "details": [
+      "Added automated changelog stamping to Release PRs via prepare-release job",
+      "Eliminated 'tick-behind' issue where release tags missed the latest changelog stamp",
+      "Updated package_plugin.py to include CHANGELOG.md and data files in the ZIP asset"
+    ]
+  }
+]

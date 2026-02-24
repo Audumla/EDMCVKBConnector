@@ -23,6 +23,7 @@ INCLUDE_ROOT = [
     "PLUGIN_REGISTRY.py",
     "LICENSE",
     "README.md",
+    "CHANGELOG.md",
 ]
 
 # Data files
@@ -30,6 +31,8 @@ INCLUDE_DATA = [
     "data/rules.json.example",
     "data/signals_catalog.json",
     "data/icon_map.json",
+    "docs/changelog/CHANGELOG.json",
+    "docs/changelog/CHANGELOG.archive.json",
 ]
 
 def get_source_files() -> list[str]:

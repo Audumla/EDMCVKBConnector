@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       release_as:
@@ -16,8 +19,47 @@ permissions:
   pull-requests: write
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'release-please--')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Extract version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '."."' .release-please-manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Stamp changelog in PR
+        run: |
+          python scripts/changelog/generate_release_notes.py \
+            --stamp ${{ steps.version.outputs.version }} \
+            --archive
+
+      - name: Rebuild changelog markdown
+        run: python scripts/changelog/build_changelog.py
+
+      - name: Commit stamped changes to PR
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md docs/changelog/CHANGELOG.json docs/changelog/CHANGELOG.archive.json docs/changelog/CHANGELOG.summaries.json
+          git diff --cached --quiet || git commit -m "chore: stamp changelog for v${{ steps.version.outputs.version }}"
+          git push
+
   release:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - name: Release Please
         id: release
@@ -43,22 +85,8 @@ jobs:
         if: ${{ steps.release.outputs.release_created == 'true' }}
         run: |
           python scripts/changelog/generate_release_notes.py \
-            --stamp ${{ steps.release.outputs.version }} \
-            --archive \
+            --version ${{ steps.release.outputs.version }} \
             --output dist/RELEASE_NOTES.md
-
-      - name: Rebuild changelog markdown
-        if: ${{ steps.release.outputs.release_created == 'true' }}
-        run: python scripts/changelog/build_changelog.py
-
-      - name: Commit stamped changelog
-        if: ${{ steps.release.outputs.release_created == 'true' }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md docs/changelog/CHANGELOG.json docs/changelog/CHANGELOG.archive.json docs/changelog/CHANGELOG.summaries.json
-          git diff --cached --quiet || git commit -m "chore: stamp changelog entries as v${{ steps.release.outputs.version }} [skip ci]"
-          git push
 
       - name: Build plugin zip
         if: ${{ steps.release.outputs.release_created == 'true' }}
