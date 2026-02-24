@@ -2,6 +2,26 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## v0.12.0 — 2026-02-24
+
+### Overview
+
+This release includes 41 changelog updates across 9 grouped workstreams, focused on New Feature, Bug Fix, Code Refactoring.
+
+### New Features
+- Added new capabilities for developer documentation and configuration.
+
+### Bug Fixes
+- Fixed issues in changelog tooling and vkb-link lifecycle.
+
+### Improvements
+- Refactored tests for maintainability.
+
+### Improvements
+- Cleaned up configuration for changelog tooling and tests.
+
+---
+
 ## v0.11.0 — 2026-02-23 to 2026-02-24
 
 ### Overview
