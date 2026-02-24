@@ -1,0 +1,4 @@
+{
+  "model": "gpt-4o",
+  "use_gh_cli": true
+}

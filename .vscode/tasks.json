@@ -2,25 +2,11 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "[fav] EDMC: Run Tests",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "test/run_all_tests.py"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            },
-            "problemMatcher": [],
-            "detail": "Run the full test suite"
-        },
-        {
             "label": "[fav] Agent: Open Interactive Dashboard",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/agent_runners/agent_dashboard.py"
+                "agent_system/dashboard/agent_dashboard.py"
             ],
             "presentation": {
                 "reveal": "always",
@@ -28,42 +14,23 @@
                 "focus": true
             },
             "problemMatcher": [],
-            "detail": "Interactive TUI to monitor logs and kill active agent runs"
+            "detail": "Modern TUI to monitor logs and manage agent runs"
         },
         {
-            "label": "[fav] Agent: Watch Latest Run",
+            "label": "[fav] Agent: Open Dashboard (External Window)",
             "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/agent_runners/watch_run.py"
-            ],
+            "command": "start powershell { ${workspaceFolder}\\.venv\\Scripts\\python.exe ${workspaceFolder}\\agent_system\\dashboard\\agent_dashboard.py }",
             "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "focus": true
+                "reveal": "never",
+                "panel": "shared"
             },
             "problemMatcher": [],
-            "detail": "Monitor the status and live logs of the most recent agent execution"
-        },
-        {
-            "label": "[fav] Agent: List Successful Runs",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/agent_runners/list_agent_runs.py"
-            ],
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "focus": true
-            },
-            "problemMatcher": [],
-            "detail": "View a list of recent successful agent runs to find specific Run IDs"
+            "detail": "Launch the dashboard in a completely separate Windows terminal"
         },
         {
             "label": "[fav] Agent: Review Latest Changes (Diff)",
             "type": "shell",
-            "command": "git diff HEAD..$(.venv/Scripts/python.exe scripts/agent_runners/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
+            "command": "git diff HEAD..$(.venv/Scripts/python.exe agent_system/core/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -75,7 +42,7 @@
         {
             "label": "[fav] Agent: Merge Latest Changes",
             "type": "shell",
-            "command": "git merge $(.venv/Scripts/python.exe scripts/agent_runners/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
+            "command": "git merge $(.venv/Scripts/python.exe agent_system/core/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated",
@@ -86,186 +53,47 @@
             "detail": "Pull changes into your current branch. Leave Run ID blank for 'latest'."
         },
         {
-            "label": "[fav] Release: Prepare preview",
+            "label": "[fav] Agent: List Successful Runs",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/release/release_workflow.py",
-                "--strict",
-                "--preview-only",
-                "--summarize-backend",
-                "${input:releaseBackend}"
+                "agent_system/core/list_agent_runs.py"
             ],
-            "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "shared",
+                "panel": "dedicated",
                 "focus": true
             },
-            "detail": "Rebuild CHANGELOG.md and release preview (choose summarizer backend)"
+            "problemMatcher": [],
+            "detail": "View a list of recent successful agent runs to find specific Run IDs"
         },
         {
-            "label": "[fav] Release: Full workflow",
+            "label": "[fav] Agent: Maintenance Audit",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/release/release_workflow.py",
-                "--strict",
-                "--summarize-backend",
-                "${input:releaseBackend}",
-                "--bump",
-                "${input:releaseBump}"
+                "agent_system/core/agent_maintenance.py"
             ],
-            "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "shared",
+                "panel": "dedicated",
                 "focus": true
             },
-            "detail": "Prepare changelog preview, then trigger release-please (choose backend + bump)"
+            "problemMatcher": [],
+            "detail": "Identify and purge orphaned branches and report folders"
         },
         {
-            "label": "[fav] EDMC: Run EDMC (DEV - Isolated Config)",
+            "label": "Reporting: Rebuild Changelog",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "scripts/dev/run_edmc_from_dev.py"
+                "agent_system/reporting/build_changelog.py"
             ],
             "problemMatcher": [],
-            "detail": "Run EDMC from dev repository with isolated config (won't touch installed EDMC settings)"
-        },
-        {
-            "label": "EDMC: Bootstrap Dev Environment",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/dev/bootstrap_dev_env.py"
-            ],
-            "problemMatcher": [],
-            "detail": "Set up development environment: clone EDMC, create venv, install deps, link plugin"
-        },
-        {
-            "label": "EDMC: Bootstrap + Run Tests",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/dev/bootstrap_dev_env.py",
-                "--run-tests"
-            ],
-            "problemMatcher": [],
-            "hide": true,
-            "detail": "Bootstrap environment and run all tests (less common; hidden from picker)"
-        },
-        {
-            "label": "EDMC: Run EDMC (DEV - System Config)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/dev/run_edmc_from_dev.py",
-                "--use-system-config"
-            ],
-            "problemMatcher": [],
-            "hide": true,
-            "detail": "Run EDMC from dev repository using your actual EDMC configuration"
-        },
-        {
-            "label": "EDMC: Package Plugin",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release/package_plugin.py"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": [],
-            "detail": "Create distributable ZIP file in dist/ directory"
-        },
-        {
-            "label": "EDMC: UI Bootstrap (Rule Editor)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "test/ui_bootstrap_runner.py"
-            ],
-            "problemMatcher": [],
-            "detail": "Launch the rule editor UI for manual testing"
-        },
-        {
-            "label": "EDMC: Signal Catalog Editor",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/validation/signal_catalog_editor.py"
-            ],
-            "problemMatcher": [],
-            "detail": "Launch the signal catalog editor UI"
-        },
-        {
-            "label": "Release: Trigger release (already prepared)",
-            "type": "shell",
-            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
-            "args": [
-                "scripts/release/release_workflow.py",
-                "--skip-prepare",
-                "--bump",
-                "${input:releaseBump}"
-            ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Trigger release-please only (skip local summarize/rebuild)"
-        },
-        {
-            "label": "Release: Trigger release-please workflow (raw)",
-            "type": "shell",
-            "command": "gh",
-            "args": [
-                "workflow",
-                "run",
-                "release-please.yml"
-            ],
-            "problemMatcher": [],
-            "hide": true,
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared",
-                "focus": true
-            },
-            "detail": "Direct workflow trigger with no local safety checks"
+            "detail": "Regenerate CHANGELOG.md from JSON sources"
         }
     ],
     "inputs": [
-        {
-            "id": "releaseBackend",
-            "type": "pickString",
-            "description": "Summarizer backend",
-            "default": "codex",
-            "options": [
-                "claude",
-                "codex",
-                "gemini",
-                "copilot",
-                "lmstudio",
-                "intelligent"
-            ]
-        },
-        {
-            "id": "releaseBump",
-            "type": "pickString",
-            "description": "Release bump strategy",
-            "default": "auto",
-            "options": [
-                "auto",
-                "patch",
-                "minor",
-                "major"
-            ]
-        },
         {
             "id": "agentChoice",
             "type": "pickString",

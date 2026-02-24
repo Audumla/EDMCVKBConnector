@@ -1,0 +1,5 @@
+description = "Agent Runner execution with High Reasoning (Max budget)"
+prompt = """
+I am delegating the execution of this plan to the Agent Runner with a deep-thinking budget.
+!{python agent_system/core/run_agent_plan.py --planner gemini --executor codex --plan-file {{args}} --thinking-budget high --task-summary "CLI Delegated: Deep Reasoning"}
+"""

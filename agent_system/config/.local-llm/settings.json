@@ -1,0 +1,4 @@
+{
+  "model": "local-model",
+  "endpoint": "http://localhost:11434/v1"
+}

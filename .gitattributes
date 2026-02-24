@@ -1,2 +1,2 @@
 .githooks/* text eol=lf
-docs/changelog/CHANGELOG.json merge=union
+agent_system/reporting/data/CHANGELOG.json merge=union

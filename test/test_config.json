@@ -1,6 +1,0 @@
-{
-  "ui_rules_file": "data/rules.json.example",
-  "ui_bootstrap": 1,
-  "run_live_agents": 1,
-  "run_changelog": 0
-}

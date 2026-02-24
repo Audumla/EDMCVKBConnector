@@ -1,0 +1,79 @@
+{
+  "_comment": "Configuration for agent planning and execution delegation.",
+  "system_settings": {
+    "test_mode": false,
+    "log_level": "INFO"
+  },
+  "planners": {
+    "claude": {
+      "enabled": false,
+      "model": "claude-3-5-sonnet",
+      "thinking_budget": "none"
+    },
+    "gemini": {
+      "enabled": true,
+      "model": "gemini-2.0-flash",
+      "thinking_budget": "none"
+    },
+    "codex": {
+      "enabled": false,
+      "model": "gpt-5",
+      "thinking_budget": "none"
+    },
+    "opencode": {
+      "enabled": true,
+      "model": "opencode/big-pickle",
+      "thinking_budget": "none"
+    },
+    "copilot": {
+      "enabled": false,
+      "model": "copilot-gpt-4",
+      "thinking_budget": "none"
+    },
+    "local-llm": {
+      "enabled": true,
+      "model": "local-model",
+      "thinking_budget": "none"
+    }
+  },
+  "executors": {
+    "codex": {
+      "enabled": false,
+      "bin": "codex",
+      "model": "gpt-5.3-codex",
+      "runner": "runners/run_codex_plan.py"
+    },
+    "claude": {
+      "enabled": false,
+      "bin": "claude",
+      "model": "claude-3-5-sonnet",
+      "runner": "runners/run_claude_plan.py"
+    },
+    "opencode": {
+      "enabled": true,
+      "bin": "opencode",
+      "model": "opencode/big-pickle",
+      "runner": "runners/run_opencode_plan.py"
+    },
+    "gemini": {
+      "enabled": true,
+      "bin": "gemini",
+      "model": "gemini-2.0-flash-exp",
+      "runner": "runners/run_gemini_plan.py"
+    },
+    "local-llm": {
+      "enabled": true,
+      "bin": "local-llm",
+      "model": "local-model",
+      "runner": "runners/run_localllm_plan.py"
+    },
+    "copilot": {
+      "enabled": false,
+      "bin": "gh copilot",
+      "model": "gpt-4o",
+      "runner": "runners/run_copilot_plan.py"
+    }
+  },
+  "default_planner": "gemini",
+  "default_executor": "gemini"
+}

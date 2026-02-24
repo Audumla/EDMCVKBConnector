@@ -1,0 +1,5 @@
+description = "Deep Reasoning using Local LLM (OpenCode) as the executor"
+prompt = """
+Executing high-budget plan via local OpenCode CLI.
+!{python agent_system/core/run_agent_plan.py --planner gemini --executor opencode --thinking-budget high --plan-file {{args}}}
+"""

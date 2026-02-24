@@ -1,0 +1,12 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "extra-files": [
+        "pyproject.toml",
+        "agent_system/core/config/version.py"
+      ],
+      "changelog-path": "CHANGELOG.release-please.md"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+description = "Universal Agent Runner (Pass any flags like --planner, --executor, etc.)"
+prompt = """
+Executing Agent Runner with custom parameters.
+!{python agent_system/core/run_agent_plan.py {{args}}}
+"""

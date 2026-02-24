@@ -21,15 +21,14 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-vkb-link/
 MANIFEST
-agent_artifacts/
+
 # Virtual environments
 venv/
 ENV/
 env/
 .venv
-test/_live_runtime/
+
 # IDE
 .vscode/*
 !.vscode/settings.json
@@ -43,25 +42,16 @@ test/_live_runtime/
 .DS_Store
 Thumbs.db
 
-# EDMC plugin specific
-config.json
-rules.json
-dev_paths.json
-recordings/
+# Project Specific
 *.log
-.edmc_dev_config/
-unregistered_events.json
-EVENT_HANDLING_VERIFICATION.md
+agent_artifacts/
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
-test/fixtures/VKB-Link*
 test_results*.txt
-test_consolidation*.txt
-test_signal_consolidation.txt
 
 # Agent-generated reports and analysis
 *_agent_report.md
@@ -77,13 +67,6 @@ analysis_*.md
 debug_*.txt
 debug_*.md
 
-# Per-agent runtime scratch dirs — local only, not committed
-agent_artifacts/claude/
-agent_artifacts/codex/
-agent_artifacts/copilot/
-
 # Release artifacts
 dist/RELEASE_NOTES.preview.md
 dist/CHANGELOG.preview.md
-
-

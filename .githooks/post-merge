@@ -14,22 +14,7 @@ fi
 # the officially stamped version from the cloud.
 is_release_merge=$(git log -1 --pretty=%s | grep -iE "release-please|release v[0-9]" || true)
 if [ -z "$is_release_merge" ]; then
-  "$py" "$repo_root/scripts/changelog/build_changelog.py"
-fi
-
-# Release-specific automation (only on main branch)
-branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
-if [ "$branch" == "main" ]; then
-  log_dir="$repo_root/agent_artifacts/codex/temp"
-  mkdir -p "$log_dir"
-
-  nohup "$py" "$repo_root/scripts/auto_pull_after_release.py" \
-    --branch main \
-    --remote origin \
-    --poll-seconds 15 \
-    --timeout-seconds 1800 \
-    >>"$log_dir/auto_pull_after_release.log" 2>&1 &
+  "$py" "$repo_root/agent_system/reporting/build_changelog.py"
 fi
 
 exit 0
-
