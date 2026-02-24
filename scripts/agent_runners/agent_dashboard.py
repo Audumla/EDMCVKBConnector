@@ -9,7 +9,20 @@ import time
 import subprocess
 import shutil
 import locale
+import unicodedata
 from pathlib import Path
+
+
+def _truncate_to_cols(s, max_cols):
+    """Truncate string s to fit within max_cols terminal columns, accounting for wide characters."""
+    total, result = 0, []
+    for ch in s:
+        w = 2 if unicodedata.east_asian_width(ch) in ('W', 'F') else 1
+        if total + w > max_cols:
+            break
+        result.append(ch)
+        total += w
+    return ''.join(result)
 
 # Force locale for Unicode
 try:
@@ -29,7 +42,7 @@ ICONS = {
     "claude": "🎭",
     "codex": "🤖",
     "opencode": "🔓",
-    "copilot": "👨‍✈️",
+    "copilot": "✈",
 }
 
 class EnhancedDashboard:
@@ -79,6 +92,7 @@ class EnhancedDashboard:
             curses.init_pair(2, curses.COLOR_CYAN, -1)
             curses.init_pair(3, curses.COLOR_RED, -1)
             curses.init_pair(4, curses.COLOR_YELLOW, -1)
+            curses.init_pair(5, curses.COLOR_WHITE, -1)
         except: pass
 
         curses.curs_set(0)
@@ -104,8 +118,8 @@ class EnhancedDashboard:
                 # --- Drawing the Frame ---
                 stdscr.attron(curses.color_pair(2))
                 # Horizontal lines
-                stdscr.addstr(1, 1, "┌" + ("─" * (sidebar_w-2)) + "┐ ┌" + ("─" * (w - sidebar_w - 7)) + "┐")
-                stdscr.addstr(h-2, 1, "└" + ("─" * (sidebar_w-2)) + "┘ └" + ("─" * (w - sidebar_w - 7)) + "┘")
+                stdscr.addstr(1, 1, "┌" + ("─" * (sidebar_w-2)) + "┐ ┌" + ("─" * (w - sidebar_w - 5)) + "┐")
+                stdscr.addstr(h-2, 1, "└" + ("─" * (sidebar_w-2)) + "┘ └" + ("─" * (w - sidebar_w - 5)) + "┘")
                 # Vertical bars
                 for y in range(2, h-2):
                     stdscr.addstr(y, 1, "│")
@@ -116,7 +130,7 @@ class EnhancedDashboard:
 
                 # --- Header ---
                 sync_time = time.strftime("%H:%M:%S")
-                stdscr.addstr(0, (w-30)//2, f" 🤖 AGENT COMMAND CENTER ({sync_time}) ", curses.A_BOLD | curses.color_pair(2))
+                stdscr.addstr(0, (w-31)//2, f" 🤖 AGENT COMMAND CENTER ({sync_time}) ", curses.A_BOLD | curses.color_pair(2))
                 stdscr.addstr(1, 3, " RUN NAVIGATOR ", curses.color_pair(2))
                 stdscr.addstr(1, sidebar_w + 4, " EXECUTION LOGS ", curses.color_pair(2))
 
@@ -132,14 +146,17 @@ class EnhancedDashboard:
                     icon = ICONS.get(run["state"], "?")
                     agent = ICONS.get(run["agent"], "🤖")
                     
-                    # Manual summary truncation to ensure no bar-drift
-                    sum_w = sidebar_w - 15
-                    summary = run['summary'][:sum_w]
-                    label = f" {icon} | {agent} | {summary}"
-                    
+                    # Truncate label by terminal column width, not char count.
+                    # Wide emojis (icon, agent) each occupy 2 cols; char slicing alone
+                    # would overwrite the right sidebar border at col 60.
+                    label = _truncate_to_cols(
+                        f" {icon} | {agent} | {run['summary']}",
+                        sidebar_w - 3,  # leave room for left border, right border, 1 padding
+                    )
+
                     # Fill row background completely
                     stdscr.addstr(y, 2, " " * (sidebar_w-2), attr)
-                    stdscr.addstr(y, 2, label[:sidebar_w-2], attr | st_color)
+                    stdscr.addstr(y, 2, label, attr | st_color)
 
                 # --- Details Content ---
                 if self.runs:
@@ -168,7 +185,11 @@ class EnhancedDashboard:
                 # --- Footer ---
                 f_color = curses.color_pair(3) if self.confirm_delete else curses.A_REVERSE
                 help_line = "[M] Merge | [K] Kill | [DEL] Purge | [C] Maint | [Q] Quit"
-                footer = f" 💬 {self.message} ".ljust(w-len(help_line)-2) + help_line
+                # 💬 is a wide emoji (2 terminal cols); len() counts it as 1.
+                # Subtract 1 extra from the left-pad width to compensate.
+                prefix = f" 💬 {self.message} "
+                left_cols = max(0, w - len(help_line) - 2 - 1)  # -1 for wide emoji
+                footer = prefix + " " * max(0, left_cols - len(prefix)) + help_line
                 stdscr.addnstr(h-1, 0, footer, w-1, f_color)
 
                 stdscr.refresh()

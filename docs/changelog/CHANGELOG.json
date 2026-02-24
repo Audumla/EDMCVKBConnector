@@ -30,5 +30,21 @@
       "Prevented local overwrites of officially stamped cloud changelogs",
       "Switched auto_pull_after_release.py to use --rebase for cleaner local-to-remote sync"
     ]
+  },
+  {
+    "id": "CHG-a235d10d",
+    "change_group": "release-tooling",
+    "plugin_version": "unreleased",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Fix endless release-please loop caused by changelog stamp re-triggering CI",
+    "details": [
+      "Added [skip ci] to the changelog stamp commit message in prepare-release job",
+      "Prevents the bot commit from firing another pull_request workflow run",
+      "Breaks the commit-merge-commit cycle when merging release-please PRs"
+    ]
   }
 ]
