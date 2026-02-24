@@ -15,13 +15,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.request
 from collections import Counter, defaultdict
 from difflib import SequenceMatcher
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
-import tempfile
-import time
 from pathlib import Path
 
 # Paths
@@ -31,7 +29,7 @@ CHANGELOG_JSON = CHANGELOG_DIR / "CHANGELOG.json"
 CHANGELOG_ARCHIVE_JSON = CHANGELOG_DIR / "CHANGELOG.archive.json"
 CHANGELOG_SUMMARIES_JSON = CHANGELOG_DIR / "CHANGELOG.summaries.json"
 CHANGELOG_MD = PROJECT_ROOT / "CHANGELOG.md"
-CONFIG_FILE = CHANGELOG_DIR / "changelog-config.json"
+CONFIG_FILE = Path(__file__).resolve().parent / "changelog-config.json"
 PYPROJECT_TOML = PROJECT_ROOT / "pyproject.toml"
 RELEASE_PLEASE_MANIFEST = PROJECT_ROOT / ".release-please-manifest.json"
 
@@ -40,7 +38,7 @@ VERSION_RE = re.compile(r'^\s*version\s*=\s*"(?P<version>\d+\.\d+\.\d+)"\s*$', r
 RELEASE_TITLE_RE = re.compile(r"release\s+(?P<version>\d+\.\d+\.\d+)", re.IGNORECASE)
 
 # Default fallback order if not specified in config
-DEFAULT_FALLBACK_ORDER = ["claude-cli", "codex", "gemini", "copilot", "lmstudio"]
+DEFAULT_FALLBACK_ORDER = ["claude-cli", "codex", "gemini", "copilot", "local-llm"]
 
 # Display order for approved summary tags
 TAG_ORDER = [
@@ -230,13 +228,25 @@ def find_open_release_pr_version(gh_bin: str = "gh") -> str | None:
 # IO Helpers
 # ---------------------------------------------------------------------------
 
+def as_bool(value) -> bool:
+    """Convert truthy/falsy values including 1/0 and '1'/'0' to bool."""
+    if isinstance(value, bool):
+        return value
+    if str(value).lower() in ("1", "true", "yes", "on"):
+        return True
+    return False
+
 def load_config() -> dict:
     """Load changelog configuration."""
     if not CONFIG_FILE.exists():
         return {}
     try:
         with open(CONFIG_FILE, encoding="utf-8") as f:
-            return json.load(f).get("changelog_summarization", {})
+            config = json.load(f).get("changelog_summarization", {})
+            # Normalize 'enabled' to actual bool
+            if "enabled" in config:
+                config["enabled"] = as_bool(config["enabled"])
+            return config
     except Exception as e:
         print(f"WARNING: Failed to load config: {e}", file=sys.stderr)
         return {}
@@ -525,13 +535,13 @@ def call_copilot_cli(prompt: str, config: dict) -> str | None:
         print(f"DEBUG: Failed call_copilot_cli: {e}", file=sys.stderr)
         return None
 
-def call_lmstudio(prompt: str, config: dict) -> str | None:
-    """Call local LMStudio OpenAI-compatible API."""
+def call_local_llm(prompt: str, config: dict) -> str | None:
+    """Call local LLM OpenAI-compatible API (e.g. LMStudio)."""
     try:
-        provider = config.get("lmstudio", {})
+        provider = config.get("local_llm", {})
         base_url = str(provider.get("base_url", "http://localhost:1234/v1")).rstrip("/")
         model = str(provider.get("model", "")).strip()
-        timeout = _get_timeout(config, "lmstudio")
+        timeout = _get_timeout(config, "local-llm")
 
         url = f"{base_url}/chat/completions"
         payload = {
@@ -560,7 +570,7 @@ def call_lmstudio(prompt: str, config: dict) -> str | None:
         
         with urllib.request.urlopen(req, timeout=timeout) as response:
             if response.getcode() != 200:
-                print(f"DEBUG: LMStudio error: HTTP {response.getcode()}", file=sys.stderr)
+                print(f"DEBUG: Local LLM error: HTTP {response.getcode()}", file=sys.stderr)
                 return None
             
             resp_data = json.loads(response.read().decode("utf-8"))
@@ -572,7 +582,7 @@ def call_lmstudio(prompt: str, config: dict) -> str | None:
             return content.strip() or None
             
     except Exception as e:
-        print(f"DEBUG: Failed call_lmstudio: {e}", file=sys.stderr)
+        print(f"DEBUG: Failed call_local_llm: {e}", file=sys.stderr)
         return None
 
 # ---------------------------------------------------------------------------
@@ -729,8 +739,8 @@ def run_llm_with_fallback(prompt: str, config: dict, preferred_backend: str | No
             result = call_gemini_cli(prompt, config)
         elif backend == "copilot":
             result = call_copilot_cli(prompt, config)
-        elif backend == "lmstudio":
-            result = call_lmstudio(prompt, config)
+        elif backend == "local-llm":
+            result = call_local_llm(prompt, config)
         else:
             print(f"    Skipping unknown backend: {backend}")
             continue

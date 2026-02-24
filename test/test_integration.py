@@ -3,8 +3,8 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from edmcruleengine.config import Config
-from edmcruleengine.event_handler import EventHandler
+from edmcruleengine import Config
+from edmcruleengine.events.event_handler import EventHandler
 
 
 def test_event_flow():
@@ -66,34 +66,31 @@ def test_shift_bitmap_manipulation():
     """Test shift state management."""
     config = Config()
     handler = EventHandler(config)
-    handler.vkb_client.send_event = Mock(return_value=True)
-    handler.vkb_client.connect = Mock(return_value=False)
+    manager = handler.vkb_link_manager
+    manager.client.send_event = Mock(return_value=True)
+    manager.client.connect = Mock(return_value=False)
     
     # Test bit manipulation
     initial_bitmap = 0
-    result = handler._apply_bit(initial_bitmap, 0, True)
+    result = manager._apply_bit(initial_bitmap, 0, True)
     assert result == 1, f"Expected 1, got {result}"
     
-    result = handler._apply_bit(result, 0, False)
+    result = manager._apply_bit(result, 0, False)
     assert result == 0, f"Expected 0, got {result}"
     
     # Test multiple bits
-    result = handler._apply_bit(0, 0, True)
-    result = handler._apply_bit(result, 2, True)
+    result = manager._apply_bit(0, 0, True)
+    result = manager._apply_bit(result, 2, True)
     assert result == 5, f"Expected 5 (0b0101), got {result}"  # bits 0 and 2
     
     print("[OK] Shift bitmap manipulation test passed")
 
 
 def test_error_handling():
-    """Test that VKB send errors are handled gracefully.
-
-    Since handle_event no longer sends raw events to VKB (only rule actions
-    trigger VKBShiftBitmap sends), we test the error path through
-    _send_shift_state_if_changed which *does* call send_event.
-    """
+    """Test that VKB send errors are handled gracefully."""
     config = Config()
     handler = EventHandler(config)
+    manager = handler.vkb_link_manager
 
     error_occurred = False
 
@@ -102,16 +99,16 @@ def test_error_handling():
         error_occurred = True
         return False  # Simulate send failure
 
-    handler.vkb_client.send_event = mock_send_with_error
-    handler.vkb_client.connect = Mock(return_value=False)
+    manager.client.send_event = mock_send_with_error
+    manager.client.connect = Mock(return_value=False)
 
     # Force a shift state send — this exercises the VKB send path
-    handler._shift_bitmap = 1
-    handler._send_shift_state_if_changed(force=True)
+    manager._shift_bitmap = 1
+    manager._send_shift_state_if_changed(force=True)
 
     assert error_occurred, "send_event mock was not called"
     # Shift state should NOT be updated on failure
-    assert handler._last_sent_shift is None, "Shift should not be marked sent after failure"
+    assert manager._last_sent_shift is None, "Shift should not be marked sent after failure"
     print("[OK] Error handling test passed (send failure handled gracefully)")
 
 

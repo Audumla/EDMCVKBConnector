@@ -5,7 +5,7 @@ Demonstrates: Category -> Subcategory -> Signal structure
 
 import json
 from pathlib import Path
-from src.edmcruleengine.signals_catalog import SignalsCatalog
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
 
 
 def test_cascading_dropdown_structure():

@@ -13,27 +13,59 @@ License: MIT
 import logging
 import os
 import json
-import time
+import threading
+import socket
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from edmcruleengine import Config, EventHandler
+    from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
+    from edmcruleengine.events.event_recorder import EventRecorder
+
+# Constants
+SHIFT_BITMAP_MASK = 0x03  # 2 bits for Shift1/Shift2
+SUBSHIFT_BITMAP_MASK = 0x7F  # 7 bits for Subshift1-7
+
+
+def _add_to_sys_path(path: Optional[str]) -> None:
+    """Add a path to sys.path if not already present."""
+    if not path:
+        return
+    import sys
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+
+def _safe_int(value: Any, default: int) -> int:
+    """Safely cast a value to int, returning default on failure."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def _is_valid_host(host: str) -> bool:
+    """Validate if a string is a valid IP address or hostname."""
+    if not host or not isinstance(host, str):
+        return False
+    try:
+        # getaddrinfo is the most robust way to check if a name is resolvable
+        socket.getaddrinfo(host, None)
+        return True
+    except socket.error:
+        return False
+
 
 try:
     # Allow overriding the EDMC installation path for local testing by setting
     # the EDMC_PATH or EDMC_HOME environment variable to the EDMC install folder.
-    edmc_path = os.environ.get("EDMC_PATH") or os.environ.get("EDMC_HOME")
-    if edmc_path:
-        import sys
-
-        if edmc_path not in sys.path:
-            sys.path.insert(0, edmc_path)
+    _add_to_sys_path(os.environ.get("EDMC_PATH") or os.environ.get("EDMC_HOME"))
 
     # Support local source-tree runs where package code lives under ./src.
     plugin_src_path = os.path.join(os.path.dirname(__file__), "src")
     if os.path.isdir(plugin_src_path):
-        import sys
-
-        if plugin_src_path not in sys.path:
-            sys.path.insert(0, plugin_src_path)
+        _add_to_sys_path(plugin_src_path)
 
     from config import appname, appversion
 except Exception:
@@ -42,9 +74,8 @@ except Exception:
     appversion = "0.0.0"
 
 # Plugin metadata (single-source version from package module)
-from edmcruleengine.version import __version__ as VERSION
-from edmcruleengine.paths import PLUGIN_DATA_DIR
-from edmcruleengine.bool_utils import as_bool
+from edmcruleengine.config.version import __version__ as VERSION
+from edmcruleengine.config.paths import PLUGIN_DATA_DIR
 
 # Logger setup per EDMC plugin requirements
 # The plugin_name MUST be the plugin folder name.
@@ -63,11 +94,9 @@ except Exception:
     logger = logging.getLogger(plugin_logger_name)
     _using_edmc_logger = False
 
-plugin_logger_name = logger.name
-
 # Tell submodules to log under the same EDMC-managed hierarchy.
 from edmcruleengine import set_plugin_logger_name
-set_plugin_logger_name(plugin_logger_name)
+set_plugin_logger_name(logger.name)
 
 # Ensure lifecycle visibility even if EDMC/root defaults are WARNING.
 if logger.getEffectiveLevel() > logging.INFO:
@@ -86,21 +115,29 @@ if not _using_edmc_logger and not logger.hasHandlers():
     logger_channel.setFormatter(logger_formatter)
     logger.addHandler(logger_channel)
 
-# Global instances
-_config = None
-_event_handler = None
-_event_recorder = None
-_plugin_dir = None
-_prefs_vars = {}
-_vkb_link_started_by_plugin = False
+
+class PluginState:
+    """Consolidated global state for the plugin."""
+
+    def __init__(self) -> None:
+        self.config: Optional["Config"] = None
+        self.event_handler: Optional["EventHandler"] = None
+        self.vkb_manager: Optional["VKBLinkManager"] = None
+        self.event_recorder: Optional["EventRecorder"] = None
+        self.plugin_dir: Optional[str] = None
+        self.prefs_vars: dict[str, Any] = {}
+        self.vkb_link_started_by_plugin: bool = False
+        self.stop_event = threading.Event()
+
+
+# Global instance
+_state = PluginState()
 
 
 def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]:
     """Compute shift/subshift bitmap values from UI checkbox vars."""
-    global _prefs_vars
-
-    shift_vars = _prefs_vars.get("test_shift_vars")
-    subshift_vars = _prefs_vars.get("test_subshift_vars")
+    shift_vars = _state.prefs_vars.get("test_shift_vars")
+    subshift_vars = _state.prefs_vars.get("test_subshift_vars")
     if not isinstance(shift_vars, list) or not isinstance(subshift_vars, list):
         return None, None
 
@@ -121,16 +158,15 @@ def _compute_test_shift_bitmaps_from_ui() -> tuple[Optional[int], Optional[int]]
 
 
 def _restore_test_shift_state_from_config() -> None:
-    """Restore persisted test Shift/Subshift bitmaps into the event handler."""
-    global _config, _event_handler
-
-    if not _config or not _event_handler:
+    """Restore persisted test Shift/Subshift bitmaps into the VKB manager."""
+    if not _state.config or not _state.vkb_manager:
         return
 
-    shift_bitmap = int(_config.get("test_shift_bitmap", 0)) & 0x03
-    subshift_bitmap = int(_config.get("test_subshift_bitmap", 0)) & 0x7F
-    _event_handler._shift_bitmap = shift_bitmap
-    _event_handler._subshift_bitmap = subshift_bitmap
+    manager = _state.vkb_manager
+    shift_bitmap = _safe_int(_state.config.get("test_shift_bitmap", 0), 0) & SHIFT_BITMAP_MASK
+    subshift_bitmap = _safe_int(_state.config.get("test_subshift_bitmap", 0), 0) & SUBSHIFT_BITMAP_MASK
+    manager._shift_bitmap = shift_bitmap
+    manager._subshift_bitmap = subshift_bitmap
 
 
 def _ensure_rules_file_exists(plugin_dir: str) -> None:
@@ -169,13 +205,12 @@ def _ensure_rules_file_exists(plugin_dir: str) -> None:
 
 def _resolve_rules_file_path() -> str:
     """Resolve the rules.json path used by the plugin."""
-    global _config, _plugin_dir
-    override = (_config.get("rules_path", "") if _config else "") or ""
+    override = (_state.config.get("rules_path", "") if _state.config else "") or ""
     override = str(override).strip()
     if override:
         return override
-    if _plugin_dir:
-        return os.path.join(_plugin_dir, "rules.json")
+    if _state.plugin_dir:
+        return os.path.join(_state.plugin_dir, "rules.json")
     return os.path.join(os.getcwd(), "rules.json")
 
 
@@ -241,47 +276,60 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
     Returns:
         Plugin name as displayed in EDMC UI.
     """
-    global _config, _event_handler, _event_recorder, _plugin_dir, _vkb_link_started_by_plugin
-
     try:
         # Import here to avoid issues if EDMC modules aren't available during testing
         from edmcruleengine import Config, EventHandler
-        from edmcruleengine.event_recorder import EventRecorder
+        from edmcruleengine.vkb.vkb_client import VKBClient
+        from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
+        from edmcruleengine.events.event_recorder import EventRecorder
         import threading
 
         logger.info(f"VKB Connector v{VERSION} starting")
-        _vkb_link_started_by_plugin = False
+        _state.stop_event.clear()
+        _state.vkb_link_started_by_plugin = False
 
         # Initialize configuration (uses EDMC's stored preferences)
-        _config = Config()
-        _plugin_dir = plugin_dir
+        _state.config = Config()
+        _state.plugin_dir = plugin_dir
 
         # Ensure default rules.json exists (from rules.json.example) if user hasn't created one
-        _ensure_rules_file_exists(_plugin_dir)
+        _ensure_rules_file_exists(_state.plugin_dir)
 
-        vkb_host = _config.get("vkb_host", "127.0.0.1")
-        vkb_port = _config.get("vkb_port", 50995)
+        vkb_host = _state.config.get("vkb_host", "127.0.0.1")
+        vkb_port = _state.config.get("vkb_port", 50995)
         logger.info(
             "Startup self-check: "
-            f"plugin_dir={_plugin_dir}, "
+            f"plugin_dir={_state.plugin_dir}, "
             f"module_file={__file__}, "
             f"rules_path={_resolve_rules_file_path()}, "
-            f"logger={plugin_logger_name}"
+            f"logger={logger.name}"
         )
         logger.info(
             f"VKB Connector v{VERSION} initialized. "
             f"Target: {vkb_host}:{vkb_port}"
         )
 
-        # Initialize event handler with automatic reconnection
-        _event_handler = EventHandler(_config, plugin_dir=_plugin_dir)
-        _event_recorder = EventRecorder()
+        # Initialize VKB components
+        vkb_client = VKBClient(
+            host=vkb_host,
+            port=vkb_port,
+            header_byte=_state.config.get("vkb_header_byte", 0xA5),
+            command_byte=_state.config.get("vkb_command_byte", 13),
+            socket_timeout=_state.config.get("socket_timeout", 5),
+        )
+        _state.vkb_manager = VKBLinkManager(_state.config, Path(_state.plugin_dir), client=vkb_client)
+
+        # Initialize event handler and register endpoints
+        _state.event_handler = EventHandler(_state.config, endpoints=[], plugin_dir=_state.plugin_dir)
+        _state.event_handler.add_endpoint(_state.vkb_manager)
+        
+        _state.event_recorder = EventRecorder()
         _restore_test_shift_state_from_config()
         
         # On startup, refresh unregistered events against catalog
         # This removes any events that may have been added to the catalog since last run
         try:
-            removed_count = _event_handler.refresh_unregistered_events_against_catalog()
+            removed_count = _state.event_handler.refresh_unregistered_events_against_catalog()
             if removed_count > 0:
                 logger.info(f"Startup: {removed_count} previously unregistered event(s) now in catalog")
         except Exception as e:
@@ -291,20 +339,16 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
 
         def _start_vkb_link_if_needed() -> None:
             """Ensure VKB-Link app is running on startup (if not already running)."""
-            global _vkb_link_started_by_plugin
             try:
-                if not _event_handler or not _config:
-                    logger.warning("Startup: VKB-Link check skipped (handler/config unavailable)")
+                if _state.stop_event.is_set():
                     return
-                manager = getattr(_event_handler, "vkb_link_manager", None)
-                if not manager:
-                    logger.warning("Startup: VKB-Link manager unavailable")
+                if not _state.vkb_manager or not _state.config:
+                    logger.warning("Startup: VKB-Link check skipped (manager/config unavailable)")
                     return
+                
+                manager = _state.vkb_manager
                 status = manager.get_status(check_running=True)
-                auto_manage = as_bool(
-                    _config.get("vkb_link_auto_manage", True) if _config else True,
-                    True,
-                )
+                auto_manage = _state.config.get("vkb_link_auto_manage", True) if _state.config else True
                 logger.info(
                     "Startup: VKB-Link status: "
                     f"running={status.running} exe_path={status.exe_path or 'none'} "
@@ -318,11 +362,15 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
                 if not auto_manage:
                     logger.info("Startup: auto-manage disabled; VKB-Link start skipped")
                     return
+
+                if _state.stop_event.is_set():
+                    return
+
                 logger.info("Startup: VKB-Link not running; starting now")
                 result = manager.ensure_running(host=vkb_host, port=vkb_port, reason="startup")
                 logger.info(f"Startup: VKB-Link ensure_running result: {result.message}")
                 if result.success and result.action_taken in ("started", "restarted"):
-                    _vkb_link_started_by_plugin = True
+                    _state.vkb_link_started_by_plugin = True
                 if result.status is not None:
                     logger.info(
                         "Startup: VKB-Link post-start status: "
@@ -346,11 +394,18 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
         def _connect_in_background() -> None:
             """Try to connect to VKB in background without blocking the UI."""
             try:
-                if not startup_ready.wait(timeout=30):
-                    logger.warning("Startup: VKB-Link start sequence timed out; continuing with connect")
-                if _event_handler:
-                    _event_handler.set_connection_status_override("Connecting to VKB-Link...")
-                if _event_handler.connect():
+                # Wait for process check to complete, or plugin to stop
+                while not startup_ready.is_set():
+                    if _state.stop_event.wait(timeout=0.1):
+                        return
+                
+                if _state.stop_event.is_set():
+                    return
+
+                if _state.vkb_manager:
+                    _state.vkb_manager.set_connection_status_override("Connecting to VKB-Link...")
+                
+                if _state.vkb_manager and _state.vkb_manager.connect():
                     logger.info("Successfully connected to VKB hardware on startup")
                 else:
                     logger.warning(
@@ -360,8 +415,8 @@ def plugin_start3(plugin_dir: str) -> Optional[str]:
             except Exception as e:
                 logger.error(f"Error during background connection attempt: {e}", exc_info=True)
             finally:
-                if _event_handler:
-                    _event_handler.set_connection_status_override(None)
+                if _state.vkb_manager:
+                    _state.vkb_manager.set_connection_status_override(None)
 
         # Start the connection attempt in a daemon thread so it doesn't block
         connect_thread = threading.Thread(target=_connect_in_background, daemon=True)
@@ -381,52 +436,57 @@ def plugin_stop() -> None:
     
     Gracefully shuts down the VKB connector and stops all background reconnection attempts.
     """
-    global _event_handler, _event_recorder, _vkb_link_started_by_plugin
-
     try:
         logger.info("VKB Connector stopping")
-        if _event_recorder and _event_recorder.is_recording:
-            _event_recorder.stop()
-        if _event_handler:
+        _state.stop_event.set()
+        if _state.event_recorder and _state.event_recorder.is_recording:
+            _state.event_recorder.stop()
+        
+        # Disconnect VKB components first
+        if _state.vkb_manager:
             try:
-                _event_handler.clear_shift_state_for_shutdown()
+                # Clear shift state on shutdown (moved to manager)
+                if hasattr(_state.vkb_manager, "on_session_event"):
+                    _state.vkb_manager.on_session_event("Shutdown")
             except Exception as e:
                 logger.warning(f"Shutdown: failed to send VKB-Link clear state: {e}")
-            _event_handler.disconnect()
-            manager = getattr(_event_handler, "vkb_link_manager", None)
-            if manager:
-                try:
-                    status_before_stop = manager.get_status(check_running=True)
+            
+            _state.vkb_manager.disconnect()
+            
+            manager = _state.vkb_manager
+            try:
+                status_before_stop = manager.get_status(check_running=True)
+                logger.info(
+                    "Shutdown: VKB-Link pre-stop status: "
+                    f"running={status_before_stop.running} "
+                    f"exe_path={status_before_stop.exe_path or 'none'} "
+                    f"version={status_before_stop.version or 'unknown'} "
+                    f"managed={status_before_stop.managed} "
+                    f"started_by_plugin={_state.vkb_link_started_by_plugin}"
+                )
+            except Exception:
+                logger.info("Shutdown: VKB-Link pre-stop status unavailable")
+                
+            if _state.vkb_link_started_by_plugin:
+                logger.info("Shutdown: stopping VKB-Link (started-by-plugin policy)")
+                result = manager.stop_running(reason="plugin_shutdown")
+                logger.info(f"Shutdown: VKB-Link stop result: {result.message}")
+                if result.status is not None:
                     logger.info(
-                        "Shutdown: VKB-Link pre-stop status: "
-                        f"running={status_before_stop.running} "
-                        f"exe_path={status_before_stop.exe_path or 'none'} "
-                        f"version={status_before_stop.version or 'unknown'} "
-                        f"managed={status_before_stop.managed} "
-                        f"started_by_plugin={_vkb_link_started_by_plugin}"
+                        "Shutdown: VKB-Link post-stop status: "
+                        f"running={result.status.running} "
+                        f"exe_path={result.status.exe_path or 'none'} "
+                        f"version={result.status.version or 'unknown'} "
+                        f"managed={result.status.managed}"
                     )
-                except Exception:
-                    logger.info("Shutdown: VKB-Link pre-stop status unavailable")
-            if _vkb_link_started_by_plugin:
-                if manager:
-                    logger.info("Shutdown: stopping VKB-Link (started-by-plugin policy)")
-                    result = manager.stop_running(reason="plugin_shutdown")
-                    logger.info(f"Shutdown: VKB-Link stop result: {result.message}")
-                    if result.status is not None:
-                        logger.info(
-                            "Shutdown: VKB-Link post-stop status: "
-                            f"running={result.status.running} "
-                            f"exe_path={result.status.exe_path or 'none'} "
-                            f"version={result.status.version or 'unknown'} "
-                            f"managed={result.status.managed}"
-                        )
-                    else:
-                        logger.info("Shutdown: VKB-Link post-stop status unavailable")
                 else:
-                    logger.warning("Shutdown: VKB-Link manager unavailable for stop")
-            else:
-                logger.info("Shutdown: VKB-Link was not started by plugin; leaving running")
-            logger.info("VKB Connector stopped successfully")
+                    logger.info("Shutdown: VKB-Link post-stop status unavailable")
+        
+        # Finally disconnect the event handler
+        if _state.event_handler:
+            _state.event_handler.disconnect()
+            
+        logger.info("VKB Connector stopped successfully")
     except Exception as e:
         logger.error(f"Error stopping VKB Connector: {e}", exc_info=True)
 
@@ -434,69 +494,67 @@ def plugin_stop() -> None:
 def _persist_prefs_from_ui() -> None:
     """
     Persist UI preferences to config if UI variables are present.
-    Includes validation for port number.
+    Includes validation for host and port number.
     """
-    global _config, _prefs_vars
-    
-    if not _prefs_vars or not _config:
+    if not _state.prefs_vars or not _state.config:
         return
     
-    # Host preference
-    host_var = _prefs_vars.get("vkb_host")
+    # Host preference (robust validation for IP or hostname)
+    host_var = _state.prefs_vars.get("vkb_host")
     if host_var is not None:
-        _config.set("vkb_host", host_var.get().strip())
+        host_value = host_var.get().strip()
+        if _is_valid_host(host_value):
+            _state.config.set("vkb_host", host_value)
+        else:
+            logger.warning(f"Invalid VKB host format or unresolvable: {host_value}")
     
     # Port preference (with validation)
-    port_var = _prefs_vars.get("vkb_port")
+    port_var = _state.prefs_vars.get("vkb_port")
     if port_var is not None:
-        try:
-            port_value = int(port_var.get())
-            if 1 <= port_value <= 65535:
-                _config.set("vkb_port", port_value)
-            else:
-                logger.warning(f"Invalid VKB port {port_value}; must be 1-65535")
-        except ValueError:
-            logger.warning("Invalid VKB port in preferences; must be an integer")
+        port_value = _safe_int(port_var.get(), 0)
+        if 1 <= port_value <= 65535:
+            _state.config.set("vkb_port", port_value)
+        else:
+            logger.warning(f"Invalid VKB port {port_value}; must be 1-65535")
 
     # Test shift/subshift persistence
     shift_bitmap, subshift_bitmap = _compute_test_shift_bitmaps_from_ui()
     if shift_bitmap is not None and subshift_bitmap is not None:
-        _config.set("test_shift_bitmap", int(shift_bitmap) & 0x03)
-        _config.set("test_subshift_bitmap", int(subshift_bitmap) & 0x7F)
+        _state.config.set("test_shift_bitmap", _safe_int(shift_bitmap, 0) & SHIFT_BITMAP_MASK)
+        _state.config.set("test_subshift_bitmap", _safe_int(subshift_bitmap, 0) & SUBSHIFT_BITMAP_MASK)
     
     # Anonymization settings
-    anonymize_var = _prefs_vars.get("anonymize_events")
+    anonymize_var = _state.prefs_vars.get("anonymize_events")
     if anonymize_var is not None:
-        _config.set("anonymize_events", bool(anonymize_var.get()))
+        _state.config.set("anonymize_events", bool(anonymize_var.get()))
     
-    mock_cmdr_var = _prefs_vars.get("mock_commander_name")
+    mock_cmdr_var = _state.prefs_vars.get("mock_commander_name")
     if mock_cmdr_var is not None:
-        _config.set("mock_commander_name", mock_cmdr_var.get().strip())
+        _state.config.set("mock_commander_name", mock_cmdr_var.get().strip())
     
-    mock_ship_var = _prefs_vars.get("mock_ship_name")
+    mock_ship_var = _state.prefs_vars.get("mock_ship_name")
     if mock_ship_var is not None:
-        _config.set("mock_ship_name", mock_ship_var.get().strip())
+        _state.config.set("mock_ship_name", mock_ship_var.get().strip())
     
-    mock_ident_var = _prefs_vars.get("mock_ship_ident")
+    mock_ident_var = _state.prefs_vars.get("mock_ship_ident")
     if mock_ident_var is not None:
-        _config.set("mock_ship_ident", mock_ident_var.get().strip())
+        _state.config.set("mock_ship_ident", mock_ident_var.get().strip())
 
 
 def _apply_test_shift_from_ui() -> None:
     """Apply Shift/Subshift test toggles from preferences UI to VKB immediately."""
-    global _event_handler, _prefs_vars
-
-    if not _event_handler:
-        logger.warning("Cannot apply test shift state: event handler not initialized")
+    if not _state.vkb_manager:
+        logger.warning("Cannot apply test shift state: VKB manager not initialized")
         return
 
+    manager = _state.vkb_manager
     shift_bitmap, subshift_bitmap = _compute_test_shift_bitmaps_from_ui()
     if shift_bitmap is None or subshift_bitmap is None:
         return
 
-    _event_handler._shift_bitmap = shift_bitmap
-    _event_handler._subshift_bitmap = subshift_bitmap
-    _event_handler._send_shift_state_if_changed(force=True)
+    manager._shift_bitmap = shift_bitmap
+    manager._subshift_bitmap = subshift_bitmap
+    manager._send_shift_state_if_changed(force=True)
 
 
 def prefs_changed(cmdr: str, is_beta: bool) -> None:
@@ -511,9 +569,7 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
         cmdr: Commander name.
         is_beta: Whether running beta version.
     """
-    global _event_handler
-
-    if not _event_handler:
+    if not _state.event_handler:
         return
 
     try:
@@ -521,15 +577,18 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
         _persist_prefs_from_ui()
         
         # Refresh VKB endpoint before reconnecting to use updated host/port
-        _event_handler._refresh_vkb_endpoint()
+        _state.event_handler._refresh_vkb_endpoint()
         
         # Reload rules and reconnect with new settings
-        _event_handler.reload_rules()
-        _event_handler.disconnect()
-        _event_handler.connect()
+        _state.event_handler.reload_rules()
+        _state.event_handler.disconnect()
+        
+        # Only attempt to connect if the plugin is still enabled
+        if _state.event_handler.enabled:
+            _state.event_handler.connect()
         
         # Refresh unregistered events against updated catalog
-        _event_handler.refresh_unregistered_events_against_catalog()
+        _state.event_handler.refresh_unregistered_events_against_catalog()
         
     except Exception as e:
         logger.error(f"Error in prefs_changed: {e}", exc_info=True)
@@ -540,7 +599,7 @@ def prefs_changed(cmdr: str, is_beta: bool) -> None:
 
 
 def journal_entry(
-    cmdr: str, is_beta: bool, system: str, station: str, entry: dict, state: dict
+    cmdr: str, is_beta: bool, system: str, station: str, entry: dict[str, Any], state: dict[str, Any]
 ) -> Optional[str]:
     """
     Called when EDMC receives a journal event from Elite Dangerous.
@@ -559,21 +618,19 @@ def journal_entry(
     Returns:
         Optional return value (not typically used).
     """
-    global _event_handler
-
     try:
-        if not _event_handler or not _event_handler.enabled:
+        if not _state.event_handler or not _state.event_handler.enabled:
             return None
 
         # Get event type
         event_type = entry.get("event", "Unknown")
 
         # Record event if recorder is active
-        if _event_recorder and _event_recorder.is_recording:
-            _event_recorder.record("journal", event_type, entry)
+        if _state.event_recorder and _state.event_recorder.is_recording:
+            _state.event_recorder.record("journal", event_type, entry)
 
         # Forward to VKB hardware (handles reconnection internally if needed)
-        _event_handler.handle_event(
+        _state.event_handler.handle_event(
             event_type,
             entry,
             source="journal",
@@ -591,21 +648,19 @@ def _dispatch_notification(
     *,
     source: str,
     event_type: str,
-    payload: dict,
+    payload: dict[str, Any],
     cmdr: str = "",
     is_beta: bool = False,
 ) -> None:
     """Route non-journal EDMC notifications into the same event pipeline."""
-    global _event_handler
-
     # Record event if recorder is active (even if handler is disabled)
-    if _event_recorder and _event_recorder.is_recording:
-        _event_recorder.record(source, event_type, payload)
+    if _state.event_recorder and _state.event_recorder.is_recording:
+        _state.event_recorder.record(source, event_type, payload)
 
-    if not _event_handler or not _event_handler.enabled:
+    if not _state.event_handler or not _state.event_handler.enabled:
         return
 
-    _event_handler.handle_event(
+    _state.event_handler.handle_event(
         event_type,
         payload,
         source=source,
@@ -614,7 +669,7 @@ def _dispatch_notification(
     )
 
 
-def dashboard_entry(cmdr: str, is_beta: bool, entry: dict) -> None:
+def dashboard_entry(cmdr: str, is_beta: bool, entry: dict[str, Any]) -> None:
     """
     Called when EDMC receives a dashboard/status update.
     """
@@ -631,7 +686,7 @@ def dashboard_entry(cmdr: str, is_beta: bool, entry: dict) -> None:
         logger.error(f"Error handling dashboard entry: {e}", exc_info=True)
 
 
-def _capi_cmdr_dispatch(data: dict, is_beta: bool, source: str, event_type: str) -> Optional[str]:
+def _capi_cmdr_dispatch(data: dict[str, Any], is_beta: bool, source: str, event_type: str) -> Optional[str]:
     """Shared handler for cmdr_data and cmdr_data_legacy CAPI hooks."""
     try:
         cmdr_name = ""
@@ -650,14 +705,14 @@ def _capi_cmdr_dispatch(data: dict, is_beta: bool, source: str, event_type: str)
     return None
 
 
-def cmdr_data(data: dict, is_beta: bool) -> Optional[str]:
+def cmdr_data(data: dict[str, Any], is_beta: bool) -> Optional[str]:
     """
     Called when EDMC receives CAPI commander profile data.
     """
     return _capi_cmdr_dispatch(data, is_beta, source="capi", event_type="CmdrData")
 
 
-def cmdr_data_legacy(data: dict, is_beta: bool) -> Optional[str]:
+def cmdr_data_legacy(data: dict[str, Any], is_beta: bool) -> Optional[str]:
     """
     Called when EDMC receives Legacy CAPI commander profile data.
     """
@@ -670,7 +725,7 @@ def cmdr_data_legacy(data: dict, is_beta: bool) -> Optional[str]:
 # See: https://github.com/EDCD/EDMarketConnector/blob/main/PLUGINS.md
 
 
-def capi_fleetcarrier(data: dict) -> Optional[str]:
+def capi_fleetcarrier(data: dict[str, Any]) -> Optional[str]:
     """
     Called when EDMC receives CAPI fleet carrier data.
     
@@ -688,35 +743,32 @@ def capi_fleetcarrier(data: dict) -> Optional[str]:
     return None
 
 
-def plugin_prefs(parent, cmdr: str, is_beta: bool):
+def plugin_prefs(parent: Any, cmdr: str, is_beta: bool) -> Any:
     """
     Build the plugin preferences UI for EDMC.
 
-    Delegates panel construction to edmcruleengine.prefs_panel.
+    Delegates panel construction to edmcruleengine.ui.prefs_panel.
     """
-    global _prefs_vars, _event_recorder
-
     try:
-        from edmcruleengine.prefs_panel import PrefsPanelDeps, build_plugin_prefs_panel
+        from edmcruleengine.ui.prefs_panel import PrefsPanelDeps, build_plugin_prefs_panel
     except Exception as e:
         logger.error(f"Failed to load preferences panel module: {e}", exc_info=True)
         return None
 
     def _set_prefs_vars(next_vars: dict[str, Any]) -> None:
-        global _prefs_vars
-        _prefs_vars = next_vars
+        _state.prefs_vars = next_vars
 
     def _set_event_recorder(recorder: Any) -> None:
-        global _event_recorder
-        _event_recorder = recorder
+        _state.event_recorder = recorder
 
     deps = PrefsPanelDeps(
         logger=logger,
-        get_config=lambda: _config,
-        get_event_handler=lambda: _event_handler,
-        get_event_recorder=lambda: _event_recorder,
+        get_config=lambda: _state.config,
+        get_event_handler=lambda: _state.event_handler,
+        get_vkb_manager=lambda: _state.vkb_manager,
+        get_event_recorder=lambda: _state.event_recorder,
         set_event_recorder=_set_event_recorder,
-        get_plugin_dir=lambda: _plugin_dir,
+        get_plugin_dir=lambda: _state.plugin_dir,
         set_prefs_vars=_set_prefs_vars,
         compute_test_shift_bitmaps_from_ui=_compute_test_shift_bitmaps_from_ui,
         apply_test_shift_from_ui=_apply_test_shift_from_ui,

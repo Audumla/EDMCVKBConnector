@@ -7,8 +7,8 @@ pytestmark = pytest.mark.skip_all_by_default
 
 def test_rule_editor_imports():
     """Test that rule editor modules can be imported."""
-    from edmcruleengine.rule_editor import RuleEditorUI, RuleEditor, show_rule_editor
-    from edmcruleengine.signals_catalog import SignalsCatalog
+    from edmcruleengine.ui.rule_editor import RuleEditorUI, RuleEditor, show_rule_editor
+    from edmcruleengine.rules.signals_catalog import SignalsCatalog
     
     assert RuleEditorUI is not None
     assert RuleEditor is not None
@@ -18,7 +18,7 @@ def test_rule_editor_imports():
 
 def test_catalog_loads_with_comments():
     """Test that the catalog loads correctly even with comment entries."""
-    from edmcruleengine.signals_catalog import SignalsCatalog
+    from edmcruleengine.rules.signals_catalog import SignalsCatalog
     
     plugin_dir = Path(__file__).parent.parent
     catalog = SignalsCatalog.from_plugin_dir(str(plugin_dir))
@@ -43,8 +43,8 @@ def test_rule_editor_handles_catalog_comments():
     """Test that RuleEditor correctly filters out catalog comments."""
     import tempfile
     import json
-    from edmcruleengine.rule_editor import RuleEditor
-    from edmcruleengine.signals_catalog import SignalsCatalog
+    from edmcruleengine.ui.rule_editor import RuleEditor
+    from edmcruleengine.rules.signals_catalog import SignalsCatalog
     import tkinter as tk
     
     plugin_dir = Path(__file__).parent.parent

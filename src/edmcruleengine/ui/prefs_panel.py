@@ -20,9 +20,8 @@ from .ui_components import (
     create_colored_button,
     create_icon_action_button,
 )
-from .plugin_update_manager import PluginUpdateManager
-from .version import __version__ as PLUGIN_VERSION
-from .bool_utils import as_bool
+from ..utils.plugin_update_manager import PluginUpdateManager
+from ..config.version import __version__ as PLUGIN_VERSION
 
 
 @dataclass(frozen=True)
@@ -32,6 +31,7 @@ class PrefsPanelDeps:
     logger: Any
     get_config: Callable[[], Any]
     get_event_handler: Callable[[], Any]
+    get_vkb_manager: Callable[[], Any]
     get_event_recorder: Callable[[], Any]
     set_event_recorder: Callable[[Any], None]
     get_plugin_dir: Callable[[], Optional[str]]
@@ -46,6 +46,7 @@ class PrefsPanelDeps:
 
 _config: Any = None
 _event_handler: Any = None
+_vkb_manager: Any = None
 _event_recorder: Any = None
 _plugin_dir: Optional[str] = None
 logger: Any = None
@@ -58,10 +59,11 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     Uses EDMC's myNotebook widgets when available.
     """
     _ = (cmdr, is_beta)
-    global _config, _event_handler, _event_recorder, _plugin_dir, logger
+    global _config, _event_handler, _vkb_manager, _event_recorder, _plugin_dir, logger
     logger = deps.logger
     _config = deps.get_config()
     _event_handler = deps.get_event_handler()
+    _vkb_manager = deps.get_vkb_manager()
     _event_recorder = deps.get_event_recorder()
     _plugin_dir = deps.get_plugin_dir()
 
@@ -163,9 +165,9 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     ini_status_tick_ms = max(100, int(status_poll_interval_ms / 3))
     host_var = tk.StringVar(value=str(vkb_host))
     port_var = tk.StringVar(value=str(vkb_port))
-    if _event_handler:
-        current_shift = int(_event_handler._shift_bitmap)
-        current_subshift = int(_event_handler._subshift_bitmap)
+    if _vkb_manager:
+        current_shift = int(_vkb_manager._shift_bitmap)
+        current_subshift = int(_vkb_manager._subshift_bitmap)
     else:
         current_shift = int(_config.get("test_shift_bitmap", 0)) if _config else 0
         current_subshift = int(_config.get("test_subshift_bitmap", 0)) if _config else 0
@@ -293,7 +295,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     port_entry.pack(side=tk.LEFT, padx=(0, 12))
 
     auto_manage_var = tk.BooleanVar(
-        value=as_bool(_config.get("vkb_link_auto_manage", True), True) if _config else True
+        value=_config.get("vkb_link_auto_manage", True) if _config else True
     )
     managed_mode_unavailable_status = [None]
 
@@ -504,14 +506,9 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
     host_var.trace_add("write", _on_host_port_change)
     port_var.trace_add("write", _on_host_port_change)
 
-    def _get_vkb_manager():
-        if _event_handler and hasattr(_event_handler, "vkb_link_manager"):
-            return _event_handler.vkb_link_manager
-        return None
-
     def _refresh_vkb_app_status(check_running: bool = False) -> None:
         nonlocal vkb_ini_path_saved
-        manager = _get_vkb_manager()
+        manager = _vkb_manager
         if not manager:
             _set_status_error("VKB-Link manager unavailable")
             return
@@ -556,7 +553,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         port_value = _parse_port_value()
 
         def _worker() -> None:
-            manager = _get_vkb_manager()
+            manager = _vkb_manager
             if not manager:
                 result = None
                 error_message = "VKB-Link manager unavailable"
@@ -602,7 +599,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         if not exe_path:
             return
 
-        manager = _get_vkb_manager()
+        manager = _vkb_manager
         if not manager:
             _set_status_error("VKB-Link manager unavailable")
             return
@@ -664,7 +661,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         ini_path = Path(vkb_ini_path_saved)
         if not ini_path.exists():
             return None
-        manager = _get_vkb_manager()
+        manager = _vkb_manager
         if not manager:
             return None
         endpoint = manager.read_ini_endpoint(ini_path)
@@ -695,12 +692,9 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                 vkb_status_label.configure(foreground="#3498db")
             vkb_status_var.set(ini_status_override[0])
             return
-        if _event_handler:
+        if _vkb_manager:
             try:
-                status_override_getter = getattr(_event_handler, "get_connection_status_override", None)
-                connection_status_override = (
-                    status_override_getter() if callable(status_override_getter) else None
-                )
+                connection_status_override = _vkb_manager.get_connection_status_override()
                 if connection_status_override:
                     vkb_status_var.set(connection_status_override)
                     vkb_status_label.configure(foreground="#3498db")
@@ -711,9 +705,9 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         is_reconnecting = False
         if connected_state is None:
             connected_state = False
-            if _event_handler:
+            if _vkb_manager:
                 try:
-                    vkb_client = _event_handler.vkb_client
+                    vkb_client = _vkb_manager.client
                     connected_state = bool(
                         vkb_client.connected and getattr(vkb_client, "socket", None) is not None
                     )
@@ -739,7 +733,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
         # Get version from manager
         version = "?"
-        manager = _get_vkb_manager()
+        manager = _vkb_manager
         if manager:
             status = manager.get_status(check_running=False)
             if status.version:
@@ -783,7 +777,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
         # Always probe process state in the background so status reflects process
         # availability even when auto-manage is disabled.
-        if _event_handler and not safety_restart_inflight[0]:
+        if _vkb_manager and not safety_restart_inflight[0]:
             host = host_var.get().strip() or "127.0.0.1"
             port_str = port_var.get().strip()
             try:
@@ -793,13 +787,10 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
             def _probe_process_state():
                 try:
-                    manager = _get_vkb_manager()
-                    if not manager:
-                        process_running_state[0] = None
-                        return
+                    manager = _vkb_manager
                     status = manager.get_status(check_running=True)
                     process_running_state[0] = status.running
-                    vkb_client = getattr(_event_handler, "vkb_client", None)
+                    vkb_client = getattr(manager, "client", None)
                     client_connected = bool(
                         vkb_client
                         and getattr(vkb_client, "connected", False)
@@ -829,7 +820,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                             return
                         try:
                             logger.info("VKB-Link polling: process detected; running standard connect workflow")
-                            connected = _event_handler.connect()
+                            connected = manager.connect()
                             if connected:
                                 logger.info("VKB-Link polling: connect succeeded after manual process detection")
                             else:
@@ -851,8 +842,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
                             logger.info(f"VKB-Link polling: auto-start succeeded ({result.message})")
                             if result.action_taken in ("started", "restarted"):
                                 manager.wait_for_listener_ready(host, port)
-                                _event_handler.vkb_client.set_on_connected(_event_handler._on_socket_connected)
-                                _event_handler.vkb_client.connect()
+                                manager.connect()
                         else:
                             logger.warning(f"VKB-Link polling: auto-start failed ({result.message})")
                     except Exception as e:
@@ -947,7 +937,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
         else:
             # Start
             if not _event_recorder:
-                from edmcruleengine.event_recorder import EventRecorder
+                from ..events.event_recorder import EventRecorder
                 _event_recorder = EventRecorder()
                 deps.set_event_recorder(_event_recorder)
             output_dir = (Path(_plugin_dir) if _plugin_dir else deps.plugin_root) / "recordings"
@@ -1045,7 +1035,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     def _open_rules_editor(initial_rule_index: Optional[int] = None) -> None:
         try:
-            from edmcruleengine.rule_editor import show_rule_editor
+            from .rule_editor import show_rule_editor
 
             _refresh_rules_path()
             rules_file = Path(rules_path_var.get())
@@ -1337,7 +1327,7 @@ def build_plugin_prefs_panel(parent, cmdr: str, is_beta: bool, deps: PrefsPanelD
 
     # --- Track unregistered events checkbox ---
     track_unregistered_var = tk.BooleanVar(
-        value=as_bool(_config.get("track_unregistered_events", False), False) if _config else False
+        value=_config.get("track_unregistered_events", False) if _config else False
     )
     if _event_handler:
         _event_handler.track_unregistered_events = track_unregistered_var.get()

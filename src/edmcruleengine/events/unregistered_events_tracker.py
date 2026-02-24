@@ -20,8 +20,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from . import plugin_logger
-from .signals_catalog import SignalsCatalog
+from .. import plugin_logger
+from ..rules.signals_catalog import SignalsCatalog
 
 logger = plugin_logger(__name__)
 

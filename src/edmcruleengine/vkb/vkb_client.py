@@ -10,7 +10,7 @@ import socket
 import threading
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from . import plugin_logger
+from .. import plugin_logger
 
 if TYPE_CHECKING:
     from .message_formatter import MessageFormatter

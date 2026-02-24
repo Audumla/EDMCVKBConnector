@@ -9,7 +9,7 @@ from pathlib import Path
 
 def test_editor_can_import():
     """Test that the editor module can be imported."""
-    from edmcruleengine.rule_editor import RuleEditorUI, RuleEditor, show_rule_editor
+    from edmcruleengine.ui.rule_editor import RuleEditorUI, RuleEditor, show_rule_editor
     assert RuleEditorUI is not None
     assert RuleEditor is not None
     assert show_rule_editor is not None
@@ -17,7 +17,7 @@ def test_editor_can_import():
 
 def test_shift_tokens_defined():
     """Test that shift tokens are properly defined."""
-    from edmcruleengine.rule_editor import SHIFT_TOKENS, SUBSHIFT_TOKENS, ALL_SHIFT_TOKENS
+    from edmcruleengine.ui.rule_editor import SHIFT_TOKENS, SUBSHIFT_TOKENS, ALL_SHIFT_TOKENS
     
     assert SHIFT_TOKENS == ["Shift1", "Shift2"]
     assert len(SUBSHIFT_TOKENS) == 7

@@ -183,4 +183,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n\n[!] Interrupted by user. Aborting release workflow.", file=sys.stderr)
+        sys.exit(130)

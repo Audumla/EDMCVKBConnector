@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from . import plugin_logger
+from .. import plugin_logger
 from .signal_derivation import SignalDerivation
 from .signals_catalog import SignalsCatalog, generate_id_from_title
 

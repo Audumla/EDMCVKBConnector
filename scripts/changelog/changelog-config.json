@@ -2,12 +2,12 @@
   "_comment": "Changelog/release summarization runtime settings. Add new backend sections alongside codex/claude_cli/intelligent as needed.",
   "changelog_summarization": {
     "_comment": "Used by scripts/summarize_changelog.py and scripts/generate_release_notes.py",
-    "enabled": true,
-    "backend": "codex",
+    "enabled": 1,
+    "backend": "local-llm",
     "common": {
       "_comment": "Shared settings for all backends. timeout_seconds is global fallback.",
       "timeout_seconds": 300,
-      "fallback_order": ["claude-cli", "codex", "gemini", "copilot", "lmstudio"],
+      "fallback_order": ["local-llm","gemini", "claude-cli", "codex", "copilot"],
       "_comment_timeout_seconds": "Single command timeout in seconds for backend CLI calls (default recommendation: 300-600).",
       "changelog_prompt_requirements": [
         "1-2 sentence overview of release focus",
@@ -47,16 +47,16 @@
       "_comment_model": "Optional model name (e.g., gemini-2.0-flash, gemini-1.5-pro). Defaults to Gemini's selected model.",
       "model": ""
     },
-    "lmstudio": {
-      "_comment": "LMStudio local backend settings (backend=lmstudio).",
+    "local_llm": {
+      "_comment": "Local LLM backend settings (backend=local-llm).",
       "_comment_url": "The local server URL (usually http://localhost:1234/v1).",
-      "base_url": "http://localhost:1234/v1",
-      "_comment_model": "The model identifier string used by LMStudio. - qwen/qwen3-coder-30b",
-      "model": "qwen/qwen3-coder-next"
+      "base_url": "http://localhost:50091/v1",
+      "_comment_model": "The model identifier string used by the Local LLM server.",
+      "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf"
     },
     "intelligent": {
       "_comment": "Deterministic local summarizer (no LLM/API usage)."
     },
-    "_comment_backend": "Backend options: codex | claude-cli | copilot | gemini | intelligent"
+    "_comment_backend": "Backend options: codex | claude-cli | copilot | gemini | local-llm | intelligent"
   }
 }

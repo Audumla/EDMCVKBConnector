@@ -12,9 +12,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, call
 
-from edmcruleengine.event_handler import EventHandler
-from edmcruleengine.config import Config
-from edmcruleengine.signals_catalog import SignalsCatalog
+from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine import Config
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
 
 
 class TestEDMCIntegration:
@@ -701,7 +701,7 @@ class TestSignalResolutionWithRealData:
         assert handler.rule_engine.signal_derivation is not None
         
         # Derive signals manually to verify
-        from edmcruleengine.signal_derivation import SignalDerivation
+        from edmcruleengine.rules.signal_derivation import SignalDerivation
         import time
         
         derivation = SignalDerivation(handler.catalog._data)

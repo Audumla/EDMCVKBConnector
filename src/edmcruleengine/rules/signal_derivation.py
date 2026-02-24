@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, Optional
 
-from . import plugin_logger
+from .. import plugin_logger
 
 logger = plugin_logger(__name__)
 

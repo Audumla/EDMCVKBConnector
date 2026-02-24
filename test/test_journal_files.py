@@ -10,8 +10,11 @@ import time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from edmcruleengine.config import Config, DEFAULTS
-from edmcruleengine.event_handler import EventHandler
+import pytest
+
+from edmcruleengine.config.config import DEFAULTS
+from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager, VKBLinkActionResult
 from test.test_vkb_server_integration import running_mock_server
 
 RULES_FILE = Path(__file__).parent / "fixtures" / "rules_catalog.json"
@@ -22,9 +25,29 @@ class _TestConfig:
     """Config stub for tests that need rules loaded."""
     def __init__(self, **overrides):
         self._values = dict(DEFAULTS)
+        self._values.update({
+            "vkb_link_auto_manage": False,
+            "vkb_link_warmup_delay_seconds": 0,
+        })
         self._values.update(overrides)
     def get(self, key, default=None):
         return self._values.get(key, default)
+    def set(self, key, value):
+        self._values[key] = value
+
+
+@pytest.fixture(autouse=True)
+def mock_vkb_link_manager(monkeypatch):
+    """Globally mock VKBLinkManager for all tests in this module."""
+    monkeypatch.setattr(VKBLinkManager, "start_process_health_monitor", lambda *a, **kw: None)
+    monkeypatch.setattr(VKBLinkManager, "stop_process_health_monitor", lambda *a, **kw: None)
+    monkeypatch.setattr(VKBLinkManager, "wait_for_post_start_settle", lambda *a, **kw: None)
+    
+    mock_status = Mock(running=True, exe_path="mock.exe", version="1.0", managed=True)
+    monkeypatch.setattr(VKBLinkManager, "get_status", lambda *a, **kw: mock_status)
+    
+    success_result = VKBLinkActionResult(success=True, message="Mocked", action_taken="none", status=mock_status)
+    monkeypatch.setattr(VKBLinkManager, "ensure_running", lambda *a, **kw: success_result)
 
 
 def parse_journal_file(journal_path):
@@ -87,7 +110,6 @@ def test_plugin_with_journal_events():
         # Initialize plugin with rules loaded
         config = _TestConfig(rules_path=str(RULES_FILE), vkb_port=51001)
         handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
-        handler.vkb_client.port = 51001
         
         # Connect
         success = handler.connect()
@@ -150,9 +172,8 @@ def test_specific_journal_scenarios():
     with running_mock_server(port=51002) as server:
         server.verbose = False
         
-        config = Config()
+        config = _TestConfig(vkb_port=51002)
         handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
-        handler.vkb_client.port = 51002
         handler.connect()
         
         # Test Scenario 1: FSD Jump sequence
@@ -235,9 +256,8 @@ def test_journal_event_filtering():
     with running_mock_server(port=51003) as server:
         server.verbose = False
         
-        config = Config()
+        config = _TestConfig(vkb_port=51003)
         handler = EventHandler(config, plugin_dir=str(PLUGIN_ROOT))
-        handler.vkb_client.port = 51003
         handler.connect()
         
         # Count different event types

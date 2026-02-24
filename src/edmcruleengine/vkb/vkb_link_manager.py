@@ -19,37 +19,31 @@ import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 from urllib.request import Request, urlopen
 
-from . import plugin_logger
-from .bool_utils import as_bool
+from .. import plugin_logger
+from ..utils.downloaders import DownloadItem, Downloader
+from ..utils.mega_downloader import MegaDownloader
+from ..events.endpoint import Endpoint
 
-try:
-    from . import pure_python_aes as _pure_python_aes
-except Exception:
-    _pure_python_aes = None
+if TYPE_CHECKING:
+    from ..rules.rules_engine import MatchResult
+    from .vkb_client import VKBClient
 
 logger = plugin_logger(__name__)
+
+# Protocol Constants
+VKB_SHIFT_MASK = 0x03      # 2 bits for Shift1/Shift2
+VKB_SUBSHIFT_MASK = 0x7F   # 7 bits for Subshift1-7
+
+# Pre-compiled regex for shift token parsing
+_SHIFT_TOKEN_PATTERN = re.compile(r"^(Subshift|Shift)(\d+)$")
 
 VKB_LINK_EXE_NAMES = ("VKB-Link.exe",)
 VKB_LINK_INI_NAMES = ("VKB-Link.ini", "VKBLink.ini")
 VKB_LINK_VERSION_RE = re.compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", re.IGNORECASE)
 
-MEGA_API_URL = "https://g.api.mega.co.nz/cs"
-MEGA_FOLDER_NODE = "980CgDDL"
-MEGA_FOLDER_KEY_B64 = "AuSb0tItSbEQCmIIcA8U7w"
-MEGA_API_HEADERS = {
-    "User-Agent": "Mozilla/5.0",
-    "Content-Type": "application/json",
-    "Origin": "https://mega.nz",
-    "Referer": "https://mega.nz/",
-}
-
-_CRYPTO_MISSING_WARNED = False
-_CRYPTO_INSTALL_ATTEMPTED = False
-_CRYPTO_AUTO_INSTALL_FAILED = False
-_CRYPTO_INSTALL_LOCK = threading.Lock()
 VKB_LINK_MANUAL_MODE_STATUS = "VKB needs to be downloaded and run manually"
 
 
@@ -68,15 +62,6 @@ class VKBLinkStatus:
     managed: bool
     managed_available: bool = True
     managed_unavailable_reason: Optional[str] = None
-
-
-@dataclass(frozen=True)
-class VKBLinkRelease:
-    version: str
-    url: str
-    filename: str
-    mega_node_handle: Optional[str] = None
-    mega_raw_key: Optional[bytes] = None
 
 
 @dataclass(frozen=True)
@@ -483,13 +468,20 @@ def _mega_list_folder(folder_node: str, folder_key: bytes) -> list[VKBLinkReleas
     return releases
 
 
-class VKBLinkManager:
+class VKBLinkManager(Endpoint):
     """Manage VKB-Link process, configuration INI, and update/download flow."""
 
-    def __init__(self, config, plugin_dir: Path) -> None:
+    def __init__(
+        self, 
+        config, 
+        plugin_dir: Path, 
+        downloader: Optional[Downloader] = None,
+        client: Optional["VKBClient"] = None
+    ) -> None:
         self.config = config
         self.plugin_dir = Path(plugin_dir)
         self.managed_dir = self.plugin_dir / "vkb-link"
+        self.client = client
         self._lifecycle_lock = threading.Lock()
         self._last_start_monotonic = 0.0
         self._last_startup_original_minimized: Optional[bool] = None
@@ -501,6 +493,34 @@ class VKBLinkManager:
         self._last_running_detected_monotonic = 0.0
         self._windows_tasklist_fallback_warned = False
         self._managed_mode_unavailable_warned = False
+        
+        # Connection and recovery state
+        self._recovery_lock = threading.Lock()
+        self._recovery_inflight = False
+        self._connection_status_lock = threading.Lock()
+        self._connection_status_override: Optional[str] = None
+        self._endpoint_change_active = False  # Suppresses recovery during intentional restart
+
+        # VKB Shift State
+        self._shift_bitmap = 0
+        self._subshift_bitmap = 0
+        self._last_sent_shift = None
+        self._last_sent_subshift = None
+
+        # Folder constants for default downloader
+        MEGA_FOLDER_NODE = "980CgDDL"
+        MEGA_FOLDER_KEY_B64 = "AuSb0tItSbEQCmIIcA8U7w"
+
+        # Initialize default downloader if none provided
+        if downloader is None:
+            self.downloader = MegaDownloader(
+                folder_node=MEGA_FOLDER_NODE,
+                folder_key_b64=MEGA_FOLDER_KEY_B64,
+                config=config,
+                logger=logger
+            )
+        else:
+            self.downloader = downloader
 
     def _cfg_int(self, key: str, default: int, *, minimum: int = 0) -> int:
         value = default
@@ -563,10 +583,10 @@ class VKBLinkManager:
     def _is_cryptography_auto_install_enabled(self) -> bool:
         if not self.config:
             return False
-        return as_bool(self.config.get("vkb_link_auto_install_cryptography", False), False)
+        return self.config.get("vkb_link_auto_install_cryptography", False)
 
     def _managed_mode_availability(self) -> tuple[bool, Optional[str]]:
-        if _ensure_cryptography(auto_install=self._is_cryptography_auto_install_enabled()):
+        if self.downloader.is_available():
             self._managed_mode_unavailable_warned = False
             return True, None
 
@@ -578,7 +598,7 @@ class VKBLinkManager:
     def should_probe_listener_before_connect(self) -> bool:
         if not self.config:
             return False
-        return as_bool(self.config.get("vkb_link_probe_listener_before_connect", False), False)
+        return self.config.get("vkb_link_probe_listener_before_connect", False)
 
     def read_ini_endpoint(self, ini_path: Path | str) -> Optional[tuple[str, int]]:
         import configparser
@@ -653,10 +673,7 @@ class VKBLinkManager:
                 minimum_seconds=0.1,
             )
             try:
-                auto_manage = as_bool(
-                    self.config.get("vkb_link_auto_manage", True) if self.config else True,
-                    True,
-                )
+                auto_manage = self.config.get("vkb_link_auto_manage", True) if self.config else True
                 if auto_manage:
                     is_running = self.is_running()
                     if self._last_known_process_running and not is_running:
@@ -670,11 +687,378 @@ class VKBLinkManager:
                 logger.debug(f"Error in process health monitor: {e}")
             self._process_monitor_stop.wait(check_interval)
 
+    def set_connection_status_override(self, status: Optional[str]) -> None:
+        """Set temporary UI-facing connection status text."""
+        with self._connection_status_lock:
+            self._connection_status_override = status
+
+    def get_connection_status_override(self) -> Optional[str]:
+        """Get temporary UI-facing connection status text, if any."""
+        with self._connection_status_lock:
+            return self._connection_status_override
+
+    def connect(self, on_connected_callback: Optional[Callable[[], None]] = None) -> bool:
+        """
+        Connect to VKB hardware, ensuring VKB-Link process is running.
+        
+        Args:
+            on_connected_callback: Optional callback to run after successful socket connection.
+                                   Defaults to self._on_socket_connected.
+            
+        Returns:
+            True if connection successful, False otherwise.
+        """
+        if not self.client:
+            logger.error("VKB-Link connect aborted: client not initialized")
+            return False
+
+        callback = on_connected_callback or self._on_socket_connected
+
+        self.set_connection_status_override("Connecting to VKB-Link...")
+        try:
+            host = self.config.get("vkb_host", "127.0.0.1")
+            port = self.config.get("vkb_port", 50995)
+            self.client.host = host
+            self.client.port = port
+
+            # Connection workflow requires VKB-Link process running first.
+            status = self.get_status(check_running=True)
+            auto_manage = self.config.get("vkb_link_auto_manage", True) if self.config else True
+            if status.running is False:
+                if not auto_manage:
+                    logger.warning(
+                        "VKB-Link connect aborted: process is not running and auto-manage is disabled"
+                    )
+                    return False
+                ensure_result = self.ensure_running(
+                    host=host,
+                    port=port,
+                    reason="connect",
+                )
+                logger.info(f"VKB-Link ensure-before-connect result: {ensure_result.message}")
+                if not ensure_result.success:
+                    return False
+            
+            self.wait_for_post_start_settle()
+            if self.should_probe_listener_before_connect():
+                self.wait_for_listener_ready(host, port)
+
+            self.client.set_on_connected(callback)
+            
+            return self.client.connect()
+        finally:
+            self.set_connection_status_override(None)
+
+    def disconnect(self) -> None:
+        """Disconnect from VKB hardware and stop health monitoring."""
+        if self.client:
+            self.client.disconnect()
+        self.stop_process_health_monitor()
+
+    def _attempt_recovery(self, *, reason: str, on_connected_callback: Optional[Callable[[], None]] = None) -> None:
+        """Attempt to recover VKB-Link process/INI when connection fails."""
+        if not self.config:
+            return
+        if not self.config.get("vkb_link_auto_manage", True):
+            return
+        
+        # Skip recovery if an intentional endpoint change is already in progress
+        if self._endpoint_change_active:
+            logger.debug("VKB-Link recovery suppressed: endpoint change in progress")
+            return
+
+        with self._recovery_lock:
+            if self._recovery_inflight:
+                return
+            self._recovery_inflight = True
+
+        host = self.config.get("vkb_host", "127.0.0.1")
+        port = self.config.get("vkb_port", 50995)
+        callback = on_connected_callback or self._on_socket_connected
+
+        def _worker() -> None:
+            try:
+                # Clear terminal error before process-driven recovery reconnect.
+                if self.client:
+                    self.client.clear_terminal_error()
+                
+                self.set_connection_status_override("Recovering VKB-Link...")
+                result = self.ensure_running(host=host, port=port, reason=reason)
+                logger.info(f"VKB-Link recovery result: {result.message}")
+                
+                if result.success:
+                    self.wait_for_post_start_settle()
+                    if self.should_probe_listener_before_connect():
+                        self.wait_for_listener_ready(host, port)
+                    
+                    self.set_connection_status_override("Connecting to VKB-Link...")
+                    self.client.set_on_connected(callback)
+                    
+                    reconnected = self.client.connect()
+                    if reconnected:
+                        logger.info("VKB-Link recovery reconnect succeeded")
+                    else:
+                        logger.warning("VKB-Link recovery reconnect attempt failed")
+            except Exception as e:
+                logger.error(f"VKB-Link recovery error: {e}")
+            finally:
+                self.set_connection_status_override(None)
+                with self._recovery_lock:
+                    self._recovery_inflight = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def apply_managed_endpoint_change(self, *, host: str, port: int, reason: str = "endpoint_change") -> VKBLinkActionResult:
+        """Restart VKB-Link and reconnect after host/port settings change."""
+        self._endpoint_change_active = True
+        try:
+            logger.info(f"VKB-Link: applying endpoint change (host={host} port={port})")
+            self.set_connection_status_override("Restarting VKB-Link...")
+
+            # Persist the new endpoint to config so future connects use the right address
+            if self.config:
+                self.config.set("vkb_host", host)
+                self.config.set("vkb_port", port)
+
+            # Directly update client endpoint (config may not be saved by user yet)
+            if self.client:
+                logger.info(f"VKB-Link: updating connection endpoint to {host}:{port}")
+                self.client.host = host
+                self.client.port = port
+
+            # Reuse existing logic for stop/INI/start workflow
+            # But we need to wrap the internal call
+            with self._lifecycle_lock:
+                result = self._apply_managed_endpoint_change_workflow(host, port, reason)
+            
+            logger.info(f"VKB-Link endpoint-change result: {result.message}")
+            if not result.success:
+                return result
+
+            if self.should_probe_listener_before_connect():
+                self.wait_for_listener_ready(host, port)
+            
+            logger.info(f"VKB-Link: connecting to {host}:{port}")
+            self.set_connection_status_override("Connecting to VKB-Link...")
+            if self.client and self.client.connect():
+                logger.info(f"VKB-Link: connected to {host}:{port}")
+            else:
+                logger.warning(f"VKB-Link: connect to {host}:{port} failed")
+            
+            return result
+        except Exception as e:
+            logger.error(f"VKB-Link: endpoint change failed: {e}")
+            return VKBLinkActionResult(False, f"Endpoint change failed: {e}")
+        finally:
+            self._endpoint_change_active = False
+            self.set_connection_status_override(None)
+
+    def _apply_managed_endpoint_change_workflow(self, host: str, port: int, reason: str) -> VKBLinkActionResult:
+        """Internal workflow for endpoint change, assumed to be called under lifecycle lock."""
+        processes = self._find_running_processes()
+        had_running = bool(processes)
+        if had_running:
+            self._wait_after_running_ack()
+            if not self._stop_all_processes(processes):
+                return VKBLinkActionResult(
+                    False,
+                    "Failed to stop VKB-Link before endpoint update",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            if not self._wait_for_no_running_process():
+                return VKBLinkActionResult(
+                    False,
+                    "Timed out waiting for VKB-Link to stop before endpoint update",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+
+        exe_path = self._resolve_known_exe_path()
+        if not exe_path:
+            managed_available, managed_reason = self._managed_mode_availability()
+            if not managed_available:
+                return VKBLinkActionResult(
+                    False,
+                    managed_reason or VKB_LINK_MANUAL_MODE_STATUS,
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            release = self._fetch_latest_release()
+            if not release:
+                return VKBLinkActionResult(
+                    False,
+                    "Unable to locate VKB-Link executable for endpoint update",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            exe_path = self._install_release(release)
+            if not exe_path:
+                return VKBLinkActionResult(
+                    False,
+                    "Failed to install VKB-Link for endpoint update",
+                    status=self.get_status(check_running=True),
+                    action_taken="none",
+                )
+            self._bootstrap_ini_after_install(exe_path)
+
+        ini_path = self._resolve_or_default_ini_path(exe_path)
+        if ini_path:
+            self._write_ini(ini_path, host, port)
+        else:
+            return VKBLinkActionResult(
+                False,
+                "Unable to locate VKB-Link INI for endpoint update",
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
+
+        # Ensure VKB-Link is not started minimized (saves original setting for later restoration)
+        self._last_startup_original_minimized = self._ensure_not_minimized_for_startup(ini_path)
+        self._last_startup_ini_path = ini_path
+
+        if not self._start_process(exe_path):
+            return VKBLinkActionResult(
+                False,
+                "Failed to restart VKB-Link after endpoint update",
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
+        if not self._wait_for_running_process():
+            return VKBLinkActionResult(
+                False,
+                "VKB-Link restart command succeeded but process did not appear",
+                status=self.get_status(check_running=True),
+                action_taken="none",
+            )
+        self._wait_after_running_ack()
+        action = "restarted" if had_running else "started"
+        return VKBLinkActionResult(
+            True,
+            "VKB-Link restarted with updated endpoint" if had_running else "VKB-Link started with updated endpoint",
+            status=self.get_status(check_running=True),
+            action_taken=action,
+        )
+
+    # --- Endpoint Implementation ---
+
+    @property
+    def name(self) -> str:
+        return "VKB-Link"
+
+    def handle_action(self, action_key: str, action_value: Any, result: "MatchResult") -> bool:
+        """Handle VKB-specific rule actions."""
+        if action_key in ("vkb_set_shift", "vkb_clear_shift"):
+            if not isinstance(action_value, list):
+                logger.warning(f"[{result.rule_id}] {action_key} must be a list")
+                return False
+            
+            self._apply_shift_tokens(result.rule_id, action_value, set_bits=(action_key == "vkb_set_shift"))
+            self._send_shift_state_if_changed()
+            return True
+        
+        return False
+
+    def on_session_event(self, event_type: str) -> None:
+        """Handle session-level events like Commander, LoadGame, Shutdown."""
+        if event_type in ("Commander", "LoadGame", "Shutdown"):
+            logger.info(
+                f"Resetting VKB shift state on session event '{event_type}' "
+                f"(current shift=0x{self._shift_bitmap & VKB_SHIFT_MASK:02x} "
+                f"subshift=0x{self._subshift_bitmap & VKB_SUBSHIFT_MASK:02x})"
+            )
+            self._shift_bitmap = 0
+            self._subshift_bitmap = 0
+            self._send_shift_state_if_changed(force=True)
+
+    # --- Internal VKB State Management ---
+
+    def _on_socket_connected(self) -> None:
+        """Re-apply current shift/subshift state after any socket reconnect."""
+        # Clear terminal error on successful connection
+        if self.client:
+            self.client.clear_terminal_error()
+        
+        # Restore minimized INI setting now that TCP is established
+        self.restore_last_startup_minimized_setting()
+        
+        logger.info(
+            "VKB socket connected; resending current shift state "
+            f"(shift=0x{self._shift_bitmap & VKB_SHIFT_MASK:02x} "
+            f"subshift=0x{self._subshift_bitmap & VKB_SUBSHIFT_MASK:02x})"
+        )
+        if not self._send_shift_state_if_changed(force=True):
+            logger.warning("Failed to resend shift/subshift state after socket connection")
+
+    def _apply_shift_tokens(self, rule_id: str, tokens: list, *, set_bits: bool) -> None:
+        if not isinstance(tokens, list):
+            logger.warning(f"[{rule_id}] Tokens must be a list, got {type(tokens)}")
+            return
+
+        for token in tokens:
+            if not isinstance(token, str):
+                logger.warning(f"[{rule_id}] Invalid shift token: {token}")
+                continue
+
+            match = _SHIFT_TOKEN_PATTERN.match(token)
+            if not match:
+                logger.warning(f"[{rule_id}] Unknown shift token: {token}")
+                continue
+
+            shift_type = match.group(1)
+            idx = int(match.group(2))
+
+            if shift_type == "Shift":
+                if idx < 1 or idx > 2:
+                    logger.warning(f"[{rule_id}] Shift index {idx} out of range (1-2): {token}")
+                    continue
+                self._shift_bitmap = self._apply_bit(self._shift_bitmap, idx-1, set_bits)
+            else:  # Subshift
+                if idx < 1 or idx > 8:
+                    logger.warning(f"[{rule_id}] Subshift index {idx} out of range (1-8): {token}")
+                    continue
+                bit_pos = idx - 1
+                self._subshift_bitmap = self._apply_bit(self._subshift_bitmap, bit_pos, set_bits)
+
+    def _apply_bit(self, bitmap: int, idx: int, set_bits: bool) -> int:
+        mask = 1 << idx
+        if set_bits:
+            return bitmap | mask
+        return bitmap & ~mask
+
+    def _send_shift_state_if_changed(self, *, force: bool = False, allow_recovery: bool = True) -> bool:
+        if not self.client:
+            return False
+
+        payload = {
+            "shift": self._shift_bitmap & VKB_SHIFT_MASK,
+            "subshift": self._subshift_bitmap & VKB_SUBSHIFT_MASK,
+        }
+        
+        if force or payload["shift"] != self._last_sent_shift or payload["subshift"] != self._last_sent_subshift:
+            if not self.client.send_event("VKBShiftBitmap", payload):
+                logger.warning("Failed to send VKB shift/subshift bitmap")
+                if allow_recovery:
+                    self._attempt_recovery(reason="send_failure", on_connected_callback=self._on_socket_connected)
+                return False
+            
+            self._last_sent_shift = payload["shift"]
+            self._last_sent_subshift = payload["subshift"]
+            
+            active_shifts = [
+                shift_num
+                for shift_num, bit_pos in ((1, 0), (2, 1))
+                if payload["shift"] & (1 << bit_pos)
+            ]
+            active_subshifts = [i + 1 for i in range(7) if payload["subshift"] & (1 << i)]
+            logger.info(f"VKB-Link <- Shift {active_shifts} Subshift {active_subshifts}")
+        return True
+
     def get_status(self, *, check_running: bool = False) -> VKBLinkStatus:
         exe_path = (self.config.get("vkb_link_exe_path", "") or "").strip() if self.config else ""
         install_dir = (self.config.get("vkb_link_install_dir", "") or "").strip() if self.config else ""
         version = (self.config.get("vkb_link_version", "") or "").strip() if self.config else ""
-        managed = as_bool(self.config.get("vkb_link_managed", False), False) if self.config else False
+        managed = self.config.get("vkb_link_managed", False) if self.config else False
         managed_available, managed_reason = self._managed_mode_availability()
         running = None
         if check_running:
@@ -746,10 +1130,7 @@ class VKBLinkManager:
 
         exe_path = self._resolve_known_exe_path()
         if not exe_path:
-            auto_manage = as_bool(
-                self.config.get("vkb_link_auto_manage", True) if self.config else True,
-                True,
-            )
+            auto_manage = self.config.get("vkb_link_auto_manage", True) if self.config else True
             if not auto_manage:
                 return VKBLinkActionResult(
                     False,
@@ -948,94 +1329,6 @@ class VKBLinkManager:
             status=self.get_status(check_running=True),
             action_taken="none",
         )
-
-    def apply_managed_endpoint_change(self, *, host: str, port: int, reason: str = "endpoint_change") -> VKBLinkActionResult:
-        with self._lifecycle_lock:
-            logger.info(f"VKB-Link: applying managed endpoint change (reason={reason} host={host} port={port})")
-            processes = self._find_running_processes()
-            had_running = bool(processes)
-            if had_running:
-                self._wait_after_running_ack()
-                if not self._stop_all_processes(processes):
-                    return VKBLinkActionResult(
-                        False,
-                        "Failed to stop VKB-Link before endpoint update",
-                        status=self.get_status(check_running=True),
-                        action_taken="none",
-                    )
-                if not self._wait_for_no_running_process():
-                    return VKBLinkActionResult(
-                        False,
-                        "Timed out waiting for VKB-Link to stop before endpoint update",
-                        status=self.get_status(check_running=True),
-                        action_taken="none",
-                    )
-
-            exe_path = self._resolve_known_exe_path()
-            if not exe_path:
-                managed_available, managed_reason = self._managed_mode_availability()
-                if not managed_available:
-                    return VKBLinkActionResult(
-                        False,
-                        managed_reason or VKB_LINK_MANUAL_MODE_STATUS,
-                        status=self.get_status(check_running=True),
-                        action_taken="none",
-                    )
-                release = self._fetch_latest_release()
-                if not release:
-                    return VKBLinkActionResult(
-                        False,
-                        "Unable to locate VKB-Link executable for endpoint update",
-                        status=self.get_status(check_running=True),
-                        action_taken="none",
-                    )
-                exe_path = self._install_release(release)
-                if not exe_path:
-                    return VKBLinkActionResult(
-                        False,
-                        "Failed to install VKB-Link for endpoint update",
-                        status=self.get_status(check_running=True),
-                        action_taken="none",
-                    )
-                self._bootstrap_ini_after_install(exe_path)
-
-            ini_path = self._resolve_or_default_ini_path(exe_path)
-            if ini_path:
-                self._write_ini(ini_path, host, port)
-            else:
-                return VKBLinkActionResult(
-                    False,
-                    "Unable to locate VKB-Link INI for endpoint update",
-                    status=self.get_status(check_running=True),
-                    action_taken="none",
-                )
-
-            # Ensure VKB-Link is not started minimized (saves original setting for later restoration)
-            self._last_startup_original_minimized = self._ensure_not_minimized_for_startup(ini_path)
-            self._last_startup_ini_path = ini_path
-
-            if not self._start_process(exe_path):
-                return VKBLinkActionResult(
-                    False,
-                    "Failed to restart VKB-Link after endpoint update",
-                    status=self.get_status(check_running=True),
-                    action_taken="none",
-                )
-            if not self._wait_for_running_process():
-                return VKBLinkActionResult(
-                    False,
-                    "VKB-Link restart command succeeded but process did not appear",
-                    status=self.get_status(check_running=True),
-                    action_taken="none",
-                )
-            self._wait_after_running_ack()
-            action = "restarted" if had_running else "started"
-            return VKBLinkActionResult(
-                True,
-                "VKB-Link restarted with updated endpoint" if had_running else "VKB-Link started with updated endpoint",
-                status=self.get_status(check_running=True),
-                action_taken=action,
-            )
 
     def relocate_install(self, destination: Path) -> VKBLinkActionResult:
         destination = Path(destination)
@@ -1997,56 +2290,44 @@ class VKBLinkManager:
             logger.error(f"Failed to start VKB-Link: {e}")
             return False
 
-    def _fetch_latest_release(self) -> Optional[VKBLinkRelease]:
-        # MEGA public folder is the only supported source.
-        if _ensure_cryptography(auto_install=self._is_cryptography_auto_install_enabled()):
-            try:
-                logger.info(
-                    f"Fetching VKB-Link releases from MEGA folder {MEGA_FOLDER_NODE}"
-                )
-                folder_key = _mega_decode_folder_key(MEGA_FOLDER_KEY_B64)
-                releases = _mega_list_folder(MEGA_FOLDER_NODE, folder_key)
-                if releases:
-                    releases.sort(key=lambda r: _parse_version(r.version), reverse=True)
-                    latest = releases[0]
-                    logger.info(
-                        f"Selected VKB-Link v{latest.version} from MEGA "
-                        f"(handle={latest.mega_node_handle})"
-                    )
-                    return latest
-                logger.warning("No VKB-Link zip files found in MEGA folder")
-            except Exception as e:
-                logger.warning(f"MEGA folder listing failed: {e}")
-        else:
-            logger.warning("AES backend unavailable; cannot query MEGA source")
+    def _fetch_latest_release(self) -> Optional[DownloadItem]:
+        try:
+            items = self.downloader.list_items()
+            if items:
+                items.sort(key=lambda r: _parse_version(r.version), reverse=True)
+                latest = items[0]
+                return latest
+        except Exception as e:
+            logger.warning(f"Failed to fetch releases: {e}")
         return None
 
-    def _install_release(self, release: VKBLinkRelease) -> Optional[str]:
+    def _install_release(self, item: DownloadItem) -> Optional[str]:
         install_dir = self._resolve_install_dir()
-        logger.info(f"Installing VKB-Link v{release.version} into {install_dir}")
+        logger.info(f"Installing VKB-Link v{item.version} into {install_dir}")
         install_dir.mkdir(parents=True, exist_ok=True)
         download_dir = install_dir / "_downloads"
         download_dir.mkdir(parents=True, exist_ok=True)
-        archive_path = download_dir / release.filename
+        archive_path = download_dir / item.filename
 
         if not archive_path.exists():
-            if release.mega_node_handle:
-                logger.info(
-                    f"Downloading VKB-Link from MEGA node {release.mega_node_handle}"
+            if not self.downloader.download(item, archive_path):
+                return None
+        else:
+            # Validate the cached archive before trusting it.  A corrupt or
+            # mismatched file from a previous failed/interrupted download would
+            # otherwise be silently used, potentially installing the wrong version.
+            if not zipfile.is_zipfile(archive_path):
+                logger.warning(
+                    f"Cached VKB-Link archive is not a valid ZIP, re-downloading: {archive_path}"
                 )
-                if not self._mega_download(release, archive_path):
+                try:
+                    archive_path.unlink()
+                except OSError:
+                    pass
+                if not self.downloader.download(item, archive_path):
                     return None
             else:
-                try:
-                    logger.info(f"Downloading VKB-Link archive from {release.url}")
-                    req = Request(release.url, headers={"User-Agent": "EDMCVKBConnector/1.0"})
-                    with urlopen(req, timeout=60) as resp, open(archive_path, "wb") as f:
-                        shutil.copyfileobj(resp, f)
-                except Exception as e:
-                    logger.error(f"Failed to download VKB-Link: {e}")
-                    return None
-        else:
-            logger.info(f"Using cached VKB-Link archive: {archive_path}")
+                logger.info(f"Using cached VKB-Link archive: {archive_path}")
 
         temp_dir = Path(tempfile.mkdtemp(prefix="vkb-link-", dir=str(install_dir)))
         logger.info(f"Extracting VKB-Link archive to {temp_dir}")
@@ -2119,51 +2400,8 @@ class VKBLinkManager:
 
         self._remember_exe_path(exe_path)
         if self.config:
-            self.config.set("vkb_link_version", release.version)
+            self.config.set("vkb_link_version", item.version)
         return str(exe_path)
-
-    def _mega_download(self, release: VKBLinkRelease, archive_path: Path) -> bool:
-        """Download and AES-CTR-decrypt a file from the MEGA public folder."""
-        if not release.mega_node_handle or not release.mega_raw_key:
-            logger.error("_mega_download: missing node handle or raw key")
-            return False
-        if not _ensure_cryptography(auto_install=self._is_cryptography_auto_install_enabled()):
-            logger.error("AES backend unavailable; cannot decrypt MEGA download")
-            return False
-        try:
-            logger.info(
-                f"Requesting MEGA download URL for handle={release.mega_node_handle}"
-            )
-            resp = _mega_api_post(
-                [{"a": "g", "g": 1, "n": release.mega_node_handle}],
-                n=MEGA_FOLDER_NODE,
-            )
-            if isinstance(resp, list):
-                resp = resp[0]
-            if not isinstance(resp, dict) or "g" not in resp:
-                logger.error(f"MEGA API did not return a download URL: {resp!r}")
-                return False
-            dl_url = resp["g"]
-            logger.info(f"MEGA download URL obtained ({len(dl_url)} chars)")
-
-            req = Request(dl_url, headers={"User-Agent": "EDMCVKBConnector/1.0"})
-            with urlopen(req, timeout=120) as r:
-                encrypted = r.read()
-            logger.info(f"Downloaded {len(encrypted):,} encrypted bytes from MEGA")
-
-            file_key = _mega_attr_key(release.mega_raw_key, is_file=True)
-            nonce = _mega_ctr_nonce(release.mega_raw_key)
-            decrypted = _mega_aes_ctr_xor(file_key, nonce, encrypted)
-
-            archive_path.write_bytes(decrypted)
-            logger.info(
-                f"Decrypted and saved VKB-Link archive to {archive_path} "
-                f"({len(decrypted):,} bytes)"
-            )
-            return True
-        except Exception as e:
-            logger.error(f"MEGA download failed: {e}")
-            return False
 
     def _find_ini_in_dir(self, directory: Path) -> Optional[Path]:
         for name in VKB_LINK_INI_NAMES:

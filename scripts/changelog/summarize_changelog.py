@@ -206,7 +206,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--backend",
-        choices=["claude-cli", "codex", "copilot", "gemini", "lmstudio", "intelligent"],
+        choices=["local-llm","claude-cli", "codex", "copilot", "gemini", "intelligent"],
         help="Override the configured LLM backend",
     )
 
@@ -302,4 +302,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n\n[!] Interrupted by user. Aborting summarization.", file=sys.stderr)
+        sys.exit(130)

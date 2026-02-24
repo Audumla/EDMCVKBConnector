@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import plugin_logger
+from .. import plugin_logger
 
 logger = plugin_logger(__name__)
 

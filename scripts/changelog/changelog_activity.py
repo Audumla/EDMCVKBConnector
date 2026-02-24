@@ -43,7 +43,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--summarize-backend",
-        choices=("claude", "claude-cli", "codex", "copilot", "gemini", "lmstudio", "intelligent"),
+        choices=("claude", "claude-cli", "codex", "copilot", "gemini", "local-llm", "intelligent"),
         help="Override changelog summarizer backend for this run.",
     )
     parser.add_argument(
@@ -111,4 +111,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n\n[!] Interrupted by user. Aborting changelog activity.", file=sys.stderr)
+        sys.exit(130)

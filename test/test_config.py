@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-import edmcruleengine.config as config_module
-from edmcruleengine.config import Config
+import edmcruleengine.config.config as config_module
+from edmcruleengine import Config
 
 
 def test_config_defaults():
@@ -53,7 +53,7 @@ def test_config_get_methods():
 
 def test_vkb_client_init():
     """Test VKBClient initialization."""
-    from edmcruleengine.vkb_client import VKBClient
+    from edmcruleengine.vkb.vkb_client import VKBClient
     
     client = VKBClient(
         host="127.0.0.1",
@@ -70,8 +70,8 @@ def test_vkb_client_init():
 
 def test_event_handler_init():
     """Test EventHandler initialization."""
-    from edmcruleengine.event_handler import EventHandler
-    from edmcruleengine.config import Config
+    from edmcruleengine.events.event_handler import EventHandler
+    from edmcruleengine import Config
     
     config = Config()
     handler = EventHandler(config)
@@ -83,7 +83,7 @@ def test_event_handler_init():
 
 def test_message_formatter():
     """Test message formatting."""
-    from edmcruleengine.message_formatter import VKBLinkMessageFormatter
+    from edmcruleengine.vkb.message_formatter import VKBLinkMessageFormatter
 
     formatter = VKBLinkMessageFormatter(
         header_byte=0xA5,

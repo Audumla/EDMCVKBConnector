@@ -17,37 +17,32 @@ DIST_DIR = PROJECT_ROOT / "dist"
 PLUGIN_NAME = "EDMCVKBConnector"
 DEPLOY_PACKAGE_DIR = "edmcruleengine"
 
-# Files/dirs to include (relative to project root)
-INCLUDE = [
+# Explicit root files
+INCLUDE_ROOT = [
     "load.py",
     "PLUGIN_REGISTRY.py",
     "LICENSE",
     "README.md",
+]
+
+# Data files
+INCLUDE_DATA = [
     "data/rules.json.example",
     "data/signals_catalog.json",
     "data/icon_map.json",
-    "src/edmcruleengine/__init__.py",
-    "src/edmcruleengine/version.py",
-    "src/edmcruleengine/bool_utils.py",
-    "src/edmcruleengine/config.py",
-    "src/edmcruleengine/config_defaults.json",
-    "src/edmcruleengine/event_handler.py",
-    "src/edmcruleengine/event_recorder.py",
-    "src/edmcruleengine/message_formatter.py",
-    "src/edmcruleengine/paths.py",
-    "src/edmcruleengine/plugin_update_manager.py",
-    "src/edmcruleengine/prefs_panel.py",
-    "src/edmcruleengine/pure_python_aes.py",
-    "src/edmcruleengine/rule_editor.py",
-    "src/edmcruleengine/rule_loader.py",
-    "src/edmcruleengine/rules_engine.py",
-    "src/edmcruleengine/signal_derivation.py",
-    "src/edmcruleengine/signals_catalog.py",
-    "src/edmcruleengine/ui_components.py",
-    "src/edmcruleengine/unregistered_events_tracker.py",
-    "src/edmcruleengine/vkb_client.py",
-    "src/edmcruleengine/vkb_link_manager.py",
 ]
+
+def get_source_files() -> list[str]:
+    """Find all source files in src/edmcruleengine recursively."""
+    src_root = PROJECT_ROOT / "src" / "edmcruleengine"
+    files = []
+    # Include all .py and .json files in the package tree
+    for path in src_root.rglob("*"):
+        if path.is_file() and path.suffix in (".py", ".json"):
+            if "__pycache__" in path.parts:
+                continue
+            files.append(str(path.relative_to(PROJECT_ROOT)).replace("\\", "/"))
+    return sorted(files)
 
 
 def archive_relpath(rel: str) -> str:
@@ -60,7 +55,7 @@ def archive_relpath(rel: str) -> str:
 def get_version() -> str:
     """Load version from the single-source version module."""
     namespace: dict[str, str] = {}
-    version_file = PROJECT_ROOT / "src" / "edmcruleengine" / "version.py"
+    version_file = PROJECT_ROOT / "src" / "edmcruleengine" / "config" / "version.py"
     exec(version_file.read_text(encoding="utf-8"), namespace)
     return str(namespace.get("__version__", "0.0.0"))
 
@@ -72,13 +67,16 @@ def package() -> Path:
     zip_name = f"{PLUGIN_NAME}-{version}.zip"
     zip_path = DIST_DIR / zip_name
 
-    missing = [f for f in INCLUDE if not (PROJECT_ROOT / f).exists()]
+    source_files = get_source_files()
+    all_files = INCLUDE_ROOT + INCLUDE_DATA + source_files
+
+    missing = [f for f in all_files if not (PROJECT_ROOT / f).exists()]
     if missing:
         print(f"WARNING: Missing files (will be skipped): {missing}")
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         count = 0
-        for rel in INCLUDE:
+        for rel in all_files:
             src = PROJECT_ROOT / rel
             if not src.exists():
                 continue

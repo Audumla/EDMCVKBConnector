@@ -9,7 +9,7 @@ The VKB-Link packet format used by the plugin is implemented in
 import logging
 import sys
 
-from .version import __version__
+from .config.version import __version__
 
 __author__ = "EDMC VKB Connector Contributors"
 __license__ = "MIT"
@@ -32,9 +32,9 @@ def set_plugin_logger_name(name: str) -> None:
     # from this package before plugin_start3 runs, which imports submodules
     # that create logger globals immediately.
     _submodule_names = (
-        "config", "vkb_client", "event_handler",
-        "rules_engine", "unregistered_events_tracker",
-        "vkb_link_manager",
+        "config.config", "vkb.vkb_client", "events.event_handler",
+        "rules.rules_engine", "events.unregistered_events_tracker",
+        "vkb.vkb_link_manager",
     )
     for suffix in _submodule_names:
         for prefix in ("edmcruleengine", "src.edmcruleengine"):
@@ -72,12 +72,12 @@ def plugin_logger(module: str) -> logging.Logger:
         from edmcruleengine import plugin_logger
         logger = plugin_logger(__name__)
 
-    Inside EDMC this yields e.g. ``EDMarketConnector.edmcruleengine.config``.
-    During tests it yields ``edmcruleengine.config``.
+    Inside EDMC this yields e.g. ``EDMarketConnector.edmcruleengine.config.config``.
+    During tests it yields ``edmcruleengine.config.config``.
     """
     # Derive a child name by stripping any package prefix and appending to
     # the managed root so EDMC context filters are inherited.
-    # e.g. module="edmcruleengine.config" -> child="EDMarketConnector.<folder>.config"
+    # e.g. module="edmcruleengine.config.config" -> child="EDMarketConnector.<folder>.config.config"
     base = _PLUGIN_LOGGER_NAME
     # Strip known package prefixes so we get just the leaf module name
     for pkg in ("src.edmcruleengine.", "edmcruleengine."):
@@ -91,10 +91,10 @@ def plugin_logger(module: str) -> logging.Logger:
     _apply_edmc_context_filter(log)
     return log
 
-from .vkb_client import VKBClient
-from .event_handler import EventHandler
-from .config import Config
-from .message_formatter import MessageFormatter, VKBLinkMessageFormatter
+from .vkb.vkb_client import VKBClient
+from .events.event_handler import EventHandler
+from .config.config import Config
+from .vkb.message_formatter import MessageFormatter, VKBLinkMessageFormatter
 
 __all__ = [
     "VKBClient",

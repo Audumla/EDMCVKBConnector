@@ -14,17 +14,20 @@ from changelog_utils import (
     load_config,
 )
 
+pytestmark = pytest.mark.changelog
+
 @pytest.fixture
 def mock_config():
     return {
         "common": {
             "timeout_seconds": 300,
-            "fallback_order": ["claude-cli", "codex", "gemini", "copilot"]
+            "fallback_order": ["claude-cli", "codex", "gemini", "copilot", "local-llm"]
         },
         "claude_cli": {"model": "haiku"},
         "codex": {"model": "5.3"},
         "gemini": {"model": ""},
-        "copilot": {"model": "gpt-4.1"}
+        "copilot": {"model": "gpt-4.1"},
+        "local_llm": {"base_url": "http://localhost:1234/v1", "model": "local"}
     }
 
 def test_normalize_llm_summary_basic():
@@ -60,7 +63,8 @@ def test_normalize_llm_summary_strips_metadata():
 @patch("changelog_utils.call_codex_cli")
 @patch("changelog_utils.call_gemini_cli")
 @patch("changelog_utils.call_copilot_cli")
-def test_run_llm_with_fallback_success_first(mock_copilot, mock_gemini, mock_codex, mock_claude, mock_config):
+@patch("changelog_utils.call_local_llm")
+def test_run_llm_with_fallback_success_first(mock_local, mock_copilot, mock_gemini, mock_codex, mock_claude, mock_config):
     mock_claude.return_value = "### Overview\nSuccess"
     
     result, backend = run_llm_with_fallback("prompt", mock_config, preferred_backend="claude-cli")
@@ -75,7 +79,8 @@ def test_run_llm_with_fallback_success_first(mock_copilot, mock_gemini, mock_cod
 @patch("changelog_utils.call_codex_cli")
 @patch("changelog_utils.call_gemini_cli")
 @patch("changelog_utils.call_copilot_cli")
-def test_run_llm_with_fallback_sequental(mock_copilot, mock_gemini, mock_codex, mock_claude, mock_config):
+@patch("changelog_utils.call_local_llm")
+def test_run_llm_with_fallback_sequental(mock_local, mock_copilot, mock_gemini, mock_codex, mock_claude, mock_config):
     # Claude fails, Codex succeeds
     mock_claude.return_value = None
     mock_codex.return_value = "### Overview\nCodex Success"
@@ -93,11 +98,13 @@ def test_run_llm_with_fallback_sequental(mock_copilot, mock_gemini, mock_codex, 
 @patch("changelog_utils.call_codex_cli")
 @patch("changelog_utils.call_gemini_cli")
 @patch("changelog_utils.call_copilot_cli")
-def test_run_llm_with_fallback_all_fail(mock_copilot, mock_gemini, mock_codex, mock_claude, mock_config):
+@patch("changelog_utils.call_local_llm")
+def test_run_llm_with_fallback_all_fail(mock_local, mock_copilot, mock_gemini, mock_codex, mock_claude, mock_config):
     mock_claude.return_value = None
     mock_codex.return_value = None
     mock_gemini.return_value = None
     mock_copilot.return_value = None
+    mock_local.return_value = None
     
     result, backend = run_llm_with_fallback("prompt", mock_config)
     
@@ -107,13 +114,14 @@ def test_run_llm_with_fallback_all_fail(mock_copilot, mock_gemini, mock_codex, m
     assert mock_codex.called
     assert mock_gemini.called
     assert mock_copilot.called
+    assert mock_local.called
 
 # ---------------------------------------------------------------------------
 # Live Agent Tests (Skipped by default, run with --run-live-agents)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.live_agent
-@pytest.mark.parametrize("backend", ["claude-cli", "codex", "gemini", "copilot"])
+@pytest.mark.parametrize("backend", ["claude-cli", "codex", "gemini", "copilot", "local-llm"])
 def test_live_agent_output_format(backend):
     """
     Call the REAL agent and ensure the output is normalized and follows the template.
@@ -138,8 +146,15 @@ def test_live_agent_output_format(backend):
     
     from changelog_utils import run_llm_with_fallback
     
-    # We use run_llm_with_fallback with preferred_backend to target the specific agent
-    result, used_backend = run_llm_with_fallback(sample_prompt, {"common": config.get("common", {}), backend.replace("-", "_"): config.get(backend.replace("-", "_"), {})}, preferred_backend=backend)
+    # We use run_llm_with_fallback with preferred_backend to target the specific agent.
+    # To ensure we ONLY test this specific agent and don't fall back if it fails,
+    # we provide a config that only has this backend and an empty fallback order.
+    targeted_config = {
+        "common": {"fallback_order": []}, 
+        backend.replace("-", "_"): config.get(backend.replace("-", "_"), {})
+    }
+    
+    result, used_backend = run_llm_with_fallback(sample_prompt, targeted_config, preferred_backend=backend)
     
     assert used_backend == backend, f"Expected to use {backend}, but used {used_backend}"
     assert result is not None, f"Agent {backend} returned no output"

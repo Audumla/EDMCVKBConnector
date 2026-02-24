@@ -7,10 +7,10 @@ import time
 import pytest
 from pathlib import Path
 
-from edmcruleengine.signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
-from edmcruleengine.signal_derivation import SignalDerivation
-from edmcruleengine.rules_engine import RuleEngine, RuleValidator, RuleValidationError
-from edmcruleengine.rule_loader import load_rules_file, RuleLoadError
+from edmcruleengine.rules.signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
+from edmcruleengine.rules.signal_derivation import SignalDerivation
+from edmcruleengine.rules.rules_engine import RuleEngine, RuleValidator, RuleValidationError
+from edmcruleengine.rules.rule_loader import load_rules_file, RuleLoadError
 
 
 class TestSignalsCatalog:

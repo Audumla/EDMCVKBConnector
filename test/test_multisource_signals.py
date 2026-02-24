@@ -13,8 +13,8 @@ import time
 import pytest
 from pathlib import Path
 
-from edmcruleengine.signals_catalog import SignalsCatalog
-from edmcruleengine.signal_derivation import SignalDerivation
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
+from edmcruleengine.rules.signal_derivation import SignalDerivation
 
 
 class TestMultiSourceSignalDerivation:

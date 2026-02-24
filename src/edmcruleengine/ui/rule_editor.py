@@ -20,10 +20,10 @@ except ImportError:
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from . import plugin_logger
-from .signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
+from .. import plugin_logger
+from ..rules.signals_catalog import SignalsCatalog, CatalogError, generate_id_from_title
 from .ui_components import IconButton, create_colored_button
-from .paths import data_path
+from ..config.paths import data_path
 
 logger = plugin_logger(__name__)
 
@@ -482,6 +482,7 @@ class RuleEditorUI:
             self.view_container,
             rule_to_edit,
             self.catalog,
+            self.plugin_dir,
             self._on_save_rule,
             self._on_cancel_edit
         )
@@ -533,6 +534,7 @@ class RuleEditor:
         parent,
         rule: Dict[str, Any],
         catalog: SignalsCatalog,
+        plugin_dir: Path,
         on_save,
         on_cancel
     ):
@@ -543,10 +545,12 @@ class RuleEditor:
             parent: Parent widget
             rule: Rule dictionary to edit
             catalog: Signals catalog
+            plugin_dir: Plugin root directory
             on_save: Callback when saved (takes updated rule dict)
             on_cancel: Callback when cancelled
         """
         self.parent = parent
+        self.plugin_dir = plugin_dir
         self.original_rule = copy.deepcopy(rule)
         self.rule = copy.deepcopy(rule)  # Working copy
         self.catalog = catalog

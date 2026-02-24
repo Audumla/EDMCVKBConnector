@@ -7,20 +7,25 @@ Run with: UI_BOOTSTRAP=1 pytest test/test_ui_bootstrap.py -s
 import os
 import shutil
 import tempfile
+import json
 from pathlib import Path
 
 import pytest
 import tkinter as tk
+from unittest.mock import patch, MagicMock
 
-from edmcruleengine.rule_editor import RuleEditorUI
+from edmcruleengine.ui.rule_editor import RuleEditorUI
 
 
-def test_rule_editor_ui_bootstrap():
-    if os.environ.get("UI_BOOTSTRAP") != "1":
-        pytest.skip("Set UI_BOOTSTRAP=1 to run the UI bootstrap test.")
+def test_rule_editor_ui_bootstrap(test_settings):
+    if not test_settings.get("ui_bootstrap"):
+        pytest.skip("Set ui_bootstrap: 1 in test/test_config.json to run the UI bootstrap test.")
 
     plugin_root = Path(__file__).parent.parent
-    rules_source = Path(os.environ.get("UI_RULES_FILE", str(plugin_root / "data" / "rules.json.example")))
+    rules_file_setting = test_settings.get("ui_rules_file", "data/rules.json.example")
+    rules_source = Path(rules_file_setting)
+    if not rules_source.is_absolute():
+        rules_source = plugin_root / rules_source
 
     if not rules_source.exists():
         pytest.skip(f"Rules file not found: {rules_source}")
@@ -30,23 +35,61 @@ def test_rule_editor_ui_bootstrap():
         shutil.copy(rules_source, rules_path)
 
         root = tk.Tk()
+        # Keep it invisible during automated tests
         root.withdraw()
 
-        ui = RuleEditorUI(root, rules_path, plugin_root)
+        # Mock blocking dialogs
+        with patch("edmcruleengine.ui.rule_editor._centered_info"), \
+             patch("edmcruleengine.ui.rule_editor._centered_yesno", return_value=True), \
+             patch("edmcruleengine.ui.rule_editor._centered_error"):
+            
+            ui = RuleEditorUI(root, rules_path, plugin_root)
 
-        if ui.rules:
-            ui._edit_rule(0)
-            if ui.active_editor:
-                current = ui.active_editor.title_var.get().strip()
-                ui.active_editor.title_var.set(f"Bootstrap Edit - {current or 'New Rule'}")
+            def run_automated_test():
+                """Perform a series of UI actions and then close."""
+                try:
+                    # 1. Edit an existing rule
+                    if ui.rules:
+                        ui.initial_rule_index = 0
+                        ui._show_rule_editor()
+                        root.update()
+                        
+                        if ui.active_editor:
+                            # Change title
+                            ui.active_editor.title_var.set("Automated Test Edit")
+                            # Trigger save
+                            ui.active_editor._save()
+                            root.update()
+                    
+                    # 2. Create a new rule
+                    # The current UI architecture is designed to edit one rule then close.
+                    # We'll create a new UI instance for the 'new rule' case (-1)
+                    new_rule_root = tk.Toplevel(root)
+                    new_rule_root.withdraw()
+                    ui_new = RuleEditorUI(new_rule_root, rules_path, plugin_root, initial_rule_index=-1)
+                    root.update()
+                    
+                    if ui_new.active_editor:
+                        ui_new.active_editor.title_var.set("New Automated Rule")
+                        ui_new.active_editor._save()
+                        root.update()
+                    
+                    # 3. Verify changes were written to disk
+                    with open(rules_path, "r", encoding="utf-8") as f:
+                        saved_data = json.load(f)
+                        titles = [r.get("title") for r in saved_data]
+                        assert "Automated Test Edit" in titles
+                        assert "New Automated Rule" in titles
 
-        def _close():
-            ui._on_close()
-            root.quit()
+                finally:
+                    # Always close and exit the loop
+                    try:
+                        ui._on_close()
+                    except Exception:
+                        pass
+                    root.quit()
+                    root.destroy()
 
-        ui.window.protocol("WM_DELETE_WINDOW", _close)
-        ui.window.deiconify()
-        ui.window.lift()
-        ui.window.focus_force()
-
-        root.mainloop()
+            # Schedule the automated test to run once the mainloop starts
+            root.after(100, run_automated_test)
+            root.mainloop()

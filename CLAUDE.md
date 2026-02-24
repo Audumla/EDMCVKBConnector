@@ -60,7 +60,7 @@ When the user's prompt contains the label `/codex`, delegate the task to Codex v
 
 2. **Configure defaults (optional):**
 
-   Edit `docs/changelog/changelog-config.json` to set project-wide defaults for `/codex` delegation:
+   Edit `scripts/delegation-config.json` to set project-wide defaults for `/codex` delegation:
 
    ```json
    {
@@ -91,7 +91,7 @@ When the user's prompt contains the label `/codex`, delegate the task to Codex v
        --run-name <short-task-name>
    ```
 
-   All `claude_run_plan.py` arguments are loaded from `docs/changelog/changelog-config.json` if not specified on the command line.
+   All `claude_run_plan.py` arguments are loaded from `scripts/delegation-config.json` if not specified on the command line.
 
    Optional overrides:
 

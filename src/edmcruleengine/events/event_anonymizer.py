@@ -8,7 +8,7 @@ system-specific information with mock data while maintaining event validity.
 import re
 from typing import Any, Dict, List
 
-from . import plugin_logger
+from .. import plugin_logger
 
 logger = plugin_logger(__name__)
 

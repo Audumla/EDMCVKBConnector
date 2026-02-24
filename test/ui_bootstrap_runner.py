@@ -12,7 +12,7 @@ SRC_PATH = str(PLUGIN_ROOT / "src")
 if SRC_PATH not in sys.path:
     sys.path.insert(0, SRC_PATH)
 
-from edmcruleengine.rule_editor import RuleEditorUI
+from edmcruleengine.ui.rule_editor import RuleEditorUI
 
 
 def main() -> int:
@@ -39,8 +39,12 @@ def main() -> int:
                 ui.active_editor.title_var.set(f"Bootstrap Edit - {current or 'New Rule'}")
 
         def _close():
-            ui._on_close()
+            try:
+                ui._on_close()
+            except Exception:
+                pass
             root.quit()
+            root.destroy()
 
         ui.window.protocol("WM_DELETE_WINDOW", _close)
         ui.window.deiconify()

@@ -10,9 +10,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock
 
-from edmcruleengine.signals_catalog import SignalsCatalog
-from edmcruleengine.rules_engine import RuleEngine
-from edmcruleengine.rule_loader import load_rules_file
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
+from edmcruleengine.rules.rules_engine import RuleEngine
+from edmcruleengine.rules.rule_loader import load_rules_file
 
 
 class TestRulesWithRealEvents:

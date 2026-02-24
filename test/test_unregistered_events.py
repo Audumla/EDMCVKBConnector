@@ -17,10 +17,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from edmcruleengine.unregistered_events_tracker import UnregisteredEventsTracker
-from edmcruleengine.signals_catalog import SignalsCatalog
-from edmcruleengine.config import Config
-from edmcruleengine.event_handler import EventHandler
+from edmcruleengine.events.unregistered_events_tracker import UnregisteredEventsTracker
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
+from edmcruleengine import Config
+from edmcruleengine.events.event_handler import EventHandler
 
 
 class TestUnregisteredEventsTracker:
@@ -318,6 +318,17 @@ class TestEventHandlerURI:
         with tempfile.TemporaryDirectory() as tmpdir:
             yield Path(tmpdir)
 
+    @pytest.fixture(autouse=True)
+    def signals_catalog(self, temp_dir):
+        """Ensure signals catalog exists in temp_dir/data/."""
+        data_dir = temp_dir / "data"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        src = Path(__file__).parent.parent / "data" / "signals_catalog.json"
+        dst = data_dir / "signals_catalog.json"
+        import shutil
+        shutil.copy(src, dst)
+        return dst
+
     def test_event_handler_initializes_tracker(self, temp_dir):
         """Test that EventHandler creates tracker on init."""
         config = Config()
@@ -414,21 +425,22 @@ class TestEventHandlerURI:
         """Test EventHandler refresh method."""
         config = Config()
         handler = EventHandler(config, plugin_dir=str(temp_dir))
+        handler.track_unregistered_events = True
         
         handler.vkb_client.send_event = Mock(return_value=True)
         handler.vkb_client.connect = Mock(return_value=False)
         
-        # Add a known event that would normally be tracked
-        # (by bypassing the catalog check)
+        # Add a truly unknown event
         handler.unregistered_events_tracker.track_event(
-            "FSDJump", {"data": "test"}, source="journal"
+            "TotallyUnknownEvent", {"data": "test"}, source="journal"
         )
         
         assert handler.get_unregistered_events_count() == 1
         
-        # Refresh should remove it
+        # Refresh should keep it (still unknown)
         removed = handler.refresh_unregistered_events_against_catalog()
-        assert removed >= 0  # Depends on if FSDJump was actually tracked
+        assert removed == 0
+        assert handler.get_unregistered_events_count() == 1
         
         print("[OK] EventHandler refresh unregistered events test passed")
 

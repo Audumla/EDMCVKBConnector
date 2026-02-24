@@ -21,10 +21,10 @@ from pathlib import Path
 
 import pytest
 
-from edmcruleengine.config import DEFAULTS
-from edmcruleengine.event_handler import EventHandler
-from edmcruleengine.vkb_client import VKBClient
-from edmcruleengine.vkb_link_manager import VKBLinkManager
+from edmcruleengine.config.config import DEFAULTS
+from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine.vkb.vkb_client import VKBClient
+from edmcruleengine.vkb.vkb_link_manager import VKBLinkManager
 
 
 class DictConfig:

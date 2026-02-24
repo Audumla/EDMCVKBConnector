@@ -6,8 +6,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
-from edmcruleengine.config import DEFAULTS
-from edmcruleengine.event_handler import EventHandler
+from edmcruleengine.config.config import DEFAULTS
+from edmcruleengine.events.event_handler import EventHandler
 
 
 class StubConfig:

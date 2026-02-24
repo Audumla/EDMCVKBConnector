@@ -23,9 +23,10 @@ from pathlib import Path
 from unittest.mock import Mock
 from contextlib import contextmanager
 
-from edmcruleengine.config import Config, DEFAULTS
-from edmcruleengine.vkb_client import VKBClient
-from edmcruleengine.event_handler import EventHandler
+from edmcruleengine import Config
+from edmcruleengine.config.config import DEFAULTS
+from edmcruleengine.vkb.vkb_client import VKBClient
+from edmcruleengine.events.event_handler import EventHandler
 from test.mock_vkb_server import MockVKBServer
 
 RULES_FILE = Path(__file__).parent / "fixtures" / "rules_catalog.json"

@@ -16,11 +16,11 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock
 
-from edmcruleengine.signals_catalog import SignalsCatalog
-from edmcruleengine.signal_derivation import SignalDerivation
-from edmcruleengine.rules_engine import RuleEngine
-from edmcruleengine.event_handler import EventHandler
-from edmcruleengine.config import Config
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
+from edmcruleengine.rules.signal_derivation import SignalDerivation
+from edmcruleengine.rules.rules_engine import RuleEngine
+from edmcruleengine.events.event_handler import EventHandler
+from edmcruleengine import Config
 
 
 class TestProductionWorkflow:

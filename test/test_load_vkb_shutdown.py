@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import edmcruleengine
-import edmcruleengine.event_recorder as event_recorder_module
+import edmcruleengine.events.event_recorder as event_recorder_module
 import load as plugin_load
 
 
@@ -35,17 +35,17 @@ def test_plugin_stop_does_not_stop_preexisting_vkb_link(monkeypatch):
     manager.stop_running.return_value = SimpleNamespace(message="stopped", status=None)
 
     handler = Mock()
-    handler.vkb_link_manager = manager
-    handler.clear_shift_state_for_shutdown = Mock(return_value=True)
 
-    monkeypatch.setattr(plugin_load, "_config", DictConfig(vkb_link_auto_manage=True))
-    monkeypatch.setattr(plugin_load, "_event_handler", handler)
-    monkeypatch.setattr(plugin_load, "_event_recorder", None)
-    monkeypatch.setattr(plugin_load, "_vkb_link_started_by_plugin", False)
+    plugin_load._state.config = DictConfig(vkb_link_auto_manage=True)
+    plugin_load._state.event_handler = handler
+    plugin_load._state.vkb_manager = manager
+    plugin_load._state.event_recorder = None
+    plugin_load._state.vkb_link_started_by_plugin = False
 
     plugin_load.plugin_stop()
 
-    handler.clear_shift_state_for_shutdown.assert_called_once()
+    manager.on_session_event.assert_called_once_with("Shutdown")
+    manager.disconnect.assert_called_once()
     handler.disconnect.assert_called_once()
     manager.stop_running.assert_not_called()
 
@@ -56,22 +56,22 @@ def test_plugin_stop_stops_only_when_started_by_plugin(monkeypatch):
     manager.stop_running.return_value = SimpleNamespace(message="stopped", status=None)
 
     handler = Mock()
-    handler.vkb_link_manager = manager
-    handler.clear_shift_state_for_shutdown = Mock(return_value=True)
 
-    monkeypatch.setattr(plugin_load, "_config", DictConfig(vkb_link_auto_manage=False))
-    monkeypatch.setattr(plugin_load, "_event_handler", handler)
-    monkeypatch.setattr(plugin_load, "_event_recorder", None)
-    monkeypatch.setattr(plugin_load, "_vkb_link_started_by_plugin", True)
+    plugin_load._state.config = DictConfig(vkb_link_auto_manage=False)
+    plugin_load._state.event_handler = handler
+    plugin_load._state.vkb_manager = manager
+    plugin_load._state.event_recorder = None
+    plugin_load._state.vkb_link_started_by_plugin = True
 
     plugin_load.plugin_stop()
 
-    handler.clear_shift_state_for_shutdown.assert_called_once()
+    manager.on_session_event.assert_called_once_with("Shutdown")
+    manager.disconnect.assert_called_once()
     handler.disconnect.assert_called_once()
     manager.stop_running.assert_called_once_with(reason="plugin_shutdown")
 
 
-def test_plugin_start_skips_ensure_running_when_auto_manage_disabled_string(monkeypatch, tmp_path):
+def test_plugin_start_skips_ensure_running_when_auto_manage_disabled(monkeypatch, tmp_path):
     manager = Mock()
     manager.get_status.return_value = SimpleNamespace(
         running=False,
@@ -92,7 +92,7 @@ def test_plugin_start_skips_ensure_running_when_auto_manage_disabled_string(monk
     class FakeConfig:
         def get(self, key, default=None):
             values = {
-                "vkb_link_auto_manage": "false",
+                "vkb_link_auto_manage": False,
                 "vkb_host": "127.0.0.1",
                 "vkb_port": 50995,
             }
@@ -101,6 +101,9 @@ def test_plugin_start_skips_ensure_running_when_auto_manage_disabled_string(monk
     class FakeHandler:
         def __init__(self, *_args, **_kwargs):
             self.vkb_link_manager = manager
+
+        def add_endpoint(self, _endpoint):
+            pass
 
         def refresh_unregistered_events_against_catalog(self):
             return 0

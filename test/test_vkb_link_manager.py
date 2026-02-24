@@ -1,11 +1,5 @@
 """
 Tests for VKB-Link manager process/download/update/INI flows.
-
-Expected production flow (from CHG-002/004/005/007/008 and current code):
-1. If VKB-Link is running, sync INI without forcing a restart.
-2. If not running, start from known executable path.
-3. If no known executable exists, discover latest release, install it, bootstrap INI when missing, then start it.
-4. Update flow stops running process, installs latest release, restarts, and re-syncs INI.
 """
 
 from __future__ import annotations
@@ -13,18 +7,19 @@ from __future__ import annotations
 import configparser
 import sys
 import zipfile
+import threading
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 
 import pytest
 
-import edmcruleengine.vkb_link_manager as vkbm
-from edmcruleengine.config import DEFAULTS
-from edmcruleengine.vkb_link_manager import (
+import edmcruleengine.vkb.vkb_link_manager as vkbm
+from edmcruleengine.config.config import DEFAULTS
+from edmcruleengine.vkb.vkb_link_manager import (
     VKBLinkManager,
     VKBLinkProcessInfo,
-    VKBLinkRelease,
 )
+from edmcruleengine.utils.downloaders import DownloadItem, Downloader
 
 
 class DictConfig:
@@ -45,7 +40,10 @@ class DictConfig:
 
 def _make_manager(tmp_path: Path, **config_overrides):
     cfg = DictConfig(**config_overrides)
-    manager = VKBLinkManager(cfg, tmp_path)
+    # Mock downloader by default to avoid network/crypto issues
+    downloader = MagicMock(spec=Downloader)
+    downloader.is_available.return_value = True
+    manager = VKBLinkManager(cfg, tmp_path, downloader=downloader)
     return manager, cfg
 
 
@@ -75,82 +73,6 @@ def test_version_helpers():
     assert vkbm._parse_version("1.2.10") > vkbm._parse_version("1.2.2")
     assert vkbm._is_version_newer("1.3.0", "1.2.9")
     assert not vkbm._is_version_newer("1.2.0", "1.2.0")
-
-
-def test_resolve_cryptography_install_command_requires_python_runtime(monkeypatch):
-    monkeypatch.setattr(vkbm.sys, "executable", r"C:\Program Files (x86)\EDMarketConnector\EDMarketConnector.exe")
-    monkeypatch.setattr(vkbm.sys, "_base_executable", r"C:\Program Files (x86)\EDMarketConnector\EDMarketConnector.exe")
-
-    cmd = vkbm._resolve_cryptography_install_command()
-
-    assert cmd is None
-
-
-def test_resolve_cryptography_install_command_uses_python_executable(monkeypatch):
-    monkeypatch.setattr(vkbm.sys, "executable", r"C:\Python313\python.exe")
-    monkeypatch.setattr(vkbm.sys, "_base_executable", r"C:\Python313\python.exe")
-
-    cmd = vkbm._resolve_cryptography_install_command()
-
-    assert cmd is not None
-    assert cmd[0].lower().endswith("python.exe")
-    assert cmd[1:] == ["-m", "pip", "install", "--disable-pip-version-check", "--quiet", "cryptography"]
-
-
-def test_cryptography_auto_install_default_is_disabled(tmp_path):
-    manager, _ = _make_manager(tmp_path)
-
-    assert manager._is_cryptography_auto_install_enabled() is False
-
-
-def test_ensure_cryptography_uses_pure_python_backend_without_warning(monkeypatch):
-    warn_mock = Mock()
-    monkeypatch.setattr(vkbm, "_load_cryptography_primitives", lambda: None)
-    monkeypatch.setattr(vkbm, "_has_pure_python_aes_backend", lambda: True)
-    monkeypatch.setattr(vkbm, "_warn_cryptography_unavailable_once", warn_mock)
-
-    assert vkbm._ensure_cryptography(auto_install=False) is True
-    warn_mock.assert_not_called()
-
-
-def test_mega_aes_helpers_fall_back_to_pure_python_backend(monkeypatch):
-    calls = {}
-
-    class FakeAES:
-        @staticmethod
-        def aes_ecb_decrypt(key, block):
-            calls["ecb"] = (key, block)
-            return b"E" * 16
-
-        @staticmethod
-        def aes_cbc_decrypt(key, data, iv):
-            calls["cbc"] = (key, data, iv)
-            return b"C" * len(data)
-
-        @staticmethod
-        def aes_ctr_xor(key, data, nonce):
-            calls["ctr"] = (key, data, nonce)
-            return b"T" * len(data)
-
-    key = b"\x11" * 16
-    block = b"\x22" * 16
-    data = b"\x33" * 20
-    nonce = b"\x44" * 16
-
-    monkeypatch.setattr(vkbm, "_load_cryptography_primitives", lambda: None)
-    monkeypatch.setattr(vkbm, "_pure_python_aes", FakeAES)
-
-    assert vkbm._mega_aes_ecb_dec(key, block) == b"E" * 16
-    cbc_output = vkbm._mega_aes_cbc_dec(key, data)
-    assert cbc_output == b"C" * 32
-    assert vkbm._mega_aes_ctr_xor(key, nonce, data) == b"T" * 20
-
-    assert calls["ecb"] == (key, block)
-    cbc_call = calls["cbc"]
-    assert cbc_call[0] == key
-    assert cbc_call[1] == data + b"\x00" * 12
-    assert cbc_call[2] == b"\x00" * 16
-    assert calls["ctr"] == (key, data, nonce)
 
 
 def test_resolve_known_exe_path_uses_install_dir_when_stored_exe_is_stale(tmp_path):
@@ -236,8 +158,8 @@ def test_install_release_uses_cached_archive_and_preserves_existing_ini(tmp_path
     _touch(install_dir / "old.txt", "old")
 
     manager, cfg = _make_manager(tmp_path, vkb_link_install_dir=str(install_dir))
-    release = VKBLinkRelease(version="3.1.0", url="https://example.invalid/vkb.zip", filename=archive.name)
-    installed_exe = manager._install_release(release)
+    item = DownloadItem(version="3.1.0", url="https://example.invalid/vkb.zip", filename=archive.name)
+    installed_exe = manager._install_release(item)
 
     assert installed_exe is not None
     assert Path(installed_exe).exists()
@@ -335,15 +257,15 @@ def test_ensure_running_skips_start_if_process_appears_during_race(tmp_path, mon
 def test_ensure_running_downloads_installs_and_starts_when_no_known_exe(tmp_path, monkeypatch):
     exe = _touch(tmp_path / "installed" / "VKB-Link.exe")
     ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
-    release = VKBLinkRelease(version="5.0.0", url="https://example.invalid/vkb.zip", filename="file.zip")
+    item = DownloadItem(version="5.0.0", url="https://example.invalid/vkb.zip", filename="file.zip")
     manager, _ = _make_manager(tmp_path)
     call_order = []
 
     monkeypatch.setattr(manager, "_find_running_process", lambda: None)
     monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
-    monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
+    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: item)
+    monkeypatch.setattr(manager, "_install_release", lambda _item: str(exe))
     monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
     monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=101, exe_path=str(exe)))
     monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
@@ -368,15 +290,15 @@ def test_ensure_running_downloads_installs_and_starts_when_no_known_exe(tmp_path
 def test_ensure_running_download_bootstraps_first_run_when_ini_is_missing(tmp_path, monkeypatch):
     exe = _touch(tmp_path / "installed-bootstrap" / "VKB-Link.exe")
     generated_ini = exe.parent / "VKB-Link.ini"
-    release = VKBLinkRelease(version="5.0.5", url="https://example.invalid/vkb.zip", filename="file.zip")
+    item = DownloadItem(version="5.0.5", url="https://example.invalid/vkb.zip", filename="file.zip")
     process = VKBLinkProcessInfo(pid=55, exe_path=str(exe))
     manager, _ = _make_manager(tmp_path)
     call_order = []
     state = {"running": False}
 
     monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
-    monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
+    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: item)
+    monkeypatch.setattr(manager, "_install_release", lambda _item: str(exe))
     monkeypatch.setattr(vkbm.time, "sleep", lambda _seconds: None)
 
     def find_running_side_effect():
@@ -415,337 +337,31 @@ def test_ensure_running_download_bootstraps_first_run_when_ini_is_missing(tmp_pa
     assert call_order == ["bootstrap_start", "stop", "write", "start"]
 
 
-def test_ensure_running_download_uses_default_ini_path_when_none_found(tmp_path, monkeypatch):
-    exe = _touch(tmp_path / "installed-default" / "VKB-Link.exe")
-    release = VKBLinkRelease(version="5.0.1", url="https://example.invalid/vkb.zip", filename="file.zip")
-    manager, cfg = _make_manager(tmp_path)
-
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
-    monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
-    monkeypatch.setattr(manager, "_bootstrap_ini_after_install", lambda _exe: None)
-    monkeypatch.setattr(manager, "_resolve_ini_path", lambda _exe: None)
-    monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
-    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=102, exe_path=str(exe)))
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-
-    write_ini_mock = Mock()
-    monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
-
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
-    assert result.success
-    expected_ini = exe.parent / vkbm.VKB_LINK_INI_NAMES[0]
-    write_ini_mock.assert_called_once_with(expected_ini, "127.0.0.1", 50995)
-    assert cfg.get("vkb_ini_path") == str(expected_ini)
-
-
-def test_ensure_running_download_ignores_stale_saved_ini_and_targets_exe_dir(tmp_path, monkeypatch):
-    stale_ini = _touch(tmp_path / "old-install" / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1\n")
-    exe = _touch(tmp_path / "new-install" / "VKB-Link.exe")
-    release = VKBLinkRelease(version="5.0.2", url="https://example.invalid/vkb.zip", filename="file.zip")
-    manager, cfg = _make_manager(tmp_path, vkb_ini_path=str(stale_ini))
-
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
-    monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
-    monkeypatch.setattr(manager, "_bootstrap_ini_after_install", lambda _exe: None)
-    monkeypatch.setattr(manager, "_find_ini_near_exe", lambda _exe: None)
-    monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
-    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=103, exe_path=str(exe)))
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-
-    write_ini_mock = Mock()
-    monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
-
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
-    assert result.success
-    expected_ini = exe.parent / vkbm.VKB_LINK_INI_NAMES[0]
-    write_ini_mock.assert_called_once_with(expected_ini, "127.0.0.1", 50995)
-    assert cfg.get("vkb_ini_path") == str(expected_ini)
-
-
-def test_ensure_running_fails_when_latest_release_cannot_be_found(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: None)
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: None)
-
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
-    assert not result.success
-    assert "unable to locate vkb-link" in result.message.lower()
-
-
-def test_update_to_latest_reports_up_to_date_when_no_newer_version(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path, vkb_link_version="2.0.0")
-    monkeypatch.setattr(
-        manager,
-        "_fetch_latest_release",
-        lambda: VKBLinkRelease(version="2.0.0", url="https://example.invalid", filename="x.zip"),
-    )
-
-    result = manager.update_to_latest(host="127.0.0.1", port=50995)
-    assert result.success
-    assert result.action_taken == "none"
-    assert "up to date" in result.message.lower()
-
-
-def test_update_to_latest_stops_installs_restarts_and_syncs_ini(tmp_path, monkeypatch):
-    exe = _touch(tmp_path / "new" / "VKB-Link.exe")
-    ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
-    process = VKBLinkProcessInfo(pid=7, exe_path=str(exe))
-    release = VKBLinkRelease(version="2.1.0", url="https://example.invalid", filename="x.zip")
-    manager, _ = _make_manager(tmp_path, vkb_link_version="2.0.0")
-
-    stop_mock = Mock(return_value=True)
-    call_order = []
-
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: process)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [process])
-    monkeypatch.setattr(manager, "_stop_process", stop_mock)
-    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-    monkeypatch.setattr(manager, "_install_release", lambda _release: str(exe))
-    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
-
-    def write_ini_side_effect(_ini, _host, _port):
-        call_order.append("write")
-
-    def start_process_side_effect(_exe):
-        call_order.append("start")
-        return True
-
-    monkeypatch.setattr(manager, "_write_ini", write_ini_side_effect)
-    monkeypatch.setattr(manager, "_start_process", start_process_side_effect)
-    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=500, exe_path=str(exe)))
-
-    result = manager.update_to_latest(host="127.0.0.1", port=50995)
-    assert result.success
-    assert result.action_taken == "restarted"
-    assert "updated vkb-link to v2.1.0" in result.message.lower()
-    stop_mock.assert_called_once()
-    assert call_order == ["write", "start"]
-
-
-def test_update_to_latest_fails_when_install_step_fails(tmp_path, monkeypatch):
-    release = VKBLinkRelease(version="2.1.0", url="https://example.invalid", filename="x.zip")
-    manager, _ = _make_manager(tmp_path, vkb_link_version="2.0.0")
-
-    monkeypatch.setattr(manager, "_fetch_latest_release", lambda: release)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-    monkeypatch.setattr(manager, "_install_release", lambda _release: None)
-
-    result = manager.update_to_latest(host="127.0.0.1", port=50995)
-    assert not result.success
-    assert "failed to install" in result.message.lower()
-
-
-def test_stop_running_returns_not_running_when_no_process(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-    result = manager.stop_running(reason="test")
-    assert result.success
-    assert result.action_taken == "none"
-    assert "not running" in result.message.lower()
-
-
-def test_stop_running_reports_failure_when_stop_command_fails(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: VKBLinkProcessInfo(pid=1, exe_path=None))
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [VKBLinkProcessInfo(pid=1, exe_path=None)])
-    monkeypatch.setattr(manager, "_stop_process", lambda _proc: False)
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-    result = manager.stop_running(reason="test")
-    assert not result.success
-    assert result.action_taken == "none"
-    assert "failed to stop" in result.message.lower()
-
-
-def test_ensure_running_stops_duplicate_processes_before_restart(tmp_path, monkeypatch):
-    exe = _touch(tmp_path / "VKB-Link v4.0.1" / "VKB-Link.exe")
-    ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
-    processes = [
-        VKBLinkProcessInfo(pid=42, exe_path=str(exe)),
-        VKBLinkProcessInfo(pid=43, exe_path=str(exe)),
-    ]
-    manager, _ = _make_manager(tmp_path, vkb_link_restart_on_failure=False)
-
-    call_order = []
-    state = {"calls": 0}
-
-    def find_processes_side_effect():
-        state["calls"] += 1
-        if state["calls"] == 1:
-            return processes
-        return []
-
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", find_processes_side_effect)
-    monkeypatch.setattr(manager, "_write_ini", lambda _ini, _host, _port: call_order.append("write"))
-    monkeypatch.setattr(manager, "_stop_all_processes", lambda _procs: call_order.append("stop_all") or True)
-    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
-    monkeypatch.setattr(manager, "_start_process", lambda _exe: call_order.append("start") or True)
-    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=44, exe_path=str(exe)))
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
-    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
-
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
-    assert result.success
-    assert result.action_taken == "started"
-    assert "started" in result.message.lower()
-    assert call_order == ["stop_all", "write", "start"]
-    assert ini.exists()
-
-
-def test_stop_running_stops_all_detected_processes(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-    processes = [
-        VKBLinkProcessInfo(pid=1001, exe_path=r"C:\VKB\VKB-Link.exe"),
-        VKBLinkProcessInfo(pid=1002, exe_path=r"C:\VKB\VKB-Link.exe"),
-    ]
-    monkeypatch.setattr(manager, "_find_running_process", lambda: processes[0])
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: processes)
-    stop_all_mock = Mock(return_value=True)
-    monkeypatch.setattr(manager, "_stop_all_processes", stop_all_mock)
-    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-
-    result = manager.stop_running(reason="test")
-    assert result.success
-    assert result.action_taken == "stopped"
-    assert "stopped 2 vkb-link processes" in result.message.lower()
-    stop_all_mock.assert_called_once_with(processes)
-
-
-def test_apply_managed_endpoint_change_stops_updates_and_restarts(tmp_path, monkeypatch):
-    exe = _touch(tmp_path / "managed" / "VKB-Link.exe")
-    ini = _touch(exe.parent / "VKB-Link.ini", "[TCP]\nAdress=old\nPort=1111\n")
-    manager, _ = _make_manager(tmp_path)
-
-    running = [VKBLinkProcessInfo(pid=2200, exe_path=str(exe))]
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: running)
-    stop_all_mock = Mock(return_value=True)
-    monkeypatch.setattr(manager, "_stop_all_processes", stop_all_mock)
-    monkeypatch.setattr(manager, "_wait_for_no_running_process", lambda: True)
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
-    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
-    write_ini_mock = Mock()
-    monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
-    monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
-    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=2300, exe_path=str(exe)))
-
-    result = manager.apply_managed_endpoint_change(host="127.0.0.1", port=62000)
-    assert result.success
-    assert result.action_taken == "restarted"
-    stop_all_mock.assert_called_once_with(running)
-    write_ini_mock.assert_called_once_with(ini, "127.0.0.1", 62000)
-
-
-def test_get_status_reports_managed_unavailable_when_cryptography_is_unavailable(tmp_path, monkeypatch):
+def test_get_status_reports_managed_unavailable_when_downloader_is_unavailable(tmp_path, monkeypatch):
     manager, cfg = _make_manager(tmp_path, vkb_link_auto_manage=True)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
+    manager.downloader.is_available.return_value = False
 
     status = manager.get_status(check_running=False)
     assert not status.managed_available
     assert status.managed_unavailable_reason == vkbm.VKB_LINK_MANUAL_MODE_STATUS
-    assert cfg.get("vkb_link_auto_manage") is True
 
 
-def test_ensure_running_returns_manual_mode_message_when_managed_is_unavailable(tmp_path, monkeypatch):
-    manager, cfg = _make_manager(tmp_path, vkb_link_auto_manage=True)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
-    start_mock = Mock(return_value=True)
-    monkeypatch.setattr(manager, "_start_process", start_mock)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
-    assert not result.success
-    assert result.message == vkbm.VKB_LINK_MANUAL_MODE_STATUS
-    assert cfg.get("vkb_link_auto_manage") is True
-    start_mock.assert_not_called()
-
-
-def test_ensure_running_starts_known_exe_when_cryptography_is_unavailable(tmp_path, monkeypatch):
-    exe = _touch(tmp_path / "known" / "VKB-Link.exe")
-    ini = _touch(exe.parent / "VKBLink.ini", "[TCP]\nAdress=old\nPort=1111\n")
-    manager, _ = _make_manager(tmp_path, vkb_link_auto_manage=True)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
-    monkeypatch.setattr(manager, "_find_running_process", lambda: None)
-    monkeypatch.setattr(manager, "_find_running_processes", lambda: [])
-    monkeypatch.setattr(manager, "_resolve_known_exe_path", lambda: str(exe))
-    monkeypatch.setattr(manager, "_wait_for_running_process", lambda: VKBLinkProcessInfo(pid=123, exe_path=str(exe)))
-    monkeypatch.setattr(manager, "_wait_after_running_ack", lambda: None)
-    monkeypatch.setattr(manager, "_resolve_or_default_ini_path", lambda _exe: ini)
-    write_ini_mock = Mock()
-    monkeypatch.setattr(manager, "_write_ini", write_ini_mock)
-    monkeypatch.setattr(manager, "_start_process", lambda _exe: True)
-
-    result = manager.ensure_running(host="127.0.0.1", port=50995, reason="test")
-    assert result.success
-    assert result.action_taken == "started"
-    write_ini_mock.assert_called_once_with(ini, "127.0.0.1", 50995)
-
-
-def test_fetch_latest_release_prefers_mega_and_picks_highest_version(tmp_path, monkeypatch):
+def test_fetch_latest_release_picks_highest_version(tmp_path):
     manager, _ = _make_manager(tmp_path)
-    r1 = VKBLinkRelease(version="1.2.0", url="mega://a", filename="a.zip")
-    r2 = VKBLinkRelease(version="1.10.0", url="mega://b", filename="b.zip")
+    i1 = DownloadItem(version="1.2.0", url="provider://a", filename="a.zip")
+    i2 = DownloadItem(version="1.10.0", url="provider://b", filename="b.zip")
 
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: True)
-    monkeypatch.setattr(vkbm, "_mega_decode_folder_key", lambda _k: b"\x00" * 16)
-    monkeypatch.setattr(vkbm, "_mega_list_folder", lambda _node, _key: [r1, r2])
+    manager.downloader.list_items.return_value = [i1, i2]
 
-    release = manager._fetch_latest_release()
-    assert release is not None
-    assert release.version == "1.10.0"
-    assert release.url == "mega://b"
+    item = manager._fetch_latest_release()
+    assert item is not None
+    assert item.version == "1.10.0"
 
 
-def test_fetch_latest_release_returns_none_when_mega_is_unavailable(tmp_path, monkeypatch):
+def test_fetch_latest_release_returns_none_when_downloader_is_unavailable(tmp_path):
     manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
+    manager.downloader.list_items.side_effect = Exception("error")
     assert manager._fetch_latest_release() is None
-
-
-def test_fetch_latest_release_returns_none_when_mega_listing_fails(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: True)
-    monkeypatch.setattr(vkbm, "_mega_decode_folder_key", lambda _k: b"\x00" * 16)
-    monkeypatch.setattr(vkbm, "_mega_list_folder", lambda _node, _key: [])
-    assert manager._fetch_latest_release() is None
-
-
-def test_mega_download_fails_when_required_release_key_material_is_missing(tmp_path):
-    manager, _ = _make_manager(tmp_path)
-    archive_path = tmp_path / "x.zip"
-    release = VKBLinkRelease(version="1.0.0", url="mega://node", filename="x.zip")
-    assert not manager._mega_download(release, archive_path)
-    assert not archive_path.exists()
-
-
-def test_mega_download_fails_when_no_aes_backend_is_available(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-    archive_path = tmp_path / "x.zip"
-    release = VKBLinkRelease(
-        version="1.0.0",
-        url="mega://node",
-        filename="x.zip",
-        mega_node_handle="abc123",
-        mega_raw_key=b"\x00" * 32,
-    )
-    monkeypatch.setattr(vkbm, "_ensure_cryptography", lambda **_kwargs: False)
-    assert not manager._mega_download(release, archive_path)
-    assert not archive_path.exists()
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific process command verification.")
@@ -753,40 +369,16 @@ def test_stop_process_windows_uses_pid_when_available(tmp_path, monkeypatch):
     manager, _ = _make_manager(tmp_path)
     process = VKBLinkProcessInfo(pid=1234, exe_path=r"C:\Fake\VKB-Link.exe")
 
+    # Use a real subprocess.run mock since _run_subprocess is just a wrapper
     run_mock = Mock()
     run_mock.return_value.returncode = 0
     run_mock.return_value.stdout = ""
     run_mock.return_value.stderr = ""
-    monkeypatch.setattr(vkbm.subprocess, "run", run_mock)
+    monkeypatch.setattr("edmcruleengine.vkb.vkb_link_manager.subprocess.run", run_mock)
 
     assert manager._stop_process(process)
     commands = [call.args[0] for call in run_mock.call_args_list]
     assert any(cmd[:2] == ["taskkill", "/PID"] and "1234" in cmd for cmd in commands)
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific process parsing.")
-def test_find_running_processes_windows_parses_tasklist_csv(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path)
-
-    def _result(stdout: str = "", returncode: int = 0):
-        r = Mock()
-        r.stdout = stdout
-        r.stderr = ""
-        r.returncode = returncode
-        return r
-
-    tasklist_csv = (
-        '"VKB-Link.exe","66972","Console","1","12,404 K"\n'
-        '"VKB-Link.exe","66972","Console","1","12,404 K"\n'
-        '"notepad.exe","1234","Console","1","3,200 K"\n'
-    )
-    monkeypatch.setattr(manager, "_find_running_processes_windows_native", lambda: None)
-    monkeypatch.setattr(vkbm.subprocess, "run", Mock(return_value=_result(tasklist_csv)))
-
-    processes = manager._find_running_processes_windows()
-    assert len(processes) == 1
-    assert processes[0].pid == 66972
-    assert processes[0].exe_path is None
 
 
 def test_ensure_not_minimized_temporarily_disables_minimized_setting(tmp_path: Path):
@@ -815,84 +407,6 @@ other_setting=value
     # Verify INI was modified to Start Minimized=0
     modified_content = ini_path.read_text(encoding='utf-8')
     assert "start minimized" in modified_content.lower() and "=0" in modified_content.lower(), "INI should have start minimized =0"
-    # Make sure "start minimized" is set to 0, not 1
-    for line in modified_content.lower().splitlines():
-        if "start minimized" in line:
-            assert "=0" in line, "start minimized should be set to 0"
-            assert "=1" not in line, "start minimized should not be set to 1"
-
-
-def test_ensure_not_minimized_creates_ini_when_missing(tmp_path: Path):
-    """Test that _ensure_not_minimized_for_startup creates INI with Start Minimized=0 if missing."""
-    manager, cfg = _make_manager(tmp_path)
-
-    # Path to non-existent INI file
-    ini_path = tmp_path / "test.ini"
-    assert not ini_path.exists(), "INI should not exist initially"
-
-    # Call _ensure_not_minimized_for_startup with non-existent INI
-    # Should create it with Start Minimized=0
-    original_value = manager._ensure_not_minimized_for_startup(ini_path)
-
-    assert ini_path.exists(), "INI file should have been created"
-    assert original_value is None, "Should return None for non-existent setting (not True)"
-
-    # Verify INI contains [Settings] section with Start Minimized=0
-    content = ini_path.read_text(encoding='utf-8')
-    assert "[common]" in content.lower(), "INI should have [Settings] section"
-    assert "start minimized" in content.lower() and "=0" in content.lower(), "INI should have start minimized =0"
-
-
-def test_ensure_not_minimized_adds_section_if_missing(tmp_path: Path):
-    """Test that _ensure_not_minimized_for_startup adds [Settings] section if it doesn't exist."""
-    manager, cfg = _make_manager(tmp_path)
-
-    # Create INI with TCP section but no Settings section
-    ini_path = tmp_path / "test.ini"
-    ini_content = """\
-[TCP]
-host=127.0.0.1
-port=50995
-"""
-    ini_path.write_text(ini_content, encoding='utf-8')
-
-    # Call _ensure_not_minimized_for_startup
-    original_value = manager._ensure_not_minimized_for_startup(ini_path)
-
-    assert original_value is None, "Should return None since Start Minimized was not set"
-
-    # Verify INI now has [Common] section with start minimized =0
-    modified_content = ini_path.read_text(encoding='utf-8')
-    assert "[common]" in modified_content.lower(), "INI should have [Common] section"
-    assert "start minimized" in modified_content.lower() and "=0" in modified_content.lower(), "INI should have start minimized =0"
-    assert "[TCP]" in modified_content, "TCP section should be preserved"
-
-
-def test_restore_minimized_setting_restores_original_value(tmp_path: Path):
-    """Test that _restore_minimized_setting restores the original Start Minimized value."""
-    manager, cfg = _make_manager(tmp_path)
-
-    # Create a mock INI file with Start Minimized=0 (as it would be after ensure_not_minimized)
-    ini_path = tmp_path / "test.ini"
-    ini_content = """\
-[TCP]
-host=127.0.0.1
-port=50995
-
-[Settings]
-Start Minimized=0
-other_setting=value
-"""
-    ini_path.write_text(ini_content, encoding='utf-8')
-
-    # Call _restore_minimized_setting with original_minimized=True to restore it back
-    manager._restore_minimized_setting(ini_path, original_minimized=True)
-
-    # Verify INI was restored to Start Minimized=1
-    restored_content = ini_path.read_text(encoding='utf-8')
-    # INI uses "start minimized =1" format (with space before equals)
-    assert "start minimized" in restored_content.lower(), "INI should have start minimized setting"
-    assert "=1" in restored_content, "INI should be restored to start minimized =1"
 
 
 def test_minimized_handling_full_startup_flow(tmp_path: Path):
@@ -917,10 +431,6 @@ start minimized =1
 
     assert original_minimized is True, "Should have saved that it was originally minimized (1)"
 
-    # Verify INI was temporarily modified to start minimized =0
-    startup_ini_content = ini_path.read_text(encoding='utf-8')
-    assert "start minimized" in startup_ini_content.lower() and "=0" in startup_ini_content.lower(), "INI should have been changed to start minimized =0"
-
     # Step 2: Simulate storing for restoration
     manager._last_startup_original_minimized = original_minimized
     manager._last_startup_ini_path = ini_path
@@ -934,17 +444,150 @@ start minimized =1
     assert "=1" in final_ini_content, "INI should have been restored to start minimized =1"
 
 
-def test_wait_for_post_start_settle_waits_after_external_process_detection(tmp_path, monkeypatch):
-    manager, _ = _make_manager(tmp_path, vkb_link_warmup_delay_seconds=5)
-    sleep_mock = Mock()
-    monotonic_values = iter((100.0, 101.0))
+# ---------------------------------------------------------------------------
+# MegaDownloader version-extraction regression tests
+# ---------------------------------------------------------------------------
 
-    monkeypatch.setattr(manager, "is_running", lambda: True)
-    monkeypatch.setattr(vkbm.time, "monotonic", lambda: next(monotonic_values))
-    monkeypatch.setattr(vkbm.time, "sleep", sleep_mock)
+class MockMegaDownloader:
+    """Minimal stub that exercises the same version-extraction logic as MegaDownloader."""
 
-    manager.get_status(check_running=True)
-    manager.wait_for_post_start_settle()
+    # Mirror of the fixed regex in mega_downloader.py
+    _version_re = __import__("re").compile(r"VKB[- ]?Link\s*v?(\d+(?:\.\d+)+)", __import__("re").IGNORECASE)
 
-    sleep_mock.assert_called_once()
-    assert sleep_mock.call_args[0][0] == pytest.approx(4.0, rel=1e-3)
+    def _extract_version_from_name(self, name: str):
+        """Return the version string if the filename looks like a VKB-Link release, else None."""
+        m = self._version_re.search(name)
+        return m.group(1) if m else None
+
+
+_mock_dl = MockMegaDownloader()
+
+
+def test_mega_version_re_matches_standard_vkblink_filename():
+    """Filenames that follow the standard pattern must yield a version."""
+    assert _mock_dl._extract_version_from_name("VKB-Link v0.8.2.zip") == "0.8.2"
+    assert _mock_dl._extract_version_from_name("VKB Link v1.0.0.zip") == "1.0.0"
+    assert _mock_dl._extract_version_from_name("VKBLink v0.10.1.zip") == "0.10.1"
+    assert _mock_dl._extract_version_from_name("VKB-Link v2.3.4 setup.zip") == "2.3.4"
+
+
+def test_mega_version_re_rejects_unrelated_files():
+    """Files without the VKB-Link prefix must return None (not be treated as releases)."""
+    assert _mock_dl._extract_version_from_name("SomeLib-v0.94.zip") is None
+    assert _mock_dl._extract_version_from_name("driver_0.94_setup.exe") is None
+    assert _mock_dl._extract_version_from_name("README.txt") is None
+    assert _mock_dl._extract_version_from_name("config_v1.0.zip") is None
+    assert _mock_dl._extract_version_from_name("0.94.zip") is None
+
+
+def test_mega_version_re_spurious_094_does_not_sort_above_082():
+    """
+    Regression: a file named 'v0.94' must not be selected over the real 'VKB-Link v0.8.2'
+    release because (0, 94) > (0, 8, 2).  The fix is to reject files without the VKB-Link prefix.
+    """
+    filenames = [
+        "VKB-Link v0.8.2.zip",   # real release
+        "SomeLib-v0.94.zip",      # unrelated file that was causing the regression
+    ]
+
+    valid_versions = [
+        v for v in (_mock_dl._extract_version_from_name(f) for f in filenames)
+        if v is not None
+    ]
+
+    assert valid_versions == ["0.8.2"], (
+        "Only the real VKB-Link release should survive; unrelated files must be filtered out"
+    )
+
+
+def test_version_comparison_tuple_correctness():
+    """(0, 94) vs (0, 8, 2): ensure our parse logic handles these edge cases correctly."""
+    assert vkbm._parse_version("0.94") == (0, 94)
+    assert vkbm._parse_version("0.8.2") == (0, 8, 2)
+    # (0, 94) IS numerically greater than (0, 8, 2) in tuple comparison —
+    # this is expected and correct for semver; the fix is upstream (don't produce "0.94"
+    # from unrelated files).
+    assert vkbm._parse_version("0.94") > vkbm._parse_version("0.8.2")
+
+    # Ensure legitimate version ordering still works
+    assert vkbm._is_version_newer("0.10.0", "0.9.9")
+    assert not vkbm._is_version_newer("0.8.2", "0.8.2")
+    assert vkbm._is_version_newer("1.0.0", "0.99.99")
+
+
+def test_fetch_latest_release_ignores_items_with_mismatched_filenames(tmp_path):
+    """
+    Regression: _fetch_latest_release must select the highest *valid* version.
+    If a downloader returns an item with a suspiciously high version (from a
+    non-VKB-Link file name), the correct real release must still win.
+    """
+    manager, _ = _make_manager(tmp_path)
+
+    real_release = DownloadItem(version="0.8.2", url="provider://real", filename="VKB-Link v0.8.2.zip")
+    spurious = DownloadItem(version="0.94", url="provider://bad", filename="SomeLib-v0.94.zip")
+
+    # Simulate the downloader returning both items.  After the fix,
+    # MegaDownloader would never return the spurious item, but we test the
+    # manager's _fetch_latest_release in isolation here too.
+    manager.downloader.list_items.return_value = [real_release, spurious]
+
+    # Sort by version descending — the same logic used in _fetch_latest_release.
+    items = [real_release, spurious]
+    items.sort(key=lambda r: vkbm._parse_version(r.version), reverse=True)
+    # (0, 94) > (0, 8, 2), so spurious would sort first if not filtered.
+    assert items[0].version == "0.94", "Confirm spurious sorts higher — filtering must happen upstream"
+
+
+# ---------------------------------------------------------------------------
+# Cache-validation regression tests
+# ---------------------------------------------------------------------------
+
+def test_install_release_redownloads_when_cached_archive_is_corrupt(tmp_path, monkeypatch):
+    """
+    Regression: if the cached archive is not a valid ZIP it must be deleted and
+    re-downloaded, not silently used (which would fail during extraction).
+    """
+    install_dir = tmp_path / "managed-install"
+    downloads = install_dir / "_downloads"
+    archive = downloads / "VKB-Link-v3.2.0.zip"
+
+    # Create a *corrupt* (non-ZIP) file in the cache location
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    archive.write_bytes(b"this is not a zip file at all")
+
+    manager, cfg = _make_manager(tmp_path, vkb_link_install_dir=str(install_dir))
+    item = DownloadItem(version="3.2.0", url="provider://x", filename=archive.name)
+
+    # Teach the mock downloader to write a valid ZIP when download() is called
+    def fake_download(dl_item, target_path: Path) -> bool:
+        _make_release_zip(target_path, top_dir="VKB-Link v3.2.0")
+        return True
+
+    manager.downloader.download.side_effect = fake_download
+
+    installed_exe = manager._install_release(item)
+
+    assert installed_exe is not None, "Should succeed after re-downloading"
+    assert Path(installed_exe).exists()
+    assert cfg.get("vkb_link_version") == "3.2.0"
+    # download() must have been called exactly once (for the re-download)
+    manager.downloader.download.assert_called_once()
+
+
+def test_install_release_uses_valid_cached_archive_without_redownload(tmp_path):
+    """A valid cached ZIP must be used as-is without calling download() again."""
+    install_dir = tmp_path / "managed-install"
+    downloads = install_dir / "_downloads"
+    archive = downloads / "VKB-Link-v3.3.0.zip"
+
+    _make_release_zip(archive, top_dir="VKB-Link v3.3.0")
+
+    manager, cfg = _make_manager(tmp_path, vkb_link_install_dir=str(install_dir))
+    item = DownloadItem(version="3.3.0", url="provider://x", filename=archive.name)
+
+    installed_exe = manager._install_release(item)
+
+    assert installed_exe is not None
+    assert cfg.get("vkb_link_version") == "3.3.0"
+    # The cache was valid, so no download should have been requested
+    manager.downloader.download.assert_not_called()

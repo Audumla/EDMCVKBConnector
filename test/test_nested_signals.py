@@ -5,7 +5,7 @@ are accessible and carry the expected metadata.
 """
 
 import pytest
-from src.edmcruleengine.signals_catalog import SignalsCatalog
+from edmcruleengine.rules.signals_catalog import SignalsCatalog
 
 
 def test_nested_signals_flattened():

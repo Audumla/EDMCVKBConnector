@@ -16,8 +16,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from . import plugin_logger
-from .paths import data_path
+from .. import plugin_logger
+from ..config.paths import data_path
 
 logger = plugin_logger(__name__)
 

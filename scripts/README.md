@@ -19,5 +19,5 @@ Maintained scripts in this directory:
 One-off migration and agent-generated maintenance scripts were removed to keep this directory focused on repeatable workflows.
 
 Configuration files:
-- `docs/changelog/changelog-config.json`: changelog + release-notes summarization runtime; includes `common` settings plus per-backend sections (`codex`, `claude_cli`, `intelligent`).
+- `scripts/changelog/changelog-config.json`: changelog + release-notes summarization runtime; includes `common` settings plus per-backend sections (`codex`, `claude_cli`, `intelligent`).
 - `scripts/delegation-config.json`: Claude/Codex delegation defaults used by `claude_run_plan.py`.

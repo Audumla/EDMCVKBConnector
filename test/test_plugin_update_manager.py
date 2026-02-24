@@ -1,7 +1,7 @@
 from pathlib import Path
 import zipfile
 
-from edmcruleengine.plugin_update_manager import (
+from edmcruleengine.utils.plugin_update_manager import (
     PluginRelease,
     PluginUpdateManager,
 )

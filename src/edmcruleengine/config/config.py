@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from . import plugin_logger
+from .. import plugin_logger
 
 try:
     from config import config
@@ -145,7 +145,22 @@ class Config:
                 elif expected_type is int:
                     return config.get_int(f"{CONFIG_PREFIX}{key}", default)
                 elif expected_type is bool:
-                    return config.get_bool(f"{CONFIG_PREFIX}{key}", default)
+                    # Robust boolean coercion from EDMC config
+                    val = config.get(f"{CONFIG_PREFIX}{key}")
+                    if val is None:
+                        return default
+                    if isinstance(val, bool):
+                        return val
+                    if isinstance(val, (int, float)):
+                        return val != 0
+                    if isinstance(val, str):
+                        normalized = val.strip().lower()
+                        if normalized in ("true", "1", "yes", "on", "y", "t"):
+                            return True
+                        if normalized in ("false", "0", "no", "off", "n", "f", ""):
+                            return False
+                        return default
+                    return bool(val)
                 elif expected_type is list:
                     return config.get_list(f"{CONFIG_PREFIX}{key}", default)
 
