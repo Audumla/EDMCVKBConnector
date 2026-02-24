@@ -76,14 +76,20 @@ def get_enabled_executors() -> list[str]:
 
 def get_agent_models(agent_type: str) -> list[str]:
     config = load_delegation_config()
-    # Check both planners and executors for models
     models = set()
+    
+    # 1. Check planners for available_models or single model
     planner_cfg = config.get("planners", {}).get(agent_type, {})
-    if planner_cfg.get("model"):
+    if "available_models" in planner_cfg:
+        models.update(planner_cfg["available_models"])
+    elif planner_cfg.get("model"):
         models.add(planner_cfg["model"])
     
+    # 2. Check executors for available_models or single model
     executor_cfg = config.get("executors", {}).get(agent_type, {})
-    if executor_cfg.get("model"):
+    if "available_models" in executor_cfg:
+        models.update(executor_cfg["available_models"])
+    elif executor_cfg.get("model"):
         models.add(executor_cfg["model"])
         
     return sorted(list(models)) if models else ["default"]
