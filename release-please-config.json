@@ -4,10 +4,9 @@
       "release-type": "python",
       "extra-files": [
         "pyproject.toml",
-        "src/edmcruleengine/version.py"
+        "src/edmcruleengine/config/version.py"
       ],
-      "changelog-path": ""
+      "changelog-path": "CHANGELOG.release-please.md"
     }
-  },
-  "changelog": null
+  }
 }

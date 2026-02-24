@@ -46,5 +46,21 @@
       "Prevents the bot commit from firing another pull_request workflow run",
       "Breaks the commit-merge-commit cycle when merging release-please PRs"
     ]
+  },
+  {
+    "id": "CHG-62cb55d3",
+    "change_group": "release-tooling",
+    "plugin_version": "unreleased",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Stop release-please from overwriting custom CHANGELOG.md",
+    "details": [
+      "Changed changelog-path to CHANGELOG.release-please.md so release-please owns its own file",
+      "Eliminates conflict between release-please changelog generation and build_changelog.py output",
+      "Fixed extra-files path: src/edmcruleengine/version.py -> src/edmcruleengine/config/version.py"
+    ]
   }
 ]
