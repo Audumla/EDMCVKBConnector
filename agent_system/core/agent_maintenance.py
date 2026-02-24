@@ -56,9 +56,17 @@ def purge_all_temps():
         temp_dir = PROJECT_ROOT / "agent_artifacts" / agent / "temp"
         if temp_dir.exists():
             print(f"  - Cleaning {temp_dir}...")
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            (temp_dir / "worktrees").mkdir(exist_ok=True)
+            # 1. Clean worktrees
+            shutil.rmtree(temp_dir / "worktrees", ignore_errors=True)
+            (temp_dir / "worktrees").mkdir(parents=True, exist_ok=True)
+            
+            # 2. Clean hanging plans and dispatch files
+            for f in temp_dir.glob("*.md"):
+                try: f.unlink()
+                except: pass
+            for f in temp_dir.glob("dispatch_*.md"):
+                try: f.unlink()
+                except: pass
     print("✅ Temporary files purged.")
 
 def main():
@@ -95,6 +103,7 @@ def main():
                 subprocess.run(["git", "branch", "-D", b], cwd=str(PROJECT_ROOT))
             for r in reps:
                 shutil.rmtree(r, ignore_errors=True)
+            subprocess.run(["git", "worktree", "prune"], cwd=str(PROJECT_ROOT))
             print("🔥 Orphans purged.")
 
 if __name__ == "__main__":

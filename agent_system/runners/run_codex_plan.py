@@ -34,7 +34,8 @@ from agent_runner_utils import (
     cleanup_worktree,
     utc_now,
     slugify,
-    write_json_safe as write_json
+    write_json_safe as write_json,
+    extract_summary_from_plan
 )
 
 
@@ -257,6 +258,11 @@ def parse_args() -> argparse.Namespace:
         choices=["none", "low", "medium", "high"],
         default=None,
         help="Extended thinking budget level (maps to effort: low→2, medium→3, high→4). Overrides --effort if provided.",
+    )
+    parser.add_argument(
+        "--task-summary",
+        default="",
+        help="One-line description of the task.",
     )
     parser.add_argument(
         "--cost-model",
@@ -534,8 +540,12 @@ def main() -> int:
     command = build_command(args, final_message_file, execution_workspace)
     command_file.write_text(" ".join(command) + "\n", encoding="utf-8")
 
+    # Resolve task summary
+    task_summary = args.task_summary or extract_summary_from_plan(args.plan_file)
+
     metadata: dict[str, Any] = {
         "run_id": run_dir.name,
+        "task_summary": task_summary,
         "created_at": utc_now(),
         "plan_file": str(plan_file),
         "plan_copy": str(plan_copy),

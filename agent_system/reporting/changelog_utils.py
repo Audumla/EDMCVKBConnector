@@ -184,12 +184,68 @@ def run_llm_with_fallback(prompt: str, config: dict, preferred_backend: str = No
             if result: return result, backend
     return None, "none"
 
-def call_local_llm(prompt: str, config: dict) -> Optional[str]: return "### Overview\nLocal LLM Success"
-def call_claude_cli(prompt: str, config: dict) -> Optional[str]: return "### Overview\nClaude Success"
-def call_codex_cli(prompt: str, config: dict) -> Optional[str]: return "### Overview\nCodex Success"
-def call_gemini_cli(prompt: str, config: dict) -> Optional[str]: return "### Overview\nGemini Success"
-def call_opencode_cli(prompt: str, config: dict) -> Optional[str]: return "### Overview\nOpenCode Success"
-def call_copilot_cli(prompt: str, config: dict) -> Optional[str]: return "### Overview\nCopilot Success"
+def call_local_llm(prompt: str, config: dict) -> Optional[str]:
+    import requests
+    local_cfg = config.get("local_llm", {})
+    url = local_cfg.get("base_url", "http://localhost:11434/v1").rstrip('/') + "/chat/completions"
+    model = local_cfg.get("model", "local-model")
+    
+    try:
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1
+        }
+        res = requests.post(url, json=payload, timeout=config.get("common", {}).get("timeout_seconds", 300))
+        res.raise_for_status()
+        return res.json()['choices'][0]['message']['content']
+    except Exception as e:
+        print(f"DEBUG: local-llm failed: {e}")
+        return None
+
+def call_claude_cli(prompt: str, config: dict) -> Optional[str]:
+    import subprocess
+    model = config.get("claude_cli", {}).get("model")
+    cmd = ["claude", "-p", prompt]
+    if model: cmd.extend(["-m", model])
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=config.get("common", {}).get("timeout_seconds", 300))
+        return res.stdout if res.returncode == 0 else None
+    except: return None
+
+def call_codex_cli(prompt: str, config: dict) -> Optional[str]:
+    import subprocess
+    model = config.get("codex", {}).get("model")
+    cmd = ["codex", "exec", "-"]
+    if model: cmd.extend(["--model", model])
+    try:
+        res = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=config.get("common", {}).get("timeout_seconds", 300))
+        return res.stdout if res.returncode == 0 else None
+    except: return None
+
+def call_gemini_cli(prompt: str, config: dict) -> Optional[str]:
+    import subprocess
+    model = config.get("gemini", {}).get("model")
+    cmd = ["gemini", "-p", prompt]
+    if model: cmd.extend(["-m", model])
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=config.get("common", {}).get("timeout_seconds", 300))
+        return res.stdout if res.returncode == 0 else None
+    except: return None
+
+def call_opencode_cli(prompt: str, config: dict) -> Optional[str]:
+    import subprocess
+    model = config.get("opencode", {}).get("model")
+    cmd = ["opencode", "run"]
+    if model: cmd.extend(["-m", model])
+    cmd.append(prompt)
+    try:
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=config.get("common", {}).get("timeout_seconds", 300))
+        return res.stdout if res.returncode == 0 else None
+    except: return None
+
+def call_copilot_cli(prompt: str, config: dict) -> Optional[str]:
+    return None # Copilot CLI is hard to automate via subprocess for this
 
 def build_change_groups(entries: List[dict]) -> List[dict]:
     groups = defaultdict(list)

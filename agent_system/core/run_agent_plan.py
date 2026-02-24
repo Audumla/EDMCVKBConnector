@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from agent_runner_utils import build_formatted_results, build_report, utc_now
+from agent_runner_utils import build_formatted_results, build_report, utc_now, extract_summary_from_plan
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -93,7 +93,7 @@ def get_planner_defaults(planner: str) -> dict[str, Any]:
     return cfg
 
 
-def run_executor(executor: str, plan_file: Path, thinking_budget: str, extra_args: list[str]) -> tuple[int, str | None]:
+def run_executor(executor: str, plan_file: Path, thinking_budget: str, task_summary: str, extra_args: list[str]) -> tuple[int, str | None]:
     executor_cfg = _executors_config.get(executor, {})
     if not executor_cfg.get("enabled", True):
         print(f"ERROR: Executor '{executor}' is currently disabled in configuration.", file=sys.stderr)
@@ -111,6 +111,7 @@ def run_executor(executor: str, plan_file: Path, thinking_budget: str, extra_arg
         "--plan-file", str(plan_file),
         "--output-root", str(output_root),
         "--worktree-root", str(worktree_root),
+        "--task-summary", task_summary,
     ]
 
     # Pass the specific model for the executor if defined in config
@@ -147,26 +148,6 @@ def run_executor(executor: str, plan_file: Path, thinking_budget: str, extra_arg
     return proc.returncode, run_dir
 
 
-def extract_summary_from_plan(plan_file: Path) -> str:
-    """Extract a one-line summary from the plan file (usually the first H1)."""
-    if not plan_file.exists():
-        return ""
-    try:
-        content = plan_file.read_text(encoding="utf-8-sig")
-        # Find first H1
-        match = re.search(r"^#\s+(.*)$", content, re.MULTILINE)
-        if match:
-            return match.group(1).strip()
-        # Fallback to first non-empty line
-        for line in content.splitlines():
-            line = line.strip()
-            if line and not line.startswith("<!--"):
-                return line[:100] # Cap length
-    except:
-        pass
-    return plan_file.stem
-
-
 def main() -> int:
     args, extra_args = parse_args()
     generated_at = utc_now()
@@ -193,7 +174,7 @@ def main() -> int:
     executor_model = executor_defaults.get("model", "gpt-5")
 
     # Run the executor
-    returncode, run_dir_str = run_executor(args.executor, args.plan_file, budget, extra_args)
+    returncode, run_dir_str = run_executor(args.executor, args.plan_file, budget, task_summary, extra_args)
 
     if run_dir_str is None:
         print("[run_agent_plan] ERROR: Could not parse run directory from executor output.", file=sys.stderr)

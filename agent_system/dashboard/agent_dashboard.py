@@ -12,7 +12,7 @@ from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import Header, Footer, DataTable, Log, Input, Select, Button, Static, Label
+from textual.widgets import Header, Footer, DataTable, RichLog, Input, Select, Button, Static, Label
 from textual.reactive import reactive
 
 # Add core to path for shared utils
@@ -128,6 +128,7 @@ class AgentDashboardApp(App):
 
     runs = reactive(list)
     selected_run = reactive(dict)
+    log_positions = {} # Track read position per run_id
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -162,7 +163,7 @@ class AgentDashboardApp(App):
                     with Horizontal(classes="stat-row"):
                         yield Label("Stats: ", classes="stat-label")
                         yield Label("-", id="stat-summary", classes="stat-value")
-                yield Log(id="run-log")
+                yield RichLog(id="run-log", highlight=True, markup=True)
         yield Footer()
 
     def on_mount(self) -> None:
@@ -227,23 +228,46 @@ class AgentDashboardApp(App):
 
     def update_details(self) -> None:
         table = self.query_one(DataTable)
-        if not self.runs or table.cursor_row < 0: return
+        run_log_widget = self.query_one("#run-log")
+
+        # Handle empty state or no selection
+        if not self.runs or table.cursor_row < 0:
+            self.query_one("#stat-id").update("-")
+            self.query_one("#stat-model").update("-")
+            self.query_one("#stat-branch").update("-")
+            self.query_one("#stat-summary").update("-")
+            run_log_widget.clear()
+            self.selected_run = {}
+            return
 
         idx = table.cursor_row
         if idx < len(self.runs):
+            prev_run_id = self.selected_run.get('id')
             self.selected_run = self.runs[idx]
+            curr_run_id = self.selected_run['id']
             
-            self.query_one("#stat-id").update(self.selected_run['id'])
+            self.query_one("#stat-id").update(curr_run_id)
             self.query_one("#stat-model").update(self.selected_run['model'])
             self.query_one("#stat-branch").update(self.selected_run['branch'] or "n/a")
             self.query_one("#stat-summary").update(f"Cost: ${self.selected_run['cost']:.4f} | Tokens: {self.selected_run['tokens']}")
 
-            run_log_widget = self.query_one("#run-log")
+            # If we switched runs, clear the log and reset position
+            if prev_run_id != curr_run_id:
+                run_log_widget.clear()
+                self.log_positions[curr_run_id] = 0
+
             log_file = self.selected_run["dir"] / "stdout.log"
             if log_file.exists():
-                content = log_file.read_text(encoding="utf-8", errors="replace")
-                run_log_widget.clear()
-                run_log_widget.write(content)
+                pos = self.log_positions.get(curr_run_id, 0)
+                try:
+                    with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+                        f.seek(pos)
+                        new_content = f.read()
+                        if new_content:
+                            # Use RichLog functionality if available, or stay with Log
+                            run_log_widget.write(new_content)
+                            self.log_positions[curr_run_id] = f.tell()
+                except: pass
 
     def on_data_table_row_selected(self) -> None:
         self.update_details()
@@ -309,10 +333,27 @@ class AgentDashboardApp(App):
             
     def action_delete_run(self) -> None:
         if self.selected_run:
+            run_id = self.selected_run['id']
+            agent = self.selected_run['agent']
+            
+            # 1. Remove the report directory
             shutil.rmtree(self.selected_run["dir"], ignore_errors=True)
+            
+            # 2. Attempt to remove the associated worktree directory
+            worktree_dir = PROJECT_ROOT / "agent_artifacts" / agent / "temp" / "worktrees" / run_id.replace(":", "_")
+            if worktree_dir.exists():
+                # Force remove worktree from git first
+                subprocess.run(["git", "worktree", "remove", "--force", str(worktree_dir)], cwd=PROJECT_ROOT, capture_output=True)
+                shutil.rmtree(worktree_dir, ignore_errors=True)
+
+            # 3. Delete the git branch
             if self.selected_run.get("branch"):
-                subprocess.run(["git", "branch", "-D", self.selected_run["branch"]], cwd=PROJECT_ROOT)
-            self.notify("Artifacts purged")
+                subprocess.run(["git", "branch", "-D", self.selected_run["branch"]], cwd=PROJECT_ROOT, capture_output=True)
+            
+            # 4. Prune any stale worktree metadata
+            subprocess.run(["git", "worktree", "prune"], cwd=PROJECT_ROOT, capture_output=True)
+
+            self.notify("Artifacts & Worktree purged")
             self.update_runs()
             
     def action_maintenance(self) -> None:

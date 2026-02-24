@@ -32,7 +32,7 @@
     },
     "local-llm": {
       "enabled": true,
-      "model": "local-model",
+      "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
       "thinking_budget": "none"
     }
   },
@@ -64,7 +64,7 @@
     "local-llm": {
       "enabled": true,
       "bin": "local-llm",
-      "model": "local-model",
+      "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
       "runner": "runners/run_localllm_plan.py"
     },
     "copilot": {

@@ -116,14 +116,24 @@ def create_isolated_worktree(workspace: Path, run_id: str, worktree_root: Path):
     branch_name = f"agent/run/{run_id}"
     worktree_dir = worktree_root / run_id.replace(":", "_")
     
+    print(f"Preparing worktree (new branch '{branch_name}')")
     subprocess.run(["git", "-C", str(repo_root), "worktree", "add", "-b", branch_name, str(worktree_dir), "HEAD"], check=True)
     
-    # Sync uncommitted
+    # Sync all changes including untracked
+    # We use stash push --include-untracked to ensure everything is captured
     status = subprocess.run(["git", "-C", str(repo_root), "status", "--porcelain"], capture_output=True, text=True)
     if status.stdout.strip():
-        subprocess.run(["git", "-C", str(repo_root), "stash", "push", "--include-untracked", "-m", f"sync-{run_id}"])
-        subprocess.run(["git", "-C", str(worktree_dir), "stash", "apply", "stash@{0}"])
-        subprocess.run(["git", "-C", str(repo_root), "stash", "pop"])
+        print(f"Syncing current workspace changes to worktree...")
+        # Push everything to a temporary stash
+        subprocess.run(["git", "-C", str(repo_root), "stash", "push", "--include-untracked", "-m", f"sync-{run_id}"], check=True)
+        
+        # Apply the stash to the new worktree
+        # Note: we use 'apply' instead of 'pop' so the main branch remains clean during execution
+        # but the worktree gets the files.
+        subprocess.run(["git", "-C", str(worktree_dir), "stash", "apply", "stash@{0}"], check=True)
+        
+        # Pop it back onto the main branch immediately so the user doesn't lose their view
+        subprocess.run(["git", "-C", str(repo_root), "stash", "pop"], check=True)
         
     return branch_name, worktree_dir, repo_root
 
@@ -179,6 +189,26 @@ def build_formatted_results(report: dict[str, Any]) -> str:
 """
 
 
+def extract_summary_from_plan(plan_file: Path) -> str:
+    """Extract a one-line summary from the plan file (usually the first H1)."""
+    if not plan_file.exists():
+        return ""
+    try:
+        content = plan_file.read_text(encoding="utf-8-sig")
+        # Find first H1
+        match = re.search(r"^#\s+(.*)$", content, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+        # Fallback to first non-empty line
+        for line in content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("<!--") and not line.startswith("```"):
+                return line[:100] # Cap length
+    except:
+        pass
+    return plan_file.stem
+
+
 def generic_native_runner(
     agent_type: str,
     default_model: str,
@@ -196,11 +226,15 @@ def generic_native_runner(
     parser.add_argument("--bin", default=default_bin)
     parser.add_argument("--no-cleanup", action="store_true")
     parser.add_argument("--thinking-budget", choices=["none", "low", "medium", "high"], default="none")
+    parser.add_argument("--task-summary", default="")
     args, unknown = parser.parse_known_args()
 
     run_id = f"{time.strftime('%Y%m%dT%H%M%SZ')}_{slugify(args.plan_file.stem)}"
     run_dir = args.output_root / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    # 0. Resolve task summary
+    task_summary = args.task_summary or extract_summary_from_plan(args.plan_file)
 
     # 1. Setup Environment
     branch, worktree, repo = create_isolated_worktree(Path.cwd(), run_id, args.worktree_root)
@@ -208,12 +242,20 @@ def generic_native_runner(
     status = {"run_id": run_id, "state": "running", "started_at": utc_now()}
     write_json_safe(run_dir / "status.json", status)
 
+    # Write initial metadata so dashboard shows it immediately
+    meta = {
+        "task_summary": task_summary,
+        "isolation": {"branch_name": branch},
+        "cost_estimate": {"model": args.model, "total_usd": 0.0}
+    }
+    write_json_safe(run_dir / "metadata.json", meta)
+
     # 2. Execute Native Command
     plan_text = args.plan_file.read_text(encoding="utf-8-sig")
     
     import shlex
     
-    # ... previous code ...
+    # ... remaining logic ...
     
     # Split the binary if it contains spaces (like "gh copilot")
     if os.name == 'nt':
@@ -244,15 +286,13 @@ def generic_native_runner(
         # No shell=True, more secure and robust for long prompts
         proc = subprocess.run(cmd, cwd=str(worktree), stdout=out, stderr=err, text=True)
 
-    # ... remaining code ...
-
     # 3. Finalize
     status["state"] = "succeeded" if proc.returncode == 0 else "failed"
     status["ended_at"] = utc_now()
     write_json_safe(run_dir / "status.json", status)
     
     meta = {
-        "task_summary": args.plan_file.stem,
+        "task_summary": task_summary,
         "isolation": {"branch_name": branch},
         "cost_estimate": {"model": args.model, "total_usd": 0.0}
     }
