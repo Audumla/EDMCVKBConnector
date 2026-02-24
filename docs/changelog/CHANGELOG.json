@@ -14,5 +14,21 @@
       "Eliminated 'tick-behind' issue where release tags missed the latest changelog stamp",
       "Updated package_plugin.py to include CHANGELOG.md and data files in the ZIP asset"
     ]
+  },
+  {
+    "id": "CHG-33d2c605",
+    "change_group": "release-tooling",
+    "plugin_version": "unreleased",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Harden release synchronization and post-merge hooks",
+    "details": [
+      "Updated post-merge hook to skip CHANGELOG.md rebuilds during release merges",
+      "Prevented local overwrites of officially stamped cloud changelogs",
+      "Switched auto_pull_after_release.py to use --rebase for cleaner local-to-remote sync"
+    ]
   }
 ]

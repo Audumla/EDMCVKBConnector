@@ -122,7 +122,7 @@ def main() -> int:
             )
             return 2
 
-        pull = run_git(["pull", "--ff-only", args.remote, args.branch], capture=True)
+        pull = run_git(["pull", "--rebase", args.remote, args.branch], capture=True)
         if pull.returncode != 0:
             print(f"ERROR: git pull failed: {(pull.stderr or '').strip()}", file=sys.stderr)
             return pull.returncode

@@ -10,7 +10,12 @@ if [ ! -x "$py" ]; then
 fi
 
 # Rebuild CHANGELOG.md after any merge to ensure consistency across branches
-"$py" "$repo_root/scripts/changelog/build_changelog.py"
+# BUT skip this if we just merged a release-please branch, as we want to keep
+# the officially stamped version from the cloud.
+is_release_merge=$(git log -1 --pretty=%s | grep -iE "release-please|release v[0-9]" || true)
+if [ -z "$is_release_merge" ]; then
+  "$py" "$repo_root/scripts/changelog/build_changelog.py"
+fi
 
 # Release-specific automation (only on main branch)
 branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
