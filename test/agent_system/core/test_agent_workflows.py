@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Add core to path
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 def test_full_delegation_flow(tmp_path):
@@ -23,21 +23,25 @@ def test_full_delegation_flow(tmp_path):
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.stdout = "Run directory: /mock/run/path\n"
+        mock_proc.stderr = ""
         mock_run.return_value = mock_proc
         
         # We'll use the orchestrator's run_executor directly for this test
         from agent_system.core.run_agent_plan import run_executor
         
-        # Patch the internal config for executors
-        with patch("agent_system.core.run_agent_plan._executors_config", {
-            "codex": {"enabled": True, "runner": "runners/run_codex_plan.py", "bin": "codex"}
+        # Patch provider config for executors
+        with patch("agent_system.core.provider_registry.load_delegation_config", return_value={
+            "executors": {
+                "codex": {"enabled": True, "runner": "runners/run_codex_plan.py", "bin": "codex"}
+            }
         }):
             # Mock PROJECT_ROOT inside the module
             with patch("agent_system.core.run_agent_plan.PROJECT_ROOT", tmp_path):
-                rc, run_dir = run_executor("codex", plan_file, "low", "Summary", [])
+                rc, run_dir, err = run_executor("codex", plan_file, "low", "Summary", [], workspace=tmp_path)
                 
                 assert rc == 0
                 assert run_dir == "/mock/run/path"
+                assert err == ""
                 
                 # Verify runner was called with correct relative paths
                 args = mock_run.call_args[0][0]

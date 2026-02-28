@@ -1,0 +1,49 @@
+description = "Inline tag dispatch: parse #plan/#exec/#budget tags and delegate automatically"
+prompt = """
+SYSTEM DIRECTIVE: You are acting as the Inline Dispatch Agent.
+
+TASK: {{args}}
+
+GOAL: Parse the inline dispatch tags in the task above, then delegate execution.
+
+## Step 1 — Parse tags
+
+Scan the task for these tags (case-insensitive):
+- `#plan <provider>`   → planner to use (e.g. gemini, claude, codex)
+- `#exec <provider>`   → executor to use (e.g. codex, opencode, gemini)
+- `#budget <level>`    → thinking budget (none, low, medium, high)
+- `#agent:<budget>:<planner>` → legacy form; maps to planner + budget
+
+If a tag is absent, use the defaults from delegation-config.json.
+Strip all tags from the task text to get the clean goal.
+
+## Step 2 — Plan
+
+Research the clean goal surgically. Write a detailed Markdown plan to:
+  `agent_artifacts/gemini/temp/plan.md`
+
+## Step 3 — Execute (background)
+
+Use the `run_shell_command` tool to launch the runner in the background:
+```
+.venv/Scripts/python.exe agent_system/core/run_agent_plan.py \
+  --planner <resolved_planner> \
+  --executor <resolved_executor> \
+  --thinking-budget <resolved_budget> \
+  --task-summary "Inline: <clean_goal_first_50_chars>" \
+  --plan-file agent_artifacts/gemini/temp/plan.md \
+  --cleanup-worktree
+```
+
+## Step 4 — Receipt
+
+Output a Delegation Receipt in this format and EXIT immediately:
+
+> **DELEGATION ACTIVE**
+>
+> - **Planner:** <resolved_planner>
+> - **Executor:** <resolved_executor> (Isolated Worktree)
+> - **Budget:** <resolved_budget>
+> - **Goal:** <clean_goal_first_80_chars>
+> - **Monitor:** `python agent_system/dashboard/agent_dashboard.py`
+"""

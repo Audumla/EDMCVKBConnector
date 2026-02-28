@@ -8,8 +8,9 @@ import shutil
 import sys
 from pathlib import Path
 from agent_runner_utils import AGENT_TYPES
+from runtime_paths import WORKSPACE_ROOT, ARTIFACTS_ROOT
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = WORKSPACE_ROOT
 
 def run_git(args):
     res = subprocess.run(["git", *args], capture_output=True, text=True, cwd=str(PROJECT_ROOT))
@@ -23,7 +24,7 @@ def get_orphans():
     # 2. Get all report folders
     report_folders = []
     for agent in AGENT_TYPES:
-        path = PROJECT_ROOT / "agent_artifacts" / agent / "reports" / "plan_runs"
+        path = ARTIFACTS_ROOT / agent / "reports" / "plan_runs"
         if path.exists():
             report_folders.extend(list(path.iterdir()))
             
@@ -50,10 +51,10 @@ def get_orphans():
     return orphaned_branches, orphaned_reports
 
 def purge_all_temps():
-    print("🔥 Purging all temporary agent artifacts and worktrees...")
+    print("[cleanup] Purging all temporary agent artifacts and worktrees...")
     subprocess.run(["git", "worktree", "prune"], cwd=str(PROJECT_ROOT))
     for agent in AGENT_TYPES:
-        temp_dir = PROJECT_ROOT / "agent_artifacts" / agent / "temp"
+        temp_dir = ARTIFACTS_ROOT / agent / "temp"
         if temp_dir.exists():
             print(f"  - Cleaning {temp_dir}...")
             # 1. Clean worktrees
@@ -67,7 +68,7 @@ def purge_all_temps():
             for f in temp_dir.glob("dispatch_*.md"):
                 try: f.unlink()
                 except: pass
-    print("✅ Temporary files purged.")
+    print("[cleanup] Temporary files purged.")
 
 def main():
     parser = argparse.ArgumentParser(description="Agent resource maintenance and audit.")
@@ -79,19 +80,19 @@ def main():
         purge_all_temps()
         return
 
-    print("🔍 Auditing Agent Resources...")
+    print("[audit] Auditing Agent Resources...")
     brs, reps = get_orphans()
     
     if brs:
-        print("\n⚠️  Dangling Branches (No Report Folder):")
+        print("\n[warn] Dangling Branches (No Report Folder):")
         for b in brs: print(f"  - {b}")
         
     if reps:
-        print("\n⚠️  Dangling Reports (No Git Branch):")
+        print("\n[warn] Dangling Reports (No Git Branch):")
         for r in reps: print(f"  - {r.name}")
         
     if not brs and not reps:
-        print("\n✅ Everything is clean. No orphans found.")
+        print("\n[ok] Everything is clean. No orphans found.")
     else:
         if args.yes:
             ans = 'y'
@@ -104,7 +105,7 @@ def main():
             for r in reps:
                 shutil.rmtree(r, ignore_errors=True)
             subprocess.run(["git", "worktree", "prune"], cwd=str(PROJECT_ROOT))
-            print("🔥 Orphans purged.")
+            print("[cleanup] Orphans purged.")
 
 if __name__ == "__main__":
     main()

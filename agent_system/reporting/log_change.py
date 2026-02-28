@@ -42,7 +42,13 @@ from pathlib import Path
 from build_changelog import rebuild_changelog_markdown
 from changelog_utils import load_json_list, save_json_list, CHANGELOG_JSON
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# Workspace root: prefer env var so this works when runtime != workspace
+import os as _os
+PROJECT_ROOT = (
+    Path(_os.environ["AGENT_WORKSPACE_ROOT"]).resolve()
+    if _os.environ.get("AGENT_WORKSPACE_ROOT", "").strip()
+    else Path.cwd().resolve()
+)
 
 APPROVED_TAGS = {
     "Bug Fix",

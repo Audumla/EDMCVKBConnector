@@ -12,14 +12,80 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-AGENT_TYPES = ["gemini", "claude", "codex", "opencode", "copilot", "local-llm"]
+try:
+    from agent_system.core.runtime_paths import (
+        RUNTIME_ROOT,
+        WORKSPACE_ROOT,
+        ARTIFACTS_ROOT,
+    )
+except ImportError:
+    from runtime_paths import RUNTIME_ROOT, WORKSPACE_ROOT, ARTIFACTS_ROOT
+
+# Backward-compat alias: project operations target workspace root.
+PROJECT_ROOT = WORKSPACE_ROOT
+AGENT_TYPES = ["gemini", "claude", "codex", "opencode", "copilot",
+               "cline", "ollama", "lmstudio", "local-llm"]
+
+try:
+    from agent_system.core.providers.usage_service import (
+        get_provider_usage_summary as _provider_usage_summary,
+        get_provider_detailed_usage as _provider_detailed_usage,
+    )
+    from agent_system.core.provider_registry import (
+        get_provider_health_map as _provider_health_map,
+    )
+except ImportError:
+    from providers.usage_service import (
+        get_provider_usage_summary as _provider_usage_summary,
+        get_provider_detailed_usage as _provider_detailed_usage,
+    )
+    from provider_registry import (
+        get_provider_health_map as _provider_health_map,
+    )
 
 def _safe_read_json(path: Path):
     if not path.exists(): return None
     for _ in range(3):
         try: return json.loads(path.read_text(encoding="utf-8-sig"))
         except: time.sleep(0.05)
+    return None
+
+
+def _extract_error_from_status(status: dict[str, Any], state: str) -> str | None:
+    explicit = status.get("error")
+    if explicit:
+        return str(explicit).strip()
+
+    last_stderr = str(status.get("last_stderr_line") or "").strip()
+    last_stdout = str(status.get("last_stdout_line") or "").strip()
+
+    for candidate in (last_stdout, last_stderr):
+        if not candidate:
+            continue
+        try:
+            parsed = json.loads(candidate)
+        except Exception:
+            parsed = None
+        if isinstance(parsed, dict):
+            parsed_error = parsed.get("error")
+            if isinstance(parsed_error, dict):
+                message = parsed_error.get("message") or parsed_error.get("detail")
+                if message:
+                    return str(message).strip()
+            if isinstance(parsed_error, str) and parsed_error.strip():
+                return parsed_error.strip()
+            if str(parsed.get("type", "")).endswith("failed"):
+                message = parsed.get("message")
+                if isinstance(message, str) and message.strip():
+                    return message.strip()
+
+    if state in {"failed", "cancelled", "crashed"}:
+        if last_stderr:
+            return last_stderr
+        lowered = last_stdout.lower()
+        if "error" in lowered or "failed" in lowered:
+            return last_stdout
+
     return None
 
 def is_process_running(pid: int) -> bool:
@@ -48,7 +114,7 @@ def is_process_running(pid: int) -> bool:
 def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
     all_runs = []
     for agent in AGENT_TYPES:
-        output_root = PROJECT_ROOT / "agent_artifacts" / agent / "reports" / "plan_runs"
+        output_root = ARTIFACTS_ROOT / agent / "reports" / "plan_runs"
         if output_root.exists():
             for p in output_root.iterdir():
                 status_file = p / "status.json"
@@ -78,21 +144,57 @@ def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
                         if meta and "lifecycle" in meta and meta["lifecycle"].get("state") == "merged":
                             state = "merged"
 
-                        # Resolve model: Report > Metadata > Status
+                        # Resolve model/cost: Report > Metadata > Status
                         model = "n/a"
+                        cost = 0.0
+
+                        if report:
+                            model = report.get("executor", {}).get("model") or report.get("planner", {}).get("model") or model
+                            cost = report.get("stats", {}).get("total_cost_usd") or cost
+
+                        if meta:
+                            cost_est = meta.get("cost_estimate", {})
+                            if isinstance(cost_est, dict):
+                                model = model if model != "n/a" else (cost_est.get("model") or model)
+                                cost = cost if cost else (cost_est.get("total_usd") or cost)
+
+                        if status:
+                            status_cost = status.get("cost_estimate", {})
+                            if isinstance(status_cost, dict):
+                                model = model if model != "n/a" else (status_cost.get("model") or model)
+                                cost = cost if cost else (status_cost.get("total_usd") or cost)
+
+                        try:
+                            cost = float(cost or 0.0)
+                        except (TypeError, ValueError):
+                            cost = 0.0
+
+                        resolved_error = _extract_error_from_status(status, state)
+
+                        # Resolve phase: use stored value, or infer from state
+                        raw_phase = status.get("phase")
+                        if raw_phase in {"planning", "executing", "done"}:
+                            phase = raw_phase
+                        elif state in {"succeeded", "failed", "cancelled", "crashed", "merged"}:
+                            phase = "done"
+                        elif state == "running":
+                            phase = "executing"
+                        else:
+                            phase = "done"
 
                         all_runs.append({
                             "id": p.name,
                             "agent": agent,
                             "dir": p,
                             "state": state,
+                            "phase": phase,
                             "pid": status.get("pid"),
                             "model": model,
                             "cost": cost,
                             "tokens": int(status.get("token_usage", {}).get("output_tokens") or 0),
                             "branch": meta.get("isolation", {}).get("branch_name") if meta else None,
                             "summary": meta.get("task_summary", "No summary provided") if meta else "No summary provided",
-                            "error": status.get("error"), # Capture explicit error messages
+                            "error": resolved_error,
                             "mtime": mtime
                         })
                     except: continue
@@ -101,42 +203,20 @@ def get_all_runs(limit: int = 30, state_filter: str = None) -> list[dict]:
 
 def get_provider_usage(agent_type: str) -> dict[str, Any]:
     """Fetch usage/quota information for a specific provider."""
-    if agent_type == "opencode":
-        try:
-            res = subprocess.run(["opencode", "stats"], capture_output=True, text=True, timeout=10)
-            if res.returncode == 0:
-                output = res.stdout
-                stats = {}
-                # Simple parser for the boxed output
-                for line in output.splitlines():
-                    if "Total Cost" in line: stats["cost"] = line.split()[-1]
-                    if "Input" in line and "Tokens" not in line: stats["input"] = line.split()[-1]
-                    if "Output" in line and "Tokens" not in line: stats["output"] = line.split()[-1]
-                    if "Cache Read" in line: stats["cache_read"] = line.split()[-1]
-                return stats
-        except: pass
-    
-    if agent_type == "local-llm":
-        # Check if server is up and maybe get some info
-        config = load_delegation_config()
-        endpoint = config.get("executors", {}).get("local-llm", {}).get("model", "local-model")
-        # For now, just return a status
-        return {"status": "ONLINE", "model": endpoint}
-
-    # Stubs for others
-    return {"status": "ACTIVE", "info": "CLI-only stats"}
+    return _provider_usage_summary(agent_type)
 
 def get_detailed_provider_usage(agent_type: str) -> str:
     """Fetch detailed usage/quota information by calling the dedicated script."""
-    cmd = [sys.executable, str(PROJECT_ROOT / "agent_system" / "reporting" / "get_usage_stats.py"), agent_type]
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
-        return res.stdout if res.returncode == 0 else res.stderr or f"Script failed with code {res.returncode}"
-    except Exception as e:
-        return f"ERROR: Failed to run usage script: {e}"
+    return _provider_detailed_usage(agent_type)
+
+def get_provider_health(role: str, enabled_only: bool = True) -> dict[str, dict[str, Any]]:
+    """Return provider health map for planners/executors."""
+    if role not in ("planners", "executors"):
+        raise ValueError("role must be 'planners' or 'executors'")
+    return _provider_health_map(role, enabled_only=enabled_only)
 
 def load_delegation_config() -> dict[str, Any]:
-    config_path = Path(__file__).resolve().parent.parent / "config" / "delegation-config.json"
+    config_path = RUNTIME_ROOT / "agent_system" / "config" / "delegation-config.json"
     if config_path.exists():
         try:
             return json.loads(config_path.read_text(encoding="utf-8"))
@@ -164,24 +244,27 @@ def get_test_enabled_executors() -> list[str]:
     executors = config.get("executors", {})
     return [e for e in executors if executors[e].get("test_enabled", False)]
 
-def get_agent_models(agent_type: str) -> list[str]:
+def get_agent_models(agent_type: str, role: str | None = None) -> list[str]:
     config = load_delegation_config()
     models = set()
-    
-    # 1. Check planners for available_models or single model
-    planner_cfg = config.get("planners", {}).get(agent_type, {})
-    if "available_models" in planner_cfg:
-        models.update(planner_cfg["available_models"])
-    elif planner_cfg.get("model"):
-        models.add(planner_cfg["model"])
-    
-    # 2. Check executors for available_models or single model
-    executor_cfg = config.get("executors", {}).get(agent_type, {})
-    if "available_models" in executor_cfg:
-        models.update(executor_cfg["available_models"])
-    elif executor_cfg.get("model"):
-        models.add(executor_cfg["model"])
-        
+
+    include_planner = role in (None, "planners")
+    include_executor = role in (None, "executors")
+
+    if include_planner:
+        planner_cfg = config.get("planners", {}).get(agent_type, {})
+        if "available_models" in planner_cfg:
+            models.update(planner_cfg["available_models"])
+        elif planner_cfg.get("model"):
+            models.add(planner_cfg["model"])
+
+    if include_executor:
+        executor_cfg = config.get("executors", {}).get(agent_type, {})
+        if "available_models" in executor_cfg:
+            models.update(executor_cfg["available_models"])
+        elif executor_cfg.get("model"):
+            models.add(executor_cfg["model"])
+
     return sorted(list(models)) if models else ["default"]
 
 def utc_now() -> str:
@@ -336,10 +419,11 @@ def generic_native_runner(
     branch, worktree, repo = create_isolated_worktree(Path.cwd(), run_id, args.worktree_root)
     
     status = {
-        "run_id": run_id, 
-        "state": "running", 
+        "run_id": run_id,
+        "state": "running",
+        "phase": "executing",
         "started_at": utc_now(),
-        "pid": os.getpid() # Capture PID for liveness monitoring
+        "pid": os.getpid(),  # Capture PID for liveness monitoring
     }
     write_json_safe(run_dir / "status.json", status)
 
@@ -400,6 +484,7 @@ def generic_native_runner(
 
         # 3. Finalize
         status["state"] = "succeeded" if proc.returncode == 0 else "failed"
+        status["phase"] = "done"
         status["ended_at"] = utc_now()
         write_json_safe(run_dir / "status.json", status)
         
@@ -415,7 +500,194 @@ def generic_native_runner(
     except Exception as e:
         print(f"ERROR: Runner crashed: {e}", file=sys.stderr)
         status["state"] = "failed"
+        status["phase"] = "done"
         status["ended_at"] = utc_now()
         status["error"] = str(e)
         write_json_safe(run_dir / "status.json", status)
         return 1
+
+
+def generic_api_runner(
+    agent_type: str,
+    default_model: str,
+    default_base_url: str,
+    api_key_env: str | None = None,
+    api_key_default: str = "",
+    extra_description: str = "",
+) -> int:
+    """
+    Generic OpenAI-compatible HTTP API runner for local/remote LLM endpoints.
+
+    Used by run_ollama_plan.py, run_lmstudio_plan.py, and any other provider
+    that speaks the OpenAI /v1/chat/completions protocol.
+
+    Parameters
+    ----------
+    agent_type      : provider name (used for artifact paths and logging)
+    default_model   : model identifier passed in the request body
+    default_base_url: base URL of the OpenAI-compatible API endpoint
+    api_key_env     : env var name holding the API key (None = no key needed)
+    api_key_default : value to use if api_key_env is None or missing (e.g. "lm-studio")
+    extra_description: human-readable label shown in log output
+    """
+    import argparse
+    import time
+
+    try:
+        import requests as _requests
+    except ImportError:
+        print(
+            f"ERROR: 'requests' package not found. "
+            f"Install it with: pip install requests",
+            file=sys.stderr,
+        )
+        return 1
+
+    parser = argparse.ArgumentParser(
+        description=f"{extra_description or agent_type} API runner"
+    )
+    parser.add_argument("--plan-file", required=True, type=Path)
+    parser.add_argument("--output-root", required=True, type=Path)
+    parser.add_argument("--worktree-root", required=True, type=Path)
+    parser.add_argument("--workspace", type=Path, default=Path.cwd())
+    parser.add_argument("--model", default=default_model)
+    parser.add_argument("--base-url", default=default_base_url)
+    parser.add_argument("--no-cleanup", action="store_true")
+    parser.add_argument("--task-summary", default="")
+    parser.add_argument("--thinking-budget", default="none")
+    parser.add_argument("--dry-run", action="store_true")
+    args, _ = parser.parse_known_args()
+
+    plan_file = args.plan_file.resolve()
+    output_root = args.output_root.resolve()
+    worktree_root = args.worktree_root.resolve()
+    workspace = args.workspace.resolve()
+
+    if not plan_file.exists():
+        print(f"ERROR: Plan file not found: {plan_file}", file=sys.stderr)
+        return 1
+
+    # Resolve API key
+    api_key = ""
+    if api_key_env:
+        api_key = os.environ.get(api_key_env, "").strip()
+        if not api_key:
+            print(
+                f"ERROR: {agent_type} requires API key in env var {api_key_env}.\n"
+                f"  Set it with: export {api_key_env}=<your-key>\n"
+                f"  Or run: python install.py detect  to configure credentials.",
+                file=sys.stderr,
+            )
+            return 1
+    elif api_key_default:
+        api_key = api_key_default
+
+    run_id = f"{time.strftime('%Y%m%dT%H%M%SZ')}_{slugify(plan_file.stem)}"
+    run_dir = output_root / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    task_summary = args.task_summary or extract_summary_from_plan(plan_file)
+
+    if args.dry_run:
+        write_json_safe(run_dir / "status.json", {
+            "run_id": run_id, "state": "dry_run",
+            "started_at": utc_now(), "ended_at": utc_now(),
+            "agent": agent_type, "phase": "done",
+        })
+        write_json_safe(run_dir / "metadata.json", {
+            "task_summary": task_summary,
+            "isolation": {"branch_name": None},
+            "cost_estimate": {"model": args.model, "total_usd": None},
+        })
+        print(f"Dry run created: {run_dir}")
+        return 0
+
+    # Create isolated worktree
+    branch, worktree, repo = create_isolated_worktree(workspace, run_id, worktree_root)
+
+    status = {
+        "run_id": run_id,
+        "state": "running",
+        "phase": "executing",
+        "agent": agent_type,
+        "started_at": utc_now(),
+        "pid": os.getpid(),
+    }
+    write_json_safe(run_dir / "status.json", status)
+    write_json_safe(run_dir / "metadata.json", {
+        "task_summary": task_summary,
+        "isolation": {"branch_name": branch},
+        "cost_estimate": {
+            "model": args.model, "total_usd": None,
+            "note": "Cost not tracked for local/API runner",
+        },
+    })
+
+    # Read plan
+    try:
+        plan_text = plan_file.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            plan_text = plan_file.read_text(encoding="utf-16")
+        except UnicodeDecodeError:
+            plan_text = plan_file.read_text(encoding="latin-1")
+
+    returncode = 1
+    base_url = args.base_url.rstrip("/")
+    url = f"{base_url}/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    payload = {
+        "model": args.model,
+        "messages": [{"role": "user", "content": plan_text}],
+        "temperature": 0.0,
+        "stream": True,
+    }
+
+    print(f"[{agent_type}] Sending request to {url} (model: {args.model}) ...")
+
+    try:
+        response = _requests.post(url, json=payload, headers=headers, timeout=300, stream=True)
+        response.raise_for_status()
+
+        with open(run_dir / "stdout.log", "w", encoding="utf-8") as out:
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                text = line.decode("utf-8") if isinstance(line, bytes) else line
+                if text.startswith("data: "):
+                    data_str = text[6:].strip()
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        import json as _json
+                        chunk = _json.loads(data_str)
+                        content = chunk["choices"][0].get("delta", {}).get("content", "")
+                        if content:
+                            out.write(content)
+                            out.flush()
+                    except Exception:
+                        pass
+
+        status["state"] = "succeeded"
+        returncode = 0
+
+    except Exception as e:
+        err_msg = f"API error: {e}"
+        print(f"[{agent_type}] ERROR: {err_msg}", file=sys.stderr)
+        with open(run_dir / "stderr.log", "w", encoding="utf-8") as err:
+            err.write(err_msg + "\n")
+        status["state"] = "failed"
+        status["error"] = err_msg
+
+    status["phase"] = "done"
+    status["ended_at"] = utc_now()
+    write_json_safe(run_dir / "status.json", status)
+
+    if not args.no_cleanup and repo is not None and worktree is not None and branch is not None:
+        cleanup_worktree(repo, worktree, branch, keep_branch=(status["state"] == "succeeded"))
+
+    print(f"Run directory: {run_dir}")
+    return returncode

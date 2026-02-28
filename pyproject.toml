@@ -41,6 +41,9 @@ dev = [
     "mypy>=0.990",
 ]
 
+[project.scripts]
+agent = "agent_system.core.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/YourUsername/agent-system"
 Repository = "https://github.com/YourUsername/agent-system.git"
@@ -63,7 +66,7 @@ disable = [
 max-line-length = 100
 
 [tool.pytest.ini_options]
-testpaths = ["agent_system"]
+testpaths = ["test"]
 pythonpath = ["."]
 addopts = "-v -s --tb=short"
 log_cli = true

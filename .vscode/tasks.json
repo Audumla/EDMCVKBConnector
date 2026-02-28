@@ -91,6 +91,132 @@
             ],
             "problemMatcher": [],
             "detail": "Regenerate CHANGELOG.md from JSON sources"
+        },
+        {
+            "label": "[agent] Open Dashboard",
+            "type": "shell",
+            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "args": [
+                "C:\\Users\\mgs\\.agent-system\\runtime\\install.py",
+                "start",
+                "--workspace",
+                "${workspaceFolder}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Launch the agent monitoring dashboard __agent-system__"
+        },
+        {
+            "label": "[agent] Open Dashboard (Window)",
+            "type": "shell",
+            "command": "start",
+            "args": [
+                "powershell",
+                "{",
+                "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+                "C:\\Users\\mgs\\.agent-system\\runtime\\install.py",
+                "start",
+                "--workspace",
+                "${workspaceFolder}",
+                "}"
+            ],
+            "presentation": {
+                "reveal": "never",
+                "panel": "shared"
+            },
+            "problemMatcher": [],
+            "detail": "Launch the agent dashboard in a separate terminal window __agent-system__"
+        },
+        {
+            "label": "[agent] Maintenance Audit",
+            "type": "shell",
+            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "args": [
+                "C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\core\\agent_maintenance.py"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Identify and purge orphaned agent branches and report folders __agent-system__"
+        },
+        {
+            "label": "[agent] Merge Latest Changes",
+            "type": "shell",
+            "command": "git",
+            "args": [
+                "merge",
+                "$(C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\core\\get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Merge the latest agent run branch into current branch __agent-system__"
+        },
+        {
+            "label": "[agent] Update Agent System",
+            "type": "shell",
+            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "args": [
+                "C:\\Users\\mgs\\.agent-system\\runtime\\install.py",
+                "update"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Pull the latest agent-system code and update dependencies __agent-system__"
+        },
+        {
+            "label": "[agent] Log Change",
+            "type": "shell",
+            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "args": [
+                "C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\reporting\\log_change.py",
+                "--agent",
+                "${input:agentChoice}",
+                "--group",
+                "${input:changeGroup}",
+                "--tags",
+                "${input:changeTags}",
+                "--summary",
+                "${input:changeSummary}",
+                "--details",
+                "${input:changeDetails}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Record a change entry in the project changelog __agent-system__"
+        },
+        {
+            "label": "[agent] Rebuild Changelog",
+            "type": "shell",
+            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "args": [
+                "C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\reporting\\build_changelog.py"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Regenerate CHANGELOG.md from JSON changelog data __agent-system__"
         }
     ],
     "inputs": [
@@ -111,6 +237,30 @@
             "id": "runIdOverride",
             "type": "promptString",
             "description": "Optional: Enter a specific Run ID (leave blank for latest)",
+            "default": ""
+        },
+        {
+            "id": "changeGroup",
+            "type": "promptString",
+            "description": "Workstream/group slug for the changelog entry",
+            "default": ""
+        },
+        {
+            "id": "changeTags",
+            "type": "promptString",
+            "description": "Tag(s) for the changelog entry (e.g. 'New Feature')",
+            "default": "New Feature"
+        },
+        {
+            "id": "changeSummary",
+            "type": "promptString",
+            "description": "One-sentence summary of the change",
+            "default": ""
+        },
+        {
+            "id": "changeDetails",
+            "type": "promptString",
+            "description": "Bullet-point details (separate with semicolons)",
             "default": ""
         }
     ]

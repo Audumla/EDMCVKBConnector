@@ -30,18 +30,16 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core"))
 
 from agent_runner_utils import (
-    create_isolated_worktree,
-    cleanup_worktree,
     utc_now,
     slugify,
-    write_json_safe as write_json,
     extract_summary_from_plan
 )
+from runtime_paths import WORKSPACE_ROOT, ARTIFACTS_ROOT
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "reports" / "plan_runs"
-DEFAULT_WORKTREE_ROOT = PROJECT_ROOT / "agent_artifacts" / "codex" / "temp" / "worktrees"
+PROJECT_ROOT = WORKSPACE_ROOT
+DEFAULT_OUTPUT_ROOT = ARTIFACTS_ROOT / "codex" / "reports" / "plan_runs"
+DEFAULT_WORKTREE_ROOT = ARTIFACTS_ROOT / "codex" / "temp" / "worktrees"
 DEFAULT_CODEX_MODEL = "gpt-5.3-codex"
 EFFORT_LEVEL_MAP: dict[int, str] = {
     1: "minimal",
@@ -165,6 +163,24 @@ def estimate_cost_from_usage(model: str, usage: dict[str, Any]) -> dict[str, Any
         "billable_input_tokens": billable_input_tokens,
         "rates_per_million": rates,
     }
+
+
+def _extract_error_message(error_obj: Any) -> str | None:
+    if isinstance(error_obj, dict):
+        message = error_obj.get("message") or error_obj.get("detail")
+        if isinstance(message, str) and message.strip():
+            try:
+                nested = json.loads(message)
+            except Exception:
+                return message.strip()
+            if isinstance(nested, dict):
+                nested_message = nested.get("detail") or nested.get("message")
+                if isinstance(nested_message, str) and nested_message.strip():
+                    return nested_message.strip()
+            return message.strip()
+    if isinstance(error_obj, str) and error_obj.strip():
+        return error_obj.strip()
+    return None
 
 
 @dataclass
@@ -645,6 +661,7 @@ def main() -> int:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            creationflags=0x08000000 if os.name == "nt" else 0,
         )
         status["pid"] = proc.pid
         status["heartbeat_at"] = utc_now()
@@ -701,6 +718,14 @@ def main() -> int:
                             event_type = event_obj.get("type") or event_obj.get("event") or "unknown"
                             status["last_event_type"] = event_type
                             status["last_event_at"] = utc_now()
+                            if event_type in {"error", "turn.failed"}:
+                                extracted = _extract_error_message(event_obj.get("error"))
+                                if extracted:
+                                    status["error"] = extracted
+                                elif event_type == "turn.failed":
+                                    fallback_message = event_obj.get("message")
+                                    if isinstance(fallback_message, str) and fallback_message.strip():
+                                        status["error"] = fallback_message.strip()
                             if event_type == "turn.completed":
                                 usage = event_obj.get("usage", {})
                                 if isinstance(usage, dict):
@@ -734,6 +759,8 @@ def main() -> int:
 
         status["return_code"] = proc.returncode
         status["state"] = "succeeded" if proc.returncode == 0 else "failed"
+        if status["state"] == "failed" and not status.get("error"):
+            status["error"] = status.get("last_stderr_line") or status.get("last_stdout_line")
         status["ended_at"] = utc_now()
         status["heartbeat_at"] = utc_now()
         write_json(status_file, status)

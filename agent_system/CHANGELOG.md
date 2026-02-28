@@ -339,6 +339,56 @@
 - Added gemini-2.0-pro-exp-02-05, gemini-2.0-flash-lite-preview-02-05, and others to delegation-config.json
 - Verified model availability through dry-run orchestration
 
+### Add inline #plan/#exec tag dispatch and phase-aware dashboard (New Feature, UI Improvement, Documentation Update)
+- - New tag_parser.py parses #plan, #exec, #budget, and legacy #agent: tags from any prompt
+- - agent_management.dispatch_task() applies tag overrides before building plan file
+- - run_agent_plan.py writes planning breadcrumb and patches phase=done into executor status.json
+- - generic_native_runner and run_openai_api_plan write phase=executing/done to status.json
+- - get_all_runs() exposes phase field with backward-compat inference for old runs
+- - Dashboard run-list gains Phase column: PLANNING/EXECUTING/DONE with colour coding
+- - CLAUDE.md, AGENTS.md, copilot-instructions.md updated with new tag syntax docs
+- - New Gemini slash command /agent inline for tag-aware dispatch from Gemini CLI
+
+### Add portable install.py with git-based self-update and workspace integration (New Feature, Build / Packaging, Documentation Update)
+- New install.py entry point with install/update/start/uninstall sub-commands
+- vscode_tasks.py and gitignore_inject.py helpers for idempotent workspace integration
+- Changelog path routing moved to AGENT_WORKSPACE_ROOT so logs live in target workspace
+- bootstrap.sh and bootstrap.ps1 now delegate to install.py
+- pyproject.toml registers agent CLI entry point
+- README.md rewritten with new installation, update, and uninstall instructions
+
+### Add provider detection and interactive selection to install.py (New Feature, Build / Packaging)
+- New provider_detect.py module detects CLI tools (claude, gemini, opencode, codex, copilot, ollama) and VS Code extensions
+- install.py detect sub-command prints a detection report and optionally updates delegation-config.json
+- Provider selection integrated into install flow as step 7 with --no-interactive and --skip-providers flags
+- delegation-config.json enabled flags auto-updated to match detected providers
+
+### Split local LLM providers into ollama and lmstudio with filesystem detection (New Feature, Build / Packaging)
+- Replaced local-llm with separate ollama and lmstudio entries in provider_detect.py and delegation-config.json
+- LM Studio detected via ~/.lmstudio directory and lms CLI binary
+- Ollama detected via ollama binary and ~/.ollama directory
+- LM Studio uses OpenAI-compatible API on port 1234; ollama uses port 11434
+- lmstudio enabled=true on this machine (detected); ollama enabled=false (not installed)
+
+### Add provider detection, auth management, local LLM support, and new runners for all AI providers (New Feature, Build / Packaging, Configuration Cleanup)
+- Created scripts/agent_runners/provider_detect.py: detects CLI tools, VS Code extensions, and install directories for claude, gemini, opencode, codex, cline, copilot, ollama, and lmstudio
+- Created scripts/agent_runners/auth_check.py: per-provider auth state detection with strategies cli_login, api_key, subscription, local, and extension; layered credential storage via env vars, keyring, and .agent-secrets.env fallback
+- Created agent_system/runners/run_cline_plan.py: writes plan to handoff file for manual Cline VS Code panel execution
+- Created agent_system/runners/run_ollama_plan.py: OpenAI-compat runner for Ollama daemon at localhost:11434
+- Created agent_system/runners/run_lmstudio_plan.py: OpenAI-compat runner for LM Studio server at localhost:1234
+- Added generic_api_runner() to agent_runner_utils.py: shared utility for all OpenAI-compatible HTTP endpoints
+- Updated delegation-config.json: split local-llm into separate ollama and lmstudio providers; added cline to planners and executors; updated runner references
+- Updated install.py: added detect and auth subcommands; _run_provider_setup now returns enabled list; added _run_auth_check helper; step 8 in cmd_install runs auth check for enabled providers
+
+### Seed AGENT.md on install so agents know artifact paths, changelog location, and delegation commands (New Feature, Documentation Update, Configuration Cleanup)
+- install.py now generates AGENT.md in every workspace with machine-specific absolute paths for artifacts root, changelog JSON/MD, venv python, and log_change command
+- AGENT.md covers: artifact storage layout per run-id, changelog policy with exact command syntax, delegation protocol with run_agent_plan.py example, valid providers list, and env var reference
+- _write_local_config expanded to include artifactsRoot, changelogJson, changelogMd, logChangeScript, and venvPython in .vscode/agent-system.json for tooling consumption
+- AGENT.md added to .gitignore injection block (contains absolute paths, machine-local)
+- run_agent_plan.py --planner and --executor choices updated to include cline, ollama, lmstudio (removed local-llm placeholder)
+- AGENT_TYPES constant in agent_runner_utils.py updated to match all real provider names
+- CLAUDE.md valid providers list updated to match new provider names
+
 ---
 
 ## v0.9.2 — 2026-02-22

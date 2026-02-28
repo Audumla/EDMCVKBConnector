@@ -13,13 +13,28 @@ def get_gemini_stats() -> str:
     gemini_bin = get_binary_path("gemini")
     if not gemini_bin:
         return "ERROR: 'gemini' command not found in PATH."
-    # The -p "/stats" command is interactive, so we try a different approach.
-    # We will try to get the summary from the end of a short, non-interactive run.
-    # This is a workaround as there is no direct non-interactive stats command.
-    cmd = [gemini_bin, "-p", "Get usage stats.", "--output-format", "json"]
+    # Use JSON output to get the stats field directly.
+    # This avoids the conversational response and provides raw data.
+    cmd = [gemini_bin, "-p", "/stats", "--output-format", "json"]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=30, encoding="utf-8", errors="replace")
-        return res.stdout if res.returncode == 0 else res.stderr
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=45, encoding="utf-8", errors="replace")
+        if res.returncode != 0:
+            return res.stderr
+        
+        import json
+        try:
+            # Find the first '{' to skip any warnings/logs before the JSON object
+            start_idx = res.stdout.find('{')
+            if start_idx == -1:
+                return f"ERROR: No JSON object found in output: {res.stdout}"
+            
+            data = json.loads(res.stdout[start_idx:])
+            if "stats" in data:
+                return json.dumps(data["stats"], indent=2)
+            return "ERROR: 'stats' field missing from JSON output."
+        except json.JSONDecodeError as e:
+            return f"ERROR: Failed to parse JSON: {e}\nOutput: {res.stdout}"
+            
     except Exception as e:
         return f"ERROR: Failed to run Gemini: {e}"
 

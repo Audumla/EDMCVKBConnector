@@ -15,16 +15,28 @@ from collections import Counter, defaultdict
 from difflib import SequenceMatcher
 from pathlib import Path
 
-# Paths (Corrected for modular depth)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-CHANGELOG_DIR = PROJECT_ROOT / "agent_system" / "reporting" / "data"
+# Paths — changelog data lives in the TARGET WORKSPACE, not the agent runtime.
+# AGENT_WORKSPACE_ROOT is set by install.py/manage_runtime before launching.
+# Falls back to cwd so the scripts still work when run from inside the workspace.
+_RUNTIME_ROOT = Path(__file__).resolve().parent.parent.parent
+_WORKSPACE_ROOT = Path(os.environ.get("AGENT_WORKSPACE_ROOT", "")).resolve() \
+    if os.environ.get("AGENT_WORKSPACE_ROOT", "").strip() \
+    else Path.cwd().resolve()
+
+# CONFIG_FILE and PYPROJECT_TOML reference the runtime/agent-system repo
+CONFIG_FILE = Path(__file__).resolve().parent / "changelog-config.json"
+PYPROJECT_TOML = _RUNTIME_ROOT / "pyproject.toml"
+RELEASE_PLEASE_MANIFEST = _WORKSPACE_ROOT / ".release-please-manifest.json"
+
+# Changelog paths point at the TARGET WORKSPACE so entries are committed there
+CHANGELOG_DIR = _WORKSPACE_ROOT / "agent_system" / "reporting" / "data"
 CHANGELOG_JSON = CHANGELOG_DIR / "CHANGELOG.json"
 CHANGELOG_ARCHIVE_JSON = CHANGELOG_DIR / "CHANGELOG.archive.json"
 CHANGELOG_SUMMARIES_JSON = CHANGELOG_DIR / "CHANGELOG.summaries.json"
-CHANGELOG_MD = PROJECT_ROOT / "agent_system" / "CHANGELOG.md"
-CONFIG_FILE = Path(__file__).resolve().parent / "changelog-config.json"
-PYPROJECT_TOML = PROJECT_ROOT / "pyproject.toml"
-RELEASE_PLEASE_MANIFEST = PROJECT_ROOT / ".release-please-manifest.json"
+CHANGELOG_MD = _WORKSPACE_ROOT / "agent_system" / "CHANGELOG.md"
+
+# Backward-compat alias
+PROJECT_ROOT = _WORKSPACE_ROOT
 
 TAG_ORDER = [
     "New Feature",

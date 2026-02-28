@@ -4,12 +4,148 @@
     "test_mode": false,
     "log_level": "INFO"
   },
+  "providers": {
+    "claude": {
+      "provider_type": "cli",
+      "bin": "claude",
+      "usage": {
+        "quick_command": [
+          "{bin}",
+          "-p",
+          "What is my current account usage?"
+        ],
+        "quick_parser": "claude_usage",
+        "quick_timeout_sec": 20,
+        "detailed_command": [
+          "{bin}",
+          "-p",
+          "What is my current account usage?"
+        ],
+        "timeout_sec": 30
+      }
+    },
+    "gemini": {
+      "provider_type": "cli",
+      "bin": "gemini",
+      "usage": {
+        "quick_command": [
+          "{bin}",
+          "-r",
+          "latest",
+          "/stats"
+        ],
+        "quick_parser": "gemini_usage_json",
+        "quick_timeout_sec": 20,
+        "detailed_command": [
+          "{bin}",
+          "-r",
+          "latest",
+          "/stats"
+        ],
+        "timeout_sec": 30
+      }
+    },
+    "codex": {
+      "provider_type": "cli",
+      "bin": "codex",
+      "usage": {
+        "quick_command": [
+          "{bin}",
+          "login",
+          "status"
+        ],
+        "quick_parser": "codex_login_status",
+        "quick_timeout_sec": 10,
+        "detailed_command": [
+          "{bin}",
+          "login",
+          "status"
+        ],
+        "timeout_sec": 15
+      }
+    },
+    "opencode": {
+      "provider_type": "cli",
+      "bin": "opencode",
+      "usage": {
+        "quick_command": [
+          "{bin}",
+          "stats"
+        ],
+        "quick_parser": "opencode_stats",
+        "quick_timeout_sec": 10,
+        "detailed_command": [
+          "{bin}",
+          "stats",
+          "--models"
+        ],
+        "timeout_sec": 30
+      }
+    },
+    "copilot": {
+      "provider_type": "subscription",
+      "bin": "gh copilot",
+      "usage": {
+        "quick_command": [
+          "gh",
+          "copilot",
+          "--help"
+        ],
+        "quick_parser": "copilot_help",
+        "quick_timeout_sec": 10,
+        "detailed_command": [
+          "gh",
+          "copilot",
+          "--help"
+        ],
+        "timeout_sec": 15
+      }
+    },
+    "ollama": {
+      "provider_type": "api_keyed",
+      "bin": "ollama",
+      "availability": {
+        "kind": "http_endpoint",
+        "url": "http://localhost:11434",
+        "path": "/api/tags",
+        "timeout_sec": 2
+      },
+      "usage": {
+        "quick_command": ["ollama", "ps"],
+        "quick_parser": "ollama_ps",
+        "quick_timeout_sec": 10,
+        "detailed_command": ["ollama", "list"],
+        "timeout_sec": 10
+      }
+    },
+    "lmstudio": {
+      "provider_type": "api_keyed",
+      "bin": "lms",
+      "availability": {
+        "kind": "http_endpoint",
+        "url": "http://localhost:1234",
+        "path": "/v1/models",
+        "timeout_sec": 2
+      },
+      "usage": {
+        "quick_command": ["lms", "status"],
+        "quick_parser": "lmstudio_status",
+        "quick_timeout_sec": 10,
+        "detailed_command": ["lms", "ls"],
+        "timeout_sec": 10
+      }
+    }
+  },
   "planners": {
     "claude": {
       "enabled": true,
       "test_enabled": false,
       "model": "claude-3-5-sonnet",
-      "available_models": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-haiku"],
+      "available_models": [
+        "claude-3-5-sonnet",
+        "claude-3-opus",
+        "claude-3-haiku"
+      ],
       "thinking_budget": "none"
     },
     "gemini": {
@@ -32,29 +168,71 @@
       "enabled": true,
       "test_enabled": false,
       "model": "gpt-5",
-      "available_models": ["o3", "gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex", "gpt-5-mini", "gpt-4o"],
+      "available_models": [
+        "o3",
+        "gpt-5.3-codex",
+        "gpt-5.2-codex",
+        "gpt-5.1-codex",
+        "gpt-5-mini",
+        "gpt-4o"
+      ],
       "thinking_budget": "none"
     },
     "opencode": {
       "enabled": true,
       "test_enabled": true,
       "model": "opencode/big-pickle",
-      "available_models": ["opencode/big-pickle", "opencode/gpt-5-nano", "opencode/minimax-m2.5-free", "opencode/trinity-large-preview-free"],
+      "available_models": [
+        "opencode/big-pickle",
+        "opencode/gpt-5-nano",
+        "opencode/minimax-m2.5-free",
+        "opencode/trinity-large-preview-free"
+      ],
       "thinking_budget": "none"
     },
     "copilot": {
       "enabled": true,
       "test_enabled": false,
       "model": "copilot-gpt-4",
-      "available_models": ["claude-sonnet-4.6", "claude-opus-4.6", "gpt-5.3-codex", "gpt-5-mini", "gemini-3-pro-preview"],
+      "available_models": [
+        "claude-sonnet-4.6",
+        "claude-opus-4.6",
+        "gpt-5.3-codex",
+        "gpt-5-mini",
+        "gemini-3-pro-preview"
+      ],
       "thinking_budget": "none"
     },
-    "local-llm": {
+    "ollama": {
+      "enabled": false,
+      "test_enabled": true,
+      "model": "qwen2.5-coder:7b",
+      "available_models": [
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b",
+        "deepseek-coder-v2:16b",
+        "codellama:13b",
+        "llama3.1:8b"
+      ],
+      "thinking_budget": "none"
+    },
+    "lmstudio": {
       "enabled": true,
       "test_enabled": true,
-      "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-      "available_models": ["Qwen2.5-7B-Instruct-Q4_K_M.gguf"],
-      "thinking_budget": "none"
+      "model": "local-model",
+      "available_models": [
+        "local-model"
+      ],
+      "thinking_budget": "none",
+      "_note": "Model name is whatever you have loaded in LM Studio. Uses OpenAI-compatible API on port 1234."
+    },
+    "cline": {
+      "enabled": true,
+      "test_enabled": false,
+      "model": "cline-default",
+      "available_models": ["cline-default"],
+      "thinking_budget": "none",
+      "_note": "Cline is a VS Code extension. Planning via Cline writes a handoff file for manual execution."
     }
   },
   "executors": {
@@ -63,7 +241,14 @@
       "test_enabled": false,
       "bin": "codex",
       "model": "gpt-5.3-codex",
-      "available_models": ["o3", "gpt-5.3-codex", "gpt-5.2-codex", "gpt-5.1-codex", "gpt-5-mini", "gpt-4o"],
+      "available_models": [
+        "o3",
+        "gpt-5.3-codex",
+        "gpt-5.2-codex",
+        "gpt-5.1-codex",
+        "gpt-5-mini",
+        "gpt-4o"
+      ],
       "runner": "runners/run_codex_plan.py"
     },
     "claude": {
@@ -71,7 +256,11 @@
       "test_enabled": false,
       "bin": "claude",
       "model": "claude-3-5-sonnet",
-      "available_models": ["claude-3-5-sonnet", "claude-3-opus", "claude-3-haiku"],
+      "available_models": [
+        "claude-3-5-sonnet",
+        "claude-3-opus",
+        "claude-3-haiku"
+      ],
       "runner": "runners/run_claude_plan.py"
     },
     "opencode": {
@@ -79,7 +268,12 @@
       "test_enabled": true,
       "bin": "opencode",
       "model": "opencode/big-pickle",
-      "available_models": ["opencode/big-pickle", "opencode/gpt-5-nano", "opencode/minimax-m2.5-free", "opencode/trinity-large-preview-free"],
+      "available_models": [
+        "opencode/big-pickle",
+        "opencode/gpt-5-nano",
+        "opencode/minimax-m2.5-free",
+        "opencode/trinity-large-preview-free"
+      ],
       "runner": "runners/run_opencode_plan.py"
     },
     "gemini": {
@@ -99,20 +293,52 @@
       ],
       "runner": "runners/run_gemini_plan.py"
     },
-    "local-llm": {
+    "ollama": {
+      "enabled": false,
+      "test_enabled": true,
+      "bin": "ollama",
+      "model": "qwen2.5-coder:7b",
+      "available_models": [
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b",
+        "deepseek-coder-v2:16b",
+        "codellama:13b",
+        "llama3.1:8b"
+      ],
+      "runner": "runners/run_ollama_plan.py"
+    },
+    "lmstudio": {
       "enabled": true,
       "test_enabled": true,
-      "bin": "local-llm",
-      "model": "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
-      "available_models": ["Qwen2.5-7B-Instruct-Q4_K_M.gguf"],
-      "runner": "runners/run_localllm_plan.py"
+      "bin": "lms",
+      "model": "local-model",
+      "available_models": [
+        "local-model"
+      ],
+      "runner": "runners/run_lmstudio_plan.py",
+      "_note": "Uses LM Studio's OpenAI-compatible API on http://localhost:1234"
+    },
+    "cline": {
+      "enabled": true,
+      "test_enabled": false,
+      "bin": "cline",
+      "model": "cline-default",
+      "available_models": ["cline-default"],
+      "runner": "runners/run_cline_plan.py",
+      "_note": "VS Code extension — writes plan to handoff file for manual execution in Cline"
     },
     "copilot": {
       "enabled": true,
       "test_enabled": false,
       "bin": "gh copilot",
       "model": "gpt-4o",
-      "available_models": ["claude-sonnet-4.6", "claude-opus-4.6", "gpt-5.3-codex", "gpt-5-mini", "gemini-3-pro-preview"],
+      "available_models": [
+        "claude-sonnet-4.6",
+        "claude-opus-4.6",
+        "gpt-5.3-codex",
+        "gpt-5-mini",
+        "gemini-3-pro-preview"
+      ],
       "runner": "runners/run_copilot_plan.py"
     }
   },

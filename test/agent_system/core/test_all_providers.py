@@ -7,11 +7,12 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Add core to path
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from agent_system.core.agent_runner_utils import get_test_enabled_executors, load_delegation_config
+from agent_system.core.agent_runner_utils import get_test_enabled_executors
 from agent_system.core.run_agent_plan import run_executor
+from agent_system.core.provider_registry import get_provider_config
 
 @pytest.mark.parametrize("executor", get_test_enabled_executors())
 def test_provider_workflow_dry_run(executor, tmp_path):
@@ -27,16 +28,17 @@ def test_provider_workflow_dry_run(executor, tmp_path):
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.stdout = "Run directory: /mock/path\n"
+        mock_proc.stderr = ""
         mock_run.return_value = mock_proc
         
-        rc, run_dir = run_executor(executor, plan_file, "low", "Test Summary", ["--dry-run"])
+        rc, run_dir, err = run_executor(executor, plan_file, "low", "Test Summary", ["--dry-run"], workspace=tmp_path)
         
         assert rc == 0
         assert run_dir == "/mock/path"
+        assert err == ""
         
         # Verify the command contained the binary defined in config
         args = mock_run.call_args[0][0]
-        config = load_delegation_config()
-        expected_bin = config["executors"][executor].get("bin", executor)
+        expected_bin = get_provider_config(executor, role="executors").get("bin", executor)
         
         assert any(expected_bin in str(arg) for arg in args)
