@@ -1190,7 +1190,7 @@
     "summary": "Reconnect worker now follows exact same startup sequence as plugin initialization",
     "details": [
       "Process readiness check now actively calls ensure_running() when process not found during reconnection",
-      "Reconnection flow now mirrors startup: check process → ensure running → apply settle delay → TCP connect",
+      "Reconnection flow now mirrors startup: check process \u2192 ensure running \u2192 apply settle delay \u2192 TCP connect",
       "Handles download/install/bootstrap of VKB-Link if needed during reconnection, not just on startup"
     ]
   },
@@ -1339,7 +1339,7 @@
     "details": [
       "Created config_defaults.json to set project-wide /codex defaults",
       "Added --thinking-budget parameter to claude_run_plan.py and run_codex_plan.py",
-      "thinking-budget maps to Codex effort levels (low→2, medium→3, high→4)",
+      "thinking-budget maps to Codex effort levels (low\u21922, medium\u21923, high\u21924)",
       "Updated CLAUDE.md documentation with new configuration options",
       "Config values load from config_defaults.json and can be overridden via CLI args"
     ]
@@ -2833,7 +2833,7 @@
     ],
     "summary": "Ensure consistent LLM output formatting across all backends",
     "details": [
-      "Updated normalize_llm_summary to standardize bullet points (e.g., converting • to -)",
+      "Updated normalize_llm_summary to standardize bullet points (e.g., converting \u2022 to -)",
       "Refined LMStudio system prompt to match the professional style of other providers",
       "Verified consistent markdown header and bullet usage regardless of selected backend"
     ]
@@ -3819,7 +3819,7 @@
     "summary": "Created Widescreen Professional Agent Dashboard",
     "details": [
       "Increased Sidebar width to 65 for full task visibility",
-      "Added Rich Unicode icons (🚀, ✅, 🎭, 🤖) and live log scrolling",
+      "Added Rich Unicode icons (\ud83d\ude80, \u2705, \ud83c\udfad, \ud83e\udd16) and live log scrolling",
       "Implemented 2-stage safety purge logic for DELETE key",
       "Added locale support for robust ANSI/Unicode rendering on Windows"
     ]
@@ -4017,7 +4017,7 @@
   {
     "id": "CHG-347f832c",
     "change_group": "release-tooling",
-    "plugin_version": "0.13.0",
+    "plugin_version": "0.12.2",
     "date": "2026-02-24",
     "summary_tags": [
       "Bug Fix",
@@ -4033,7 +4033,7 @@
   {
     "id": "CHG-33d2c605",
     "change_group": "release-tooling",
-    "plugin_version": "0.13.0",
+    "plugin_version": "0.12.3",
     "date": "2026-02-24",
     "summary_tags": [
       "Bug Fix",
@@ -4049,7 +4049,7 @@
   {
     "id": "CHG-a235d10d",
     "change_group": "release-tooling",
-    "plugin_version": "0.13.0",
+    "plugin_version": "0.12.4",
     "date": "2026-02-24",
     "summary_tags": [
       "Bug Fix",
@@ -4065,7 +4065,7 @@
   {
     "id": "CHG-62cb55d3",
     "change_group": "release-tooling",
-    "plugin_version": "0.13.0",
+    "plugin_version": "0.12.5",
     "date": "2026-02-24",
     "summary_tags": [
       "Bug Fix",
@@ -4076,6 +4076,55 @@
       "Changed changelog-path to CHANGELOG.release-please.md so release-please owns its own file",
       "Eliminates conflict between release-please changelog generation and build_changelog.py output",
       "Fixed extra-files path: src/edmcruleengine/version.py -> src/edmcruleengine/config/version.py"
+    ]
+  },
+  {
+    "id": "CHG-cd7cede7",
+    "change_group": "release-tooling",
+    "plugin_version": "0.12.1",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Align release version updates across manifest and packaged metadata",
+    "details": [
+      "Aligned version numbers across release metadata after the 0.12.0 release.",
+      "Kept packaged plugin version data in sync with release-please version bumps.",
+      "Stabilized the patch release flow before subsequent changelog automation fixes."
+    ]
+  },
+  {
+    "id": "CHG-b1a4c018",
+    "change_group": "standalone-runner-separation",
+    "plugin_version": "0.13.0",
+    "date": "2026-03-10",
+    "summary_tags": [
+      "New Feature",
+      "Code Refactoring",
+      "Test Update"
+    ],
+    "summary": "Separate the EDMC plugin from embedded agent-runner code and restore standalone packaging",
+    "details": [
+      "Removed embedded agent-runner code and project-local runner files from the plugin repository while keeping runner enablement external.",
+      "Restored standalone plugin packaging and project structure so the repository ships only EDMC plugin code.",
+      "Expanded validation around the separated workflow, including VKB-Link test shutdown coverage and strict separation checks."
+    ]
+  },
+  {
+    "id": "CHG-8ce9c23c",
+    "change_group": "release-tooling",
+    "plugin_version": "0.13.1",
+    "date": "2026-03-10",
+    "summary_tags": [
+      "Bug Fix",
+      "Documentation Update"
+    ],
+    "summary": "Sync release-please changelog output with cached summaries and backfilled release history",
+    "details": [
+      "Updated the release workflow to rebuild CHANGELOG.release-please.md from the project changelog summary cache.",
+      "Backfilled missing source-of-truth changelog history so release-please renders versioned release content instead of only conventional commit bullets.",
+      "Added regression coverage for alternate changelog output generation and documented the summary-backed release flow."
     ]
   }
 ]

@@ -2,14 +2,104 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
-## v0.13.0 — 2026-02-24
+## v0.13.1 — 2026-03-10
 
 ### Overview
 
-This release includes 4 changelog updates across 1 grouped workstreams, focused on Bug Fix.
+This patch makes release-please consume the project's cached changelog summaries and backfilled release history instead of falling back to conventional-commit bullets.
 
 ### Bug Fixes
-- Fixed issues in release process and changelog tooling.
+- Synced release-please changelog generation with the project summary cache so release bodies render structured release history.
+
+### Documentation
+- Backfilled missing release history since v0.12.x and documented the summary-backed release workflow.
+
+---
+
+## v0.13.0 — 2026-03-10
+
+### Overview
+
+This release completes the standalone split between the EDMC plugin and the external agent-runner workspace, restoring the plugin repository to runner-independent packaging and source ownership.
+
+### New Features
+- Separated the plugin repository from embedded agent-runner code while preserving runner enablement through external installation.
+
+### Improvements
+- Restored standalone plugin packaging, removed project-local runner assets from the tracked repository, and tightened separation validation.
+
+### Testing
+- Added suite-level VKB-Link shutdown coverage so test runs no longer leave the helper process running.
+
+---
+
+## v0.12.5 — 2026-02-24
+
+### Overview
+
+This patch separates release-please's generated changelog file from the project changelog and fixes version-file path wiring used during release updates.
+
+### Bug Fixes
+- Prevented release-please from overwriting the project's curated CHANGELOG.md during release preparation.
+
+### Build and Packaging
+- Corrected version-file path wiring so automated version bumps update the packaged plugin source correctly.
+
+---
+
+## v0.12.4 — 2026-02-24
+
+### Overview
+
+This patch prevents the automated changelog stamp step from retriggering CI and creating a release-please loop.
+
+### Bug Fixes
+- Added a safe skip-CI path for automated changelog stamp commits so the release PR does not recursively retrigger itself.
+
+### Build and Packaging
+- Stabilized the release workflow by breaking the bot-triggered commit loop in patch releases.
+
+---
+
+## v0.12.3 — 2026-02-24
+
+### Overview
+
+This patch hardens the release workflow after the earlier synchronization fixes by tightening post-merge behavior and local sync safety.
+
+### Bug Fixes
+- Hardened release synchronization around post-merge changelog handling to reduce local overwrite risk.
+
+### Improvements
+- Switched local post-release sync toward a cleaner rebase-based flow.
+
+---
+
+## v0.12.2 — 2026-02-24
+
+### Overview
+
+This release improves release-please synchronization so stamped changelog data and packaged distribution artifacts stay in step.
+
+### Bug Fixes
+- Fixed release synchronization so stamped changelog content is included in the resulting release output.
+
+### Build and Packaging
+- Included the project changelog files in packaged distribution assets for release validation and support.
+
+---
+
+## v0.12.1 — 2026-02-24
+
+### Overview
+
+This patch stabilizes the release pipeline immediately after v0.12.0 by keeping version metadata aligned across packaged artifacts and release automation.
+
+### Bug Fixes
+- Aligned manifest and packaged plugin version values so release builds report the correct version consistently.
+
+### Improvements
+- Cleaned up the patch release flow to avoid version drift in subsequent automated releases.
 
 ---
 
@@ -19,36 +109,17 @@ This release includes 4 changelog updates across 1 grouped workstreams, focused 
 
 This release includes 41 changelog updates across 9 grouped workstreams, focused on New Feature, Bug Fix, Code Refactoring.
 
-### Bug Fixes
-- Fixed issues with agent-specific artifact pathing and improved the watch utility.
-- Resolved model selection bugs in the agent runner, ensuring correct model usage.
-- Enhanced the agent dashboard to handle thinking budget resolution and model reporting.
-- Addressed bugs in the agent maintenance tool, ensuring proper cleanup and orphan audit.
-- Fixed issues with plan file encoding on Windows to prevent crashes.
-- Resolved VKB-Link live integration test initialization problems.
-- Ensured proper handling of orphaned agent run branches and worktrees.
-
 ### New Features
-- Added support for parallel agent runs with a VS Code agent picker.
-- Introduced a new Agent Dashboard with a full lifecycle TUI, including multi-pane layout and live log streaming.
-- Enhanced the agent runner with a local-llm option and integrated it into the system.
-- Created a Watch Latest Run VS Code task and added namespaced agent selection commands.
-- Added a new Watch Latest Run VS Code task and improved the agent runner with branch preservation and merge commands.
-- Implemented an Interactive Agent Dashboard with rich icons and safety logic.
-- Added a maintenance and orphan audit tool for agent runners.
-- Introduced auto-update notification popups and mandatory EDMC restarts for plugin updates.
-- Expanded the agent runner system to support multiple backends and generalized delegation.
+- Added new capabilities for developer documentation and configuration.
+
+### Bug Fixes
+- Fixed issues in changelog tooling and vkb-link lifecycle.
 
 ### Improvements
-- Centralized VKB coordination logic and fixed all broken tests.
-- Improved the reliability and memory usage of changelog agent backends.
-- Polished the agent dashboard with rich icons and safety logic.
-- Enhanced the agent runner scripts to support multiple backends and generalized delegation.
-- Cleaned up redundant VS Code test configuration and added a new Agent Runner tutorial.
-- Improved the agent runner with working-set synchronization and seamless VS Code integration.
-- Standardized versioning and git logic in changelog utilities and unified configuration across JSON settings files.
-- Added new features like slash commands for agent runners and a watch latest run task.
-- Upgraded the agent dashboard to a widescreen professional version with improved UI and safety logic.
+- Refactored tests for maintainability.
+
+### Improvements
+- Cleaned up configuration for changelog tooling and tests.
 
 ---
 
