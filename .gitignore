@@ -92,8 +92,8 @@ dist/CHANGELOG.preview.md
 # --- agent-system --- DO NOT EDIT THIS BLOCK MANUALLY ---
 # Agent-system machine-local config (not portable between machines)
 .vscode/agent-system.json
-# Agent runtime artifacts (not committed)
-agent_runner/artifacts/
+AGENT.md
+# Optional workspace-local state overrides (not committed)
 .agent-state/
 # Temporary agent-generated scratch files
 *_agent_report.md

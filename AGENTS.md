@@ -7,7 +7,7 @@ this repository.
   runner for this workspace. Use its paths and commands instead of assuming any
   in-repo runner scripts.
 - Do not add or depend on `agent_system/` or `scripts/agent_runners/` here.
-- Keep machine-local runner artifacts out of git: `agent_runner/artifacts/`,
+- Keep machine-local runner metadata and scratch files out of git:
   `.agent-state/`, `.vscode/agent-system.json`, and `AGENT.md`.
 - Focus changes on `load.py`, `src/edmcruleengine/`, plugin data under `data/`,
   contributor docs under `docs/`, repeatable project scripts under `scripts/`,
@@ -29,8 +29,7 @@ All of the following must contain identical policies:
 
 **When asked to add or change a rule for all agents**, do ONE of:
 1. Edit all files listed above directly (update each one with the same change), OR
-2. Update `agent_system/core/agents/agent_guide_generator.py` and run:
-   `python agent_system/install.py install`
+2. Update the AgentRunner runtime `agent_guide_generator.py` and re-run the installer for this workspace.
 
 **When you modify any policy in this file**, apply the same change to all files above before marking the task complete.
 
@@ -49,7 +48,8 @@ Authoritative instruction file per provider:
 
 ## Artifact Output — HARD RULE
 
-All agent-produced files MUST be written under `agent_runner/artifacts/`.
+All agent-produced files MUST be written under the machine-local artifact root
+documented in `AGENT.md`.
 
 This includes:
 - plans
@@ -59,17 +59,18 @@ This includes:
 
 Canonical run directory format:
 ```
-agent_runner/artifacts/<agent-type>/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/
+<artifact-root>/<agent-type>/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/
 ```
 
 Never write agent outputs to:
 - `batches/`
 - `agent_artifacts/` (legacy path)
+- `agent_runner/`
 - project source folders
 - any other non-artifact path
 
 Codex default run directory:
-`agent_runner/artifacts/codex/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/`
+`<artifact-root>/codex/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/`
 
 Required files: `plan_input.md`, `stdout.log`, `status.json`, `metadata.json`
 
@@ -78,9 +79,9 @@ Required files: `plan_input.md`, `stdout.log`, `status.json`, `metadata.json`
 Every task must end with ALL of the following before it is complete:
 
 1. Smoke test passed — verify changed code compiles/runs without errors (see Smoke Test below)
-2. Changelog recorded — `python agent_runner/scripts/log_change.py --agent <name> --group <slug> --tags "<tag>" --summary "<sentence>" --details "<bullet>" "<bullet>"`
-3. Run outputs stored in `agent_runner/artifacts/<agent>/reports/plan_runs/<run-id>/` — not in the git tree
-4. Delegations invoked via `python agent_runner/scripts/run_plan.py` (if applicable)
+2. Changelog recorded using the runtime `log_change.py` command documented in `AGENT.md`
+3. Run outputs stored under the machine-local artifact root documented in `AGENT.md`
+4. Delegations invoked using the runtime `run_agent_plan.py` command documented in `AGENT.md` (if applicable)
 
 Tags (exact strings): `Bug Fix` | `Build / Packaging` | `Code Refactoring` | `Configuration Cleanup` | `Dependency Update` | `Documentation Update` | `New Feature` | `Performance Improvement` | `Test Update` | `UI Improvement`
 
@@ -113,30 +114,18 @@ If a test suite exists, also run it: `python -m pytest tests/ -q` or the project
 
 For lightweight tasks (summarisation, changelog generation, quick code review) use the project-configured local LLM instead of consuming subscription quota.
 
-Check status / start / stop:
-```
-python agent_runner/scripts/local_llm.py status
-python agent_runner/scripts/local_llm.py start
-python agent_runner/scripts/local_llm.py stop
-```
-
-Quick one-shot query:
-```
-python agent_runner/scripts/query_llm.py "prompt text"
-python agent_runner/scripts/query_llm.py --ensure-running "prompt text"
-```
-
-`--ensure-running` starts the server automatically if not already up.
-Full plan via local model: `run_plan.py --executor ollama` (or `llamacpp` / `lmstudio`).
+Use the machine-local commands documented in `AGENT.md` for:
+- status / start / stop
+- one-shot queries
+- per-project endpoint/model overrides
+- local-model execution via `run_agent_plan.py`
 
 ## Agent Delegation
 
-```
-python agent_runner/scripts/run_plan.py --planner <agent> --executor <name> --plan-file agent_runner/artifacts/<agent>/temp/plan.md --cleanup-worktree
-```
+Use the runtime `run_agent_plan.py` command documented in `AGENT.md`.
 
 ## Project Separation
 
-Project source must not reference `agent_runner/`, `AGENT_WORKSPACE_ROOT`, AgentRunner scripts, or runtime paths.
-Verify: `python agent_runner/scripts/check_sep.py`
+Project source must not reference AgentRunner directories, runtime paths, or machine-local runner state.
+Verify using the runtime `check_separation.py` command documented in `AGENT.md`.
 <!-- agent-runner-end -->
