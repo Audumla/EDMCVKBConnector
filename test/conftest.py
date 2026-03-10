@@ -7,11 +7,88 @@ Path setup is handled by pyproject.toml [tool.pytest.ini_options] pythonpath.
 import sys
 import io
 import json
+import os
+import subprocess
 import time
 import threading
 from pathlib import Path
 
 import pytest
+
+
+def _list_vkb_link_pids() -> set[int]:
+    """Return the set of currently running VKB-Link process IDs."""
+    if sys.platform == "win32":
+        cmd = [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            (
+                "$procs = Get-Process -Name 'VKB-Link' -ErrorAction SilentlyContinue | "
+                "Select-Object Id; "
+                "if ($null -eq $procs) { '[]' } else { $procs | ConvertTo-Json -Compress }"
+            ),
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False, timeout=10)
+            if result.returncode != 0 or not result.stdout.strip():
+                return set()
+            payload = json.loads(result.stdout.strip())
+            if isinstance(payload, dict):
+                payload = [payload]
+            return {
+                int(item["Id"])
+                for item in payload
+                if isinstance(item, dict) and str(item.get("Id", "")).isdigit()
+            }
+        except Exception:
+            return set()
+
+    try:
+        result = subprocess.run(
+            ["pgrep", "-f", "VKB-Link"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+        if result.returncode not in (0, 1):
+            return set()
+        return {int(pid) for pid in result.stdout.split() if pid.isdigit()}
+    except Exception:
+        return set()
+
+
+def _kill_vkb_link_pids(pids: set[int]) -> None:
+    """Force-stop VKB-Link processes by PID."""
+    for pid in sorted(pids):
+        try:
+            if sys.platform == "win32":
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/T", "/F"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=15,
+                )
+            else:
+                os.kill(pid, 15)
+        except Exception:
+            pass
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_vkb_link_shutdown_after_tests():
+    """Kill any VKB-Link processes started during this pytest session."""
+    starting_pids = _list_vkb_link_pids()
+    yield
+    leaked_pids = _list_vkb_link_pids() - starting_pids
+    if leaked_pids:
+        _kill_vkb_link_pids(leaked_pids)
+        time.sleep(1.0)
+        remaining = _list_vkb_link_pids() - starting_pids
+        if remaining:
+            _kill_vkb_link_pids(remaining)
 
 
 def pytest_addoption(parser):
