@@ -1,0 +1,50 @@
+[
+  {
+    "title": "Docked State Control",
+    "enabled": true,
+    "description": "Manage docking state transitions",
+    "when": {
+      "all": [
+        {
+          "signal": "docking_state",
+          "op": "eq",
+          "value": "docked"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Shift2"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Shift2"]
+      }
+    ]
+  },
+  {
+    "title": "In Flight Indicator",
+    "enabled": true,
+    "description": "Activate shift3 when in space",
+    "when": {
+      "all": [
+        {
+          "signal": "docking_state",
+          "op": "eq",
+          "value": "in_space"
+        }
+      ]
+    },
+    "then": [
+      {
+        "vkb_set_shift": ["Shift3"]
+      }
+    ],
+    "else": [
+      {
+        "vkb_clear_shift": ["Shift3"]
+      }
+    ]
+  }
+]

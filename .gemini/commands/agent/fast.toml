@@ -1,0 +1,5 @@
+description = "Fast Agent Runner execution (Minimal budget)"
+prompt = """
+I am delegating the execution of this plan to the Agent Runner with a minimal-thinking budget for speed.
+!{python scripts/agent_runners/run_agent_plan.py --planner gemini --executor codex --plan-file {{args}} --thinking-budget low --task-summary "CLI Delegated: Fast Execution"}
+"""

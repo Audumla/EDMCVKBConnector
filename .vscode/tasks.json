@@ -2,102 +2,178 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "[fav] Agent: Open Interactive Dashboard",
+            "label": "[fav] EDMC: Run Tests",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "agent_system/dashboard/agent_dashboard.py"
+                "test/run_all_tests.py"
             ],
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "focus": true
+            "group": {
+                "kind": "test",
+                "isDefault": true
             },
             "problemMatcher": [],
-            "detail": "Modern TUI to monitor logs and manage agent runs"
+            "detail": "Run the full test suite"
         },
         {
-            "label": "[fav] Agent: Open Dashboard (External Window)",
-            "type": "shell",
-            "command": "start powershell { ${workspaceFolder}\\.venv\\Scripts\\python.exe ${workspaceFolder}\\agent_system\\dashboard\\agent_dashboard.py }",
-            "presentation": {
-                "reveal": "never",
-                "panel": "shared"
-            },
-            "problemMatcher": [],
-            "detail": "Launch the dashboard in a completely separate Windows terminal"
-        },
-        {
-            "label": "[fav] Agent: Review Latest Changes (Diff)",
-            "type": "shell",
-            "command": "git diff HEAD..$(.venv/Scripts/python.exe agent_system/core/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "focus": true
-            },
-            "problemMatcher": [],
-            "detail": "See exactly what the agent changed. Leave Run ID blank for 'latest'."
-        },
-        {
-            "label": "[fav] Agent: Merge Latest Changes",
-            "type": "shell",
-            "command": "git merge $(.venv/Scripts/python.exe agent_system/core/get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")",
-            "presentation": {
-                "reveal": "always",
-                "panel": "dedicated",
-                "focus": true
-            },
-            "group": "build",
-            "problemMatcher": [],
-            "detail": "Pull changes into your current branch. Leave Run ID blank for 'latest'."
-        },
-        {
-            "label": "[fav] Agent: List Successful Runs",
+            "label": "[fav] Release: Prepare preview",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "agent_system/core/list_agent_runs.py"
+                "scripts/release/release_workflow.py",
+                "--strict",
+                "--preview-only",
+                "--summarize-backend",
+                "${input:releaseBackend}"
             ],
+            "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "dedicated",
+                "panel": "shared",
                 "focus": true
             },
-            "problemMatcher": [],
-            "detail": "View a list of recent successful agent runs to find specific Run IDs"
+            "detail": "Rebuild CHANGELOG.md and release preview"
         },
         {
-            "label": "[fav] Agent: Maintenance Audit",
+            "label": "[fav] Release: Full workflow",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "agent_system/core/agent_maintenance.py"
+                "scripts/release/release_workflow.py",
+                "--strict",
+                "--summarize-backend",
+                "${input:releaseBackend}",
+                "--bump",
+                "${input:releaseBump}"
             ],
+            "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
-                "panel": "dedicated",
+                "panel": "shared",
                 "focus": true
             },
-            "problemMatcher": [],
-            "detail": "Identify and purge orphaned branches and report folders"
+            "detail": "Prepare changelog preview, then trigger release-please"
         },
         {
-            "label": "Reporting: Rebuild Changelog",
+            "label": "[fav] EDMC: Run EDMC (DEV - Isolated Config)",
             "type": "shell",
             "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "args": [
-                "agent_system/reporting/build_changelog.py"
+                "scripts/dev/run_edmc_from_dev.py"
             ],
             "problemMatcher": [],
-            "detail": "Regenerate CHANGELOG.md from JSON sources"
+            "detail": "Run EDMC from dev repository with isolated config"
+        },
+        {
+            "label": "EDMC: Bootstrap Dev Environment",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/dev/bootstrap_dev_env.py"
+            ],
+            "problemMatcher": [],
+            "detail": "Set up development environment and link the plugin"
+        },
+        {
+            "label": "EDMC: Bootstrap + Run Tests",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/dev/bootstrap_dev_env.py",
+                "--run-tests"
+            ],
+            "problemMatcher": [],
+            "hide": true,
+            "detail": "Bootstrap environment and run all tests"
+        },
+        {
+            "label": "EDMC: Run EDMC (DEV - System Config)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/dev/run_edmc_from_dev.py",
+                "--use-system-config"
+            ],
+            "problemMatcher": [],
+            "hide": true,
+            "detail": "Run EDMC from dev repository using your actual EDMC configuration"
+        },
+        {
+            "label": "EDMC: Package Plugin",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release/package_plugin.py"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": [],
+            "detail": "Create distributable ZIP file in dist/"
+        },
+        {
+            "label": "EDMC: UI Bootstrap (Rule Editor)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "test/ui_bootstrap_runner.py"
+            ],
+            "problemMatcher": [],
+            "detail": "Launch the rule editor UI for manual testing"
+        },
+        {
+            "label": "EDMC: Signal Catalog Editor",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/validation/signal_catalog_editor.py"
+            ],
+            "problemMatcher": [],
+            "detail": "Launch the signal catalog editor UI"
+        },
+        {
+            "label": "Release: Trigger release (already prepared)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+            "args": [
+                "scripts/release/release_workflow.py",
+                "--skip-prepare",
+                "--bump",
+                "${input:releaseBump}"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Trigger release-please only"
+        },
+        {
+            "label": "Release: Trigger release-please workflow (raw)",
+            "type": "shell",
+            "command": "gh",
+            "args": [
+                "workflow",
+                "run",
+                "release-please.yml"
+            ],
+            "problemMatcher": [],
+            "hide": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "focus": true
+            },
+            "detail": "Direct workflow trigger with no local safety checks"
         },
         {
             "label": "[agent] Open Dashboard",
             "type": "shell",
-            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
             "args": [
-                "C:\\Users\\mgs\\.agent-system\\runtime\\install.py",
+                "H:\\development\\projects\\AgentRunner\\agent_system\\install.py",
                 "start",
                 "--workspace",
                 "${workspaceFolder}"
@@ -117,8 +193,8 @@
             "args": [
                 "powershell",
                 "{",
-                "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
-                "C:\\Users\\mgs\\.agent-system\\runtime\\install.py",
+                "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+                "H:\\development\\projects\\AgentRunner\\agent_system\\install.py",
                 "start",
                 "--workspace",
                 "${workspaceFolder}",
@@ -134,9 +210,9 @@
         {
             "label": "[agent] Maintenance Audit",
             "type": "shell",
-            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
             "args": [
-                "C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\core\\agent_maintenance.py"
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\agents\\agent_maintenance.py"
             ],
             "presentation": {
                 "reveal": "always",
@@ -152,7 +228,7 @@
             "command": "git",
             "args": [
                 "merge",
-                "$(C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\core\\get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")"
+                "$(H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe H:\\development\\projects\\AgentRunner\\agent_system\\core\\agents\\get_latest_run_info.py --agent ${input:agentChoice} --run-id \"${input:runIdOverride}\")"
             ],
             "presentation": {
                 "reveal": "always",
@@ -165,9 +241,9 @@
         {
             "label": "[agent] Update Agent System",
             "type": "shell",
-            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
             "args": [
-                "C:\\Users\\mgs\\.agent-system\\runtime\\install.py",
+                "H:\\development\\projects\\AgentRunner\\agent_system\\install.py",
                 "update"
             ],
             "presentation": {
@@ -181,9 +257,9 @@
         {
             "label": "[agent] Log Change",
             "type": "shell",
-            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
             "args": [
-                "C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\reporting\\log_change.py",
+                "H:\\development\\projects\\AgentRunner\\agent_system\\reporting\\log_change.py",
                 "--agent",
                 "${input:agentChoice}",
                 "--group",
@@ -206,9 +282,9 @@
         {
             "label": "[agent] Rebuild Changelog",
             "type": "shell",
-            "command": "C:\\Users\\mgs\\.agent-system\\runtime\\.venv\\Scripts\\python.exe",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
             "args": [
-                "C:\\Users\\mgs\\.agent-system\\runtime\\agent_system\\reporting\\build_changelog.py"
+                "H:\\development\\projects\\AgentRunner\\agent_system\\reporting\\build_changelog.py"
             ],
             "presentation": {
                 "reveal": "always",
@@ -217,9 +293,273 @@
             },
             "problemMatcher": [],
             "detail": "Regenerate CHANGELOG.md from JSON changelog data __agent-system__"
+        },
+        {
+            "label": "[agent] Check Project Separation",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\tools\\check_separation.py",
+                "--workspace",
+                "${workspaceFolder}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Scan project source files for AgentRunner coupling violations __agent-system__"
+        },
+        {
+            "label": "[agent] Process Status",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\tools\\manage.py",
+                "--workspace",
+                "${workspaceFolder}",
+                "status"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Show all running agent processes and LLM servers __agent-system__"
+        },
+        {
+            "label": "[agent] Kill All: Agents & LLMs",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\tools\\manage.py",
+                "--workspace",
+                "${workspaceFolder}",
+                "kill",
+                "all"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Kill all running agent processes and stop all LLM servers __agent-system__"
+        },
+        {
+            "label": "[agent] Provider Permissions",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\install.py",
+                "permissions",
+                "--workspace",
+                "${workspaceFolder}",
+                "--mode",
+                "prompt"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Configure provider-specific approval/permission behavior __agent-system__"
+        },
+        {
+            "label": "[agent] LLM Lifecycle Log",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_manager.py",
+                "log",
+                "--lines",
+                "60"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "View recent LLM start/stop/error lifecycle events __agent-system__"
+        },
+        {
+            "label": "[agent] LLM Lifecycle Log: Follow",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_manager.py",
+                "log",
+                "--follow"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true,
+                "clear": true
+            },
+            "problemMatcher": [],
+            "detail": "Tail the LLM lifecycle log continuously (Ctrl-C to stop) __agent-system__"
+        },
+        {
+            "label": "[agent] Local LLM: Status",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_manager.py",
+                "status"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Show status of all local LLM runners __agent-system__"
+        },
+        {
+            "label": "[agent] Local LLM: Start",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_manager.py",
+                "start"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Start the configured local LLM server __agent-system__"
+        },
+        {
+            "label": "[agent] Local LLM: Stop",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_manager.py",
+                "stop"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Stop the managed local LLM server __agent-system__"
+        },
+        {
+            "label": "[agent] Local LLM: Configure",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_manager.py",
+                "configure"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Interactive setup wizard for the local LLM runner __agent-system__"
+        },
+        {
+            "label": "[agent] Models: List",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_model_manager.py",
+                "list"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "List all models in the catalog with status __agent-system__"
+        },
+        {
+            "label": "[agent] Models: Add",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_model_manager.py",
+                "add"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Add a model definition to the catalog __agent-system__"
+        },
+        {
+            "label": "[agent] Models: Configure Binary",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_model_manager.py",
+                "binary"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Set the path to the llama-server binary __agent-system__"
+        },
+        {
+            "label": "[agent] Models: Stop All",
+            "type": "shell",
+            "command": "H:\\development\\projects\\AgentRunner\\.venv\\Scripts\\python.exe",
+            "args": [
+                "H:\\development\\projects\\AgentRunner\\agent_system\\core\\llm\\local_llm_model_manager.py",
+                "stop-all"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": [],
+            "detail": "Stop all running model server processes __agent-system__"
         }
     ],
     "inputs": [
+        {
+            "id": "releaseBackend",
+            "type": "pickString",
+            "description": "Summarizer backend",
+            "default": "codex",
+            "options": [
+                "claude",
+                "codex",
+                "gemini",
+                "copilot",
+                "lmstudio",
+                "intelligent"
+            ]
+        },
+        {
+            "id": "releaseBump",
+            "type": "pickString",
+            "description": "Release bump strategy",
+            "default": "auto",
+            "options": [
+                "auto",
+                "patch",
+                "minor",
+                "major"
+            ]
+        },
         {
             "id": "agentChoice",
             "type": "pickString",

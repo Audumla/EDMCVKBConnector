@@ -1,0 +1,6 @@
+{
+  "edmc_root": "../EDMarketConnector",
+  "plugin_dir": ".",
+  "python_exec": ".venv/Scripts/python.exe",
+  "venv_dir": ".venv"
+}

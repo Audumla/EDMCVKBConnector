@@ -9,12 +9,11 @@ if [ ! -x "$py" ]; then
   py="python"
 fi
 
-# Rebuild CHANGELOG.md after any merge to ensure consistency across branches
-# BUT skip this if we just merged a release-please branch, as we want to keep
-# the officially stamped version from the cloud.
+# Rebuild CHANGELOG.md after any merge to ensure consistency across branches.
+# Skip release merges so the stamped version from the release workflow wins.
 is_release_merge=$(git log -1 --pretty=%s | grep -iE "release-please|release v[0-9]" || true)
 if [ -z "$is_release_merge" ]; then
-  "$py" "$repo_root/agent_system/reporting/build_changelog.py"
+  "$py" "$repo_root/scripts/changelog/build_changelog.py"
 fi
 
 exit 0

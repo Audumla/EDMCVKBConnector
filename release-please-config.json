@@ -1,0 +1,12 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "extra-files": [
+        "pyproject.toml",
+        "src/edmcruleengine/config/version.py"
+      ],
+      "changelog-path": "CHANGELOG.release-please.md"
+    }
+  }
+}

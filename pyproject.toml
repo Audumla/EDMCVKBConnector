@@ -3,34 +3,27 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-system"
-version = "0.1.0-alpha"
-description = "Universal AI Agent Orchestration and Changelog Management System"
+name = "edmcvkbconnector"
+version = "0.12.5"
+description = "EDMC extension to forward Elite Dangerous events to VKB HOTAS hardware via TCP/IP"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "Agent System Contributors"}
+    {name = "EDMC VKB Connector Contributors"}
 ]
-keywords = ["ai", "agent", "orchestration", "changelog", "automation"]
+keywords = ["edmc", "elite-dangerous", "vkb", "hotas", "hosas"]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Intended Audience :: System Administrators",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Software Development :: Build Tools",
-    "Topic :: Utilities",
 ]
-dependencies = [
-    "textual>=0.80.0",
-    "windows-curses; sys_platform == 'win32'",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
@@ -41,16 +34,13 @@ dev = [
     "mypy>=0.990",
 ]
 
-[project.scripts]
-agent = "agent_system.core.cli:main"
-
 [project.urls]
-Homepage = "https://github.com/YourUsername/agent-system"
-Repository = "https://github.com/YourUsername/agent-system.git"
+Homepage = "https://github.com/Audumla/EDMCVKBConnector"
+Repository = "https://github.com/Audumla/EDMCVKBConnector.git"
 
 [tool.setuptools]
-packages = ["agent_system"]
-package-dir = {"agent_system" = "agent_system"}
+packages = ["edmcruleengine"]
+package-dir = {"edmcruleengine" = "src/edmcruleengine"}
 
 [tool.black]
 line-length = 100
@@ -67,14 +57,14 @@ max-line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-pythonpath = ["."]
+pythonpath = ["src"]
 addopts = "-v -s --tb=short"
 log_cli = true
 log_cli_level = "DEBUG"
 log_file_level = "DEBUG"
 log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
 log_cli_date_format = "%H:%M:%S"
-log_file = "agent_system_test.log"
+log_file = "test_debug.log"
 log_file_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
 log_file_date_format = "%H:%M:%S"
 

@@ -1,9 +1,8 @@
-# Agent System Requirements
-# Python 3.9+
+# EDMC VKB Connector Requirements
+# Python 3.9+ (per latest EDMC standards)
 
-# TUI Dashboard
-textual>=0.80.0
-windows-curses; sys_platform == 'win32'
+# EDMC plugin framework (included with EDMC installation)
+# No external dependencies required for runtime
 
 # Development & Testing
 pytest>=7.0

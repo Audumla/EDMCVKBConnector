@@ -1,0 +1,128 @@
+﻿<!-- agent-runner-start -->
+<!-- Managed by AgentRunner. Re-run install.py to regenerate. -->
+
+# Cline Agent Guide
+
+> Authoritative instruction file. Read before starting. Verify before marking any task complete.
+
+## Agent Instruction Sync Policy
+
+**This is one of several synced agent instruction files.**
+All of the following must contain identical policies:
+`AGENT.md` `AGENTS.md` `CLAUDE.md` `GEMINI.md` `.clinerules` `.github/copilot-instructions.md`
+
+**When asked to add or change a rule for all agents**, do ONE of:
+1. Edit all files listed above directly (update each one with the same change), OR
+2. Update `agent_system/core/agents/agent_guide_generator.py` and run:
+   `python agent_system/install.py install`
+
+**When you modify any policy in this file**, apply the same change to all files above before marking the task complete.
+
+## Provider Instruction Files
+
+Authoritative instruction file per provider:
+- `claude` -> `CLAUDE.md`
+- `gemini` -> `GEMINI.md`
+- `opencode` -> `AGENT.md` (shared guide)
+- `codex` -> `AGENTS.md`
+- `cline` -> `.clinerules`
+- `copilot` -> `.github/copilot-instructions.md`
+- `ollama` -> `AGENT.md` (shared guide)
+- `llamacpp` -> `AGENT.md` (shared guide)
+- `lmstudio` -> `AGENT.md` (shared guide)
+
+## Artifact Output — HARD RULE
+
+All agent-produced files MUST be written under `agent_runner/artifacts/`.
+
+This includes:
+- plans
+- reports
+- logs/transcripts
+- intermediate batch/interrogator/unifier outputs
+
+Canonical run directory format:
+```
+agent_runner/artifacts/<agent-type>/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/
+```
+
+Never write agent outputs to:
+- `batches/`
+- `agent_artifacts/`
+- project source folders
+- any other non-artifact path
+
+## Completion Requirements
+
+Every task must end with ALL of the following before it is complete:
+
+1. Smoke test passed — verify changed code compiles/runs without errors (see Smoke Test below)
+2. Changelog recorded — `python agent_runner/scripts/log_change.py --agent <name> --group <slug> --tags "<tag>" --summary "<sentence>" --details "<bullet>" "<bullet>"`
+3. Run outputs stored in `agent_runner/artifacts/<agent>/reports/plan_runs/<run-id>/` — not in the git tree
+4. Delegations invoked via `python agent_runner/scripts/run_plan.py` (if applicable)
+
+Tags (exact strings): `Bug Fix` | `Build / Packaging` | `Code Refactoring` | `Configuration Cleanup` | `Dependency Update` | `Documentation Update` | `New Feature` | `Performance Improvement` | `Test Update` | `UI Improvement`
+
+Approved agent names: `claude` `gemini` `opencode` `codex` `cline` `copilot` `ollama` `llamacpp` `lmstudio`
+
+## Smoke Test
+
+After any major change run a quick smoke test to verify the project still compiles and has no syntax errors.
+Fix all failures before recording the changelog or marking the task complete.
+
+**Python** — syntax-check each changed file:
+```
+python -m py_compile path/to/changed_file.py
+```
+Or verify imports: `python -c "import <module_name>"`
+
+**TypeScript / JavaScript**:
+```
+npx tsc --noEmit
+node --check file.js
+```
+
+**Shell scripts**: `bash -n script.sh`
+
+**General**: `<entry-point> --help` (or `--version`)
+
+If a test suite exists, also run it: `python -m pytest tests/ -q` or the project-equivalent.
+
+## Local LLM
+
+For lightweight tasks (summarisation, changelog generation, quick code review) use the project-configured local LLM instead of consuming subscription quota.
+
+Check status / start / stop:
+```
+python agent_runner/scripts/local_llm.py status
+python agent_runner/scripts/local_llm.py start
+python agent_runner/scripts/local_llm.py stop
+```
+
+Quick one-shot query:
+```
+python agent_runner/scripts/query_llm.py "prompt text"
+python agent_runner/scripts/query_llm.py --ensure-running "prompt text"
+```
+
+`--ensure-running` starts the server automatically if not already up.
+Full plan via local model: `run_plan.py --executor ollama` (or `llamacpp` / `lmstudio`).
+
+## Artifact Layout
+
+```
+agent_runner/artifacts/<agent-type>/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/
+  plan_input.md   stdout.log   status.json   metadata.json
+```
+
+## Agent Delegation
+
+```
+python agent_runner/scripts/run_plan.py --planner <agent> --executor <name> --plan-file agent_runner/artifacts/<agent>/temp/plan.md --cleanup-worktree
+```
+
+## Project Separation
+
+Project source must not reference `agent_runner/`, `AGENT_WORKSPACE_ROOT`, AgentRunner scripts, or runtime paths.
+Verify: `python agent_runner/scripts/check_sep.py`
+<!-- agent-runner-end -->
