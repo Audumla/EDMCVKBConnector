@@ -76,7 +76,7 @@ agent_runner/artifacts/<agent-type>/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/
 
 Never write agent outputs to:
 - `batches/`
-- `agent_artifacts/`
+- `agent_artifacts/` (legacy path)
 - project source folders
 - any other non-artifact path
 

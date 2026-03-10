@@ -7,7 +7,7 @@ this repository.
   runner for this workspace. Use its paths and commands instead of assuming any
   in-repo runner scripts.
 - Do not add or depend on `agent_system/` or `scripts/agent_runners/` here.
-- Keep machine-local runner artifacts out of git: `agent_artifacts/`,
+- Keep machine-local runner artifacts out of git: `agent_runner/artifacts/`,
   `.agent-state/`, `.vscode/agent-system.json`, and `AGENT.md`.
 - Focus changes on `load.py`, `src/edmcruleengine/`, plugin data under `data/`,
   contributor docs under `docs/`, repeatable project scripts under `scripts/`,
@@ -64,7 +64,7 @@ agent_runner/artifacts/<agent-type>/reports/plan_runs/<YYYYMMDDTHHMMSSZ_slug>/
 
 Never write agent outputs to:
 - `batches/`
-- `agent_artifacts/`
+- `agent_artifacts/` (legacy path)
 - project source folders
 - any other non-artifact path
 
