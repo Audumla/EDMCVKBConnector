@@ -42,6 +42,7 @@ bash scripts/release/release.sh
 This will:
 - Rebuild `CHANGELOG.md` from JSON sources
 - Generate `dist/RELEASE_NOTES.preview.md` with unreleased changes
+- Rebuild `CHANGELOG.release-please.md` from the same cached changelog summaries used by `CHANGELOG.md`
 
 **Step 2: Review the preview**
 - Check `dist/RELEASE_NOTES.preview.md` to verify the release notes look good
@@ -53,6 +54,7 @@ This will:
 This will:
 - Create a Release PR on GitHub with version bumps
 - Auto-update version numbers in `pyproject.toml`, `src/edmcruleengine/version.py`
+- Show the summary-backed changelog in `CHANGELOG.release-please.md` instead of conventional-commit text
 
 **Step 4: Review and merge the PR**
 - Go to GitHub and review the Release PR
