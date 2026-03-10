@@ -4013,5 +4013,69 @@
       "Removed active worktrees for gemini-audit and local-audit",
       "Deleted corresponding git branches from codex/plan-runs/"
     ]
+  },
+  {
+    "id": "CHG-347f832c",
+    "change_group": "release-tooling",
+    "plugin_version": "0.13.0",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Fix release-please synchronization and include changelogs in distribution",
+    "details": [
+      "Added automated changelog stamping to Release PRs via prepare-release job",
+      "Eliminated 'tick-behind' issue where release tags missed the latest changelog stamp",
+      "Updated package_plugin.py to include CHANGELOG.md and data files in the ZIP asset"
+    ]
+  },
+  {
+    "id": "CHG-33d2c605",
+    "change_group": "release-tooling",
+    "plugin_version": "0.13.0",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Configuration Cleanup"
+    ],
+    "summary": "Harden release synchronization and post-merge hooks",
+    "details": [
+      "Updated post-merge hook to skip CHANGELOG.md rebuilds during release merges",
+      "Prevented local overwrites of officially stamped cloud changelogs",
+      "Switched auto_pull_after_release.py to use --rebase for cleaner local-to-remote sync"
+    ]
+  },
+  {
+    "id": "CHG-a235d10d",
+    "change_group": "release-tooling",
+    "plugin_version": "0.13.0",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Fix endless release-please loop caused by changelog stamp re-triggering CI",
+    "details": [
+      "Added [skip ci] to the changelog stamp commit message in prepare-release job",
+      "Prevents the bot commit from firing another pull_request workflow run",
+      "Breaks the commit-merge-commit cycle when merging release-please PRs"
+    ]
+  },
+  {
+    "id": "CHG-62cb55d3",
+    "change_group": "release-tooling",
+    "plugin_version": "0.13.0",
+    "date": "2026-02-24",
+    "summary_tags": [
+      "Bug Fix",
+      "Build / Packaging"
+    ],
+    "summary": "Stop release-please from overwriting custom CHANGELOG.md",
+    "details": [
+      "Changed changelog-path to CHANGELOG.release-please.md so release-please owns its own file",
+      "Eliminates conflict between release-please changelog generation and build_changelog.py output",
+      "Fixed extra-files path: src/edmcruleengine/version.py -> src/edmcruleengine/config/version.py"
+    ]
   }
 ]

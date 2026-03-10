@@ -2,6 +2,17 @@
 
 > Source of truth: `CHANGELOG.json` (unreleased) and `CHANGELOG.archive.json` (released history).
 
+## v0.13.0 — 2026-02-24
+
+### Overview
+
+This release includes 4 changelog updates across 1 grouped workstreams, focused on Bug Fix.
+
+### Bug Fixes
+- Fixed issues in release process and changelog tooling.
+
+---
+
 ## v0.12.0 — 2026-02-24
 
 ### Overview
